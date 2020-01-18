@@ -1,0 +1,6 @@
+# name           distance  wavelen      slit start/end pairs
+#                (meters)  (nanometer)  (millimeters)
+
+double_slit_1       1         700       xxx xxx   xxx xxx
+                                        
+
