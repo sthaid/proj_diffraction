@@ -93,6 +93,8 @@ int read_params(void)
             return -EINVAL;
         }
 
+// XXX sanity check and put start < end
+
         // determine how many slits are defined by the scanned in line
         p->max_slit = (cnt - 3) / 2;
 
@@ -105,6 +107,9 @@ int read_params(void)
             p->slit[i].start *= 1e-3;
             p->slit[i].end   *= 1e-3;
         }
+
+        // XXX
+        strcpy(p->status_str, "NO DATA YET");
 
         // increment the number of params
         max_params++;

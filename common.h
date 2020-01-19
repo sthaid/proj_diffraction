@@ -37,8 +37,12 @@ typedef struct {
     double distance_to_screen;
     double wavelength;
 
+    bool calc_inprog_or_complete;
     double *graph;
+    int max_graph;
+    double graph_element_size;
     char status_str[100];
+
 
     // xxx comments
     double *save_amplitude_result1;
