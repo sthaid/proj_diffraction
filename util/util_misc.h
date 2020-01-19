@@ -40,7 +40,7 @@ SOFTWARE.
 
 // -----------------  LOGGING  -----------------------------------
 
-//#define ENABLE_LOGGING_AT_DEBUG_LEVEL
+#define ENABLE_LOGGING_AT_DEBUG_LEVEL
 
 #define INFO(fmt, args...) \
     do { \
@@ -66,7 +66,7 @@ SOFTWARE.
 
 #define BLANK_LINE \
     do { \
-        logmsg("", "", "blankline"); \
+        INFO("#"); \
     } while (0)
 
 #define FATAL(fmt, args...) \

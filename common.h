@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <pthread.h>
@@ -34,8 +35,15 @@ typedef struct {
     double distance_to_screen;
     double wavelength;
 
-    int calculating_percent_complete;
-    double *screen;
+    double *graph;
+    char status_str[100];
+
+    // xxx comments
+    double *save_amplitude_result1;
+    double *save_amplitude_result2;
+    double distance_to_screen_squared;
+    long amplitude_calls;
+    long amplitude_calcs;
 } params_t;
 
 //

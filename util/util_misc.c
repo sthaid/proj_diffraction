@@ -51,11 +51,12 @@ void logmsg(char *lvl, const char *func, char *fmt, ...)
     char    msg[1000];
     int     len;
     char    time_str[MAX_TIME_STR];
+    bool    print_prefix;
 
-    // handle request to print a blank line
-    if (lvl[0] == '\0') {
-        fprintf(stderr, "\n");
-        return;
+    // if fmt begins with '#' then do not print the prefix
+    print_prefix = (fmt[0] != '#');
+    if (print_prefix == false) {
+        fmt++;
     }
 
     // construct msg
@@ -71,9 +72,13 @@ void logmsg(char *lvl, const char *func, char *fmt, ...)
     }
 
     // log to stderr 
-    fprintf(stderr, "%s %s %s: %s\n",
-           time2str(time_str, get_real_time_us(), false, true, true),
-           lvl, func, msg);
+    if (print_prefix) {
+        fprintf(stderr, "%s %s %s: %s\n",
+            time2str(time_str, get_real_time_us(), false, true, true),
+            lvl, func, msg);
+    } else {
+        fprintf(stderr, "%s\n", msg);
+    }
 }
 
 // -----------------  TIME UTILS  -----------------------------------------

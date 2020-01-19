@@ -37,6 +37,12 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    // calc XXX
+    calculate_screen_image(&params[0]);
+
+pause();
+exit(1);
+
     // run time 
     display_handler();
 
@@ -109,6 +115,8 @@ int read_params(void)
 
     // close the config file
     fclose(fp);
+
+    // XXX sanity check params
 
     // debug print the params
     INFO("CONFIG FILE PARAMS ...\n");
