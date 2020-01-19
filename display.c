@@ -1,5 +1,5 @@
 // XXX
-#define ENABLE_LOGGING_AT_DEBUG_LEVEL
+//#define ENABLE_LOGGING_AT_DEBUG_LEVEL
 
 #include "common.h"
 
@@ -45,15 +45,16 @@ void display_handler(void)
 
     // call the pane manger; 
     // this will not return except when it is time to terminate the program
+int xxx = win_width * .70;
     sdl_pane_manager(
         NULL,           // context
         NULL,           // called prior to pane handlers
         NULL,           // called after pane handlers
         100000,         // 0=continuous, -1=never, else us 
         3,              // number of pane handler varargs that follow
-        screen_image_pane_hndlr, NULL, 0, 0, win_width/2, win_height, PANE_BORDER_STYLE_MINIMAL,
-        param_select_pane_hndlr, NULL, win_width/2, 0, win_width/2, win_height/2, PANE_BORDER_STYLE_MINIMAL,
-        param_values_pane_hndlr, NULL, win_width/2, win_height/2, win_width/2, win_height/2, PANE_BORDER_STYLE_MINIMAL
+        screen_image_pane_hndlr, NULL, 0, 0, xxx, win_height, PANE_BORDER_STYLE_MINIMAL,
+        param_select_pane_hndlr, NULL, xxx, 0, win_width-xxx, win_height/2, PANE_BORDER_STYLE_MINIMAL,
+        param_values_pane_hndlr, NULL, xxx, win_height/2, win_width-xxx, win_height/2, PANE_BORDER_STYLE_MINIMAL
         );
 }
 
@@ -92,7 +93,7 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
                 "%s",
                 p->status_str);
 
-        xbase           = pane->w - 150;
+        xbase           = pane->w - 160;
         ytop            = (pane->h - MAX_GRAPH) / 2;
         ybottom         = ytop + MAX_GRAPH - 1;
         first_graph_idx = 0;
@@ -111,16 +112,16 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
 
         // make array of graph points
         if (p->graph) {
-            int i;
+            int y;
             int max_points;
             int graph_idx;
             static point_t points[10000];
 
             max_points = 0;
             graph_idx = first_graph_idx;
-            for (i = ytop; i <= ybottom; i++) {
-                points[i].x = xbase - p->graph[graph_idx] * 500;
-                points[i].y = ytop + i;
+            for (y = ytop; y <= ybottom; y++) {
+                points[max_points].x = xbase-10 - p->graph[graph_idx] * 700; //XXX AAA
+                points[max_points].y = y;
                 graph_idx++;
                 max_points++;
             }
@@ -133,21 +134,53 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
             sdl_render_lines(pane, points, max_points, WHITE);
         }
 
+        // XXX test line in ctr
+
         // label the graph
         int ctr, n, ylabel, i;
-        ctr = (ybottom - ytop) / 2;
+        ctr = (ybottom + ytop) / 2;
+        //XXX del sdl_render_line(pane, xbase-100, ctr, xbase, ctr, RED);
         n = (ctr - ytop) / 100;
         //INFO("ctr=%d  n=%d\n", ctr, n);
         ylabel = ctr - 100 * n;
         for (i = 0; i <= 2*n; i++) {
             sdl_render_line(pane, xbase, ylabel, xbase+10, ylabel, WHITE);
             sdl_render_printf(
-                pane, xbase+15, ylabel-sdl_font_char_height(fontsz)/2, fontsz,
+                pane, xbase+20, ylabel-sdl_font_char_height(fontsz)/2, fontsz,
                 WHITE, BLACK,
-                "%0.2f mm", 
+                "%+0.2f mm", 
                 (n-i) * 100 * GRAPH_ELEMENT_SIZE * 1e3);
             ylabel += 100;
+        }
 
+        // AAAAAAAAAAAAA
+//AAA
+        xbase = 140;
+        sdl_render_line(pane, xbase, ytop, xbase, ybottom, WHITE);
+
+        // label the graph
+        //int ctr, n, ylabel, i;
+        ctr = (ybottom + ytop) / 2;
+        //XXX del sdl_render_line(pane, xbase-100, ctr, xbase, ctr, RED);
+        n = (ctr - ytop) / 100;
+        //INFO("ctr=%d  n=%d\n", ctr, n);
+        ylabel = ctr - 100 * n;
+        for (i = 0; i <= 2*n; i++) {
+            sdl_render_line(pane, xbase-10, ylabel, xbase, ylabel, WHITE);
+            sdl_render_printf(
+                pane, 0, ylabel-sdl_font_char_height(fontsz)/2, fontsz,
+                WHITE, BLACK,
+                "%+0.2f mm", 
+                (n-i) * 100 * GRAPH_ELEMENT_SIZE/10 * 1e3);  // XXX define for 10
+            ylabel += 100;
+        }
+
+
+        for (i = 0; i < p->max_slit; i++) {
+            int yslit_start, yslit_end;
+            yslit_start =  (ytop + ybottom) / 2 + p->slit[i].start / (GRAPH_ELEMENT_SIZE/10);
+            yslit_end   =  (ytop + ybottom) / 2 + p->slit[i].end / (GRAPH_ELEMENT_SIZE/10);
+            sdl_render_line(pane, xbase, yslit_start, xbase, yslit_end, BLACK);
         }
             
         return PANE_HANDLER_RET_NO_ACTION;
@@ -273,10 +306,20 @@ static int param_values_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         sdl_render_printf(
                 pane, COL2X(0,fontsz), ROW2Y(0,fontsz), fontsz,
                 WHITE, BLACK,
-                "distance = %.3f m   wavelength = %.0f nm",
-                p->distance_to_screen, p->wavelength*1e9);
+                "%s", 
+                p->name);
         sdl_render_printf(
                 pane, COL2X(0,fontsz), ROW2Y(2,fontsz), fontsz,
+                WHITE, BLACK,
+                "distance   = %.3f m", 
+                p->distance_to_screen);
+        sdl_render_printf(
+                pane, COL2X(0,fontsz), ROW2Y(3,fontsz), fontsz,
+                WHITE, BLACK,
+                "wavelength = %.0f nm", 
+                p->wavelength*1e9);
+        sdl_render_printf(
+                pane, COL2X(0,fontsz), ROW2Y(5,fontsz), fontsz,
                 WHITE, BLACK,
                 " start    end  width center");
         for (i = 0; i < p->max_slit;i++) {
@@ -285,7 +328,7 @@ static int param_values_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
             double width_mm  = (end_mm - start_mm);
             double center_mm = (end_mm + start_mm) / 2;
             sdl_render_printf(
-                    pane, COL2X(0,fontsz), ROW2Y(3+i,fontsz), fontsz,
+                    pane, COL2X(0,fontsz), ROW2Y(6+i,fontsz), fontsz,
                     WHITE, BLACK,
                     "%6.2f %6.2f %6.2f %6.2f",
                     start_mm, end_mm, width_mm, center_mm);

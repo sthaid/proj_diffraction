@@ -25,7 +25,9 @@ static void * calculate_screen_image_thread(void *cx);
 static void amplitude_init(param_t *p);
 static void amplitude_cleanup(param_t *p);
 static void amplitude(param_t *p, double delta_y, double *amp1, double *amp2);
+#ifdef ENABLE_LOGGING_AT_DEBUG_LEVEL
 static char * stars(double value, int stars_max, double value_max);
+#endif
 
 // -----------------  CALCULATE_SCREEN_IMAGE  -----------------------------------
 
@@ -103,15 +105,16 @@ static void * calculate_screen_image_thread(void *cx)
 
     // create the graph elements by averaging the screen1_amp and screen2_amp
     // elements that are associated with each graph element
-    k = 0;
     for (i = 0; i < MAX_GRAPH; i++) {
         double sum = 0;
-        for (j = 0; j < SCREEN_ELEMENTS_PER_GRAPH_ELEMENT; j++) {
+        int cnt = 0;
+        while (k < i * SCREEN_ELEMENTS_PER_GRAPH_ELEMENT) {
             sum += screen1_amp[k] * screen1_amp[k];
             sum += screen2_amp[k] * screen2_amp[k];
             k++;
+            cnt++;
         }
-        graph[i] = sum / SCREEN_ELEMENTS_PER_GRAPH_ELEMENT;
+        graph[i] = sum / cnt;
     }
 
     // normalize graph elements to range 0 to 1
@@ -199,6 +202,7 @@ static void amplitude(param_t *p, double delta_y, double *amp1, double *amp2)
 
 // -----------------  UTILS  ----------------------------------------------------
 
+#ifdef ENABLE_LOGGING_AT_DEBUG_LEVEL
 static char * stars(double value, int stars_max, double value_max)
 {
     static char stars[1000];
@@ -219,4 +223,4 @@ static char * stars(double value, int stars_max, double value_max)
 
     return stars;
 }
-
+#endif
