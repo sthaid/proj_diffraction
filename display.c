@@ -1,11 +1,4 @@
 // XXX
-// - status str text  CALCULATION COMPLETE
-// - label graph
-// - zoom in on graph
-
-// XXX probably not
-// - can we resize the window
-
 #define ENABLE_LOGGING_AT_DEBUG_LEVEL
 
 #include "common.h"
@@ -90,7 +83,7 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        params_t *p = &params[param_select_idx];
+        param_t *p = &param[param_select_idx];
         int ytop, ybottom, xbase, first_graph_idx, last_graph_idx;
 
         sdl_render_printf(
@@ -99,11 +92,11 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
                 "%s",
                 p->status_str);
 
-        xbase           = pane->w - 100;
-        ytop            = (pane->h - p->max_graph) / 2;
-        ybottom         = ytop + p->max_graph - 1;
+        xbase           = pane->w - 150;
+        ytop            = (pane->h - MAX_GRAPH) / 2;
+        ybottom         = ytop + MAX_GRAPH - 1;
         first_graph_idx = 0;
-        last_graph_idx  = p->max_graph-1;
+        last_graph_idx  = MAX_GRAPH-1;
         if (ytop < 0) {
             first_graph_idx -= ytop;
             ytop = 0;
@@ -112,45 +105,47 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
             last_graph_idx -= (ybottom - pane->h + 1);
             ybottom = pane->h - 1;
         }
-        INFO("y-range  %d %d  graph-range  %d %d \n", ytop, ybottom,  first_graph_idx, last_graph_idx);
+        //INFO("y-range  %d %d  graph-range  %d %d \n", ytop, ybottom,  first_graph_idx, last_graph_idx);
 
         sdl_render_line(pane, xbase, ytop, xbase, ybottom, WHITE);
 
         // make array of graph points
-        int i;
-        int max_points;
-        int graph_idx;
-        static point_t points[10000];
+        if (p->graph) {
+            int i;
+            int max_points;
+            int graph_idx;
+            static point_t points[10000];
 
-        max_points = 0;
-        graph_idx = first_graph_idx;
-        for (i = ytop; i <= ybottom; i++) {
-            points[i].x = xbase - p->graph[graph_idx] * 300;
-            points[i].y = ytop + i;
-            graph_idx++;
-            max_points++;
+            max_points = 0;
+            graph_idx = first_graph_idx;
+            for (i = ytop; i <= ybottom; i++) {
+                points[i].x = xbase - p->graph[graph_idx] * 500;
+                points[i].y = ytop + i;
+                graph_idx++;
+                max_points++;
+            }
+            //INFO("max_points %d\n", max_points);
+
+            if (graph_idx-1 != last_graph_idx) {
+                FATAL("BUG graph_idx=%d last_graph_idx=%d\n", graph_idx, last_graph_idx);
+            }
+
+            sdl_render_lines(pane, points, max_points, WHITE);
         }
-        INFO("max_points %d\n", max_points);
-
-        if (graph_idx-1 != last_graph_idx) {
-            FATAL("BUG graph_idx=%d last_graph_idx=%d\n", graph_idx, last_graph_idx);
-        }
-
-        sdl_render_lines(pane, points, max_points, WHITE);
 
         // label the graph
-        int ctr, n, ylabel;
+        int ctr, n, ylabel, i;
         ctr = (ybottom - ytop) / 2;
         n = (ctr - ytop) / 100;
-        INFO("ctr=%d  n=%d\n", ctr, n);
+        //INFO("ctr=%d  n=%d\n", ctr, n);
         ylabel = ctr - 100 * n;
         for (i = 0; i <= 2*n; i++) {
             sdl_render_line(pane, xbase, ylabel, xbase+10, ylabel, WHITE);
             sdl_render_printf(
-                pane, xbase+15, ylabel, fontsz,
+                pane, xbase+15, ylabel-sdl_font_char_height(fontsz)/2, fontsz,
                 WHITE, BLACK,
                 "%0.2f mm", 
-                (n-i) * 100 * p->graph_element_size * 1e3);
+                (n-i) * 100 * GRAPH_ELEMENT_SIZE * 1e3);
             ylabel += 100;
 
         }
@@ -207,10 +202,10 @@ static int param_select_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        for (i = 0; i < max_params; i++) {
+        for (i = 0; i < max_param; i++) {
             sdl_render_text_and_register_event(
                 pane, COL2X(0,fontsz), ROW2Y(i,fontsz), fontsz,
-                params[i].name,
+                param[i].name,
                 (i != param_select_idx ? LIGHT_BLUE : WHITE), BLACK,
                 SDL_EVENT_PARAM_SELECT+i,
                 SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
@@ -225,9 +220,9 @@ static int param_select_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
 
     if (request == PANE_HANDLER_REQ_EVENT) {
         switch (event->event_id) {
-        case SDL_EVENT_PARAM_SELECT...SDL_EVENT_PARAM_SELECT+MAX_PARAMS-1:
+        case SDL_EVENT_PARAM_SELECT...SDL_EVENT_PARAM_SELECT+MAX_PARAM-1:
             param_select_idx = event->event_id - SDL_EVENT_PARAM_SELECT;
-            calculate_screen_image(&params[param_select_idx]);
+            calculate_screen_image(&param[param_select_idx]);
             DEBUG("set param_select_idx = %d\n", param_select_idx);
             break;
         }
@@ -272,7 +267,7 @@ static int param_values_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        params_t *p = &params[param_select_idx];
+        param_t *p = &param[param_select_idx];
         int i;
 
         sdl_render_printf(

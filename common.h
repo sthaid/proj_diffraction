@@ -18,52 +18,57 @@
 // defines
 //
 
-// XXX use param
-// XXX check for MAX_PARAMS when reading config
-#define MAX_PARAMS 20
-#define MAX_SLIT   4
+#define MAX_PARAM                         20
+#define MAX_SLIT                          4
+
+#define SCREEN_SIZE                       0.050    // 5 cm
+#define SCREEN_ELEMENT_SIZE               1000e-9  // 1000 nm
+#define MAX_GRAPH                         1000
+
+#define MAX_SCREEN                        ((int)(SCREEN_SIZE / SCREEN_ELEMENT_SIZE))
+#define GRAPH_ELEMENT_SIZE                (MAX_SCREEN * SCREEN_ELEMENT_SIZE / MAX_GRAPH)
+#define SCREEN_ELEMENTS_PER_GRAPH_ELEMENT ((int)(GRAPH_ELEMENT_SIZE / SCREEN_ELEMENT_SIZE))
 
 //
 // typedefs
 //
 
 typedef struct {
+    // param values read from config vile
     char name[100];
     struct {
         double start;
         double end;
     } slit[MAX_SLIT];
-    int max_slit;
+    int    max_slit;
     double distance_to_screen;
     double wavelength;
 
-    bool calc_inprog_or_complete;
+    // published by diffraction.c, for use by display.c
+    bool    calc_inprog_or_complete;
     double *graph;
-    int max_graph;
-    double graph_element_size;
-    char status_str[100];
+    char    status_str[100];
 
-
-    // xxx comments
+    // private use by diffraction.c
     double *save_amplitude_result1;
     double *save_amplitude_result2;
-    double distance_to_screen_squared;
-    long amplitude_calls;
-    long amplitude_calcs;
-} params_t;
+    double  distance_to_screen_squared;
+    long    amplitude_calls;
+    long    amplitude_calcs;
+} param_t;
 
 //
 // global variables
 //
 
-params_t params[MAX_PARAMS];
-int      max_params;
+param_t param[MAX_PARAM];
+int     max_param;
 
 //
 // prototypes
 //
 
 void display_handler(void);
-void calculate_screen_image(params_t *p);
+void calculate_screen_image(param_t *p);
 
 #endif

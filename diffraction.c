@@ -9,13 +9,6 @@ https://courses.lumenlearning.com/physics/chapter/27-3-youngs-double-slit-experi
 // defines
 //
 
-#define SCREEN_SIZE          0.100    // 10 cm
-#define SCREEN_ELEMENT_SIZE  1000e-9  // 1000 nm
-#define GRAPH_ELEMENT_SIZE   0.1e-3   // .1 mm
-
-#define MAX_SCREEN           ((int)(SCREEN_SIZE / SCREEN_ELEMENT_SIZE))
-#define MAX_SAVE_RESULT      MAX_SCREEN
-
 //
 // typedefs
 //
@@ -29,14 +22,14 @@ https://courses.lumenlearning.com/physics/chapter/27-3-youngs-double-slit-experi
 //
 
 static void * calculate_screen_image_thread(void *cx);
-static void amplitude_init(params_t *p);
-static void amplitude_cleanup(params_t *p);
-static void amplitude(params_t *p, double delta_y, double *amp1, double *amp2);
+static void amplitude_init(param_t *p);
+static void amplitude_cleanup(param_t *p);
+static void amplitude(param_t *p, double delta_y, double *amp1, double *amp2);
 static char * stars(double value, int stars_max, double value_max);
 
 // -----------------  CALCULATE_SCREEN_IMAGE  -----------------------------------
 
-void calculate_screen_image(params_t *p)
+void calculate_screen_image(param_t *p)
 {
     pthread_t thread_id;
 
@@ -55,16 +48,11 @@ void calculate_screen_image(params_t *p)
 
 static void * calculate_screen_image_thread(void *cx)
 {
-    params_t *p = cx;
+    param_t *p = cx;
     int slit_idx, screen_idx;
     double ysource, yscreen, ret_amp1, ret_amp2;
     double *screen1_amp, *screen2_amp;
     long progress=0, max_progress=0;
-
-    INFO("SCREEN_SIZE          = %f meters\n", SCREEN_SIZE);
-    INFO("SCREEN_ELEMENT_SIZE  = %f meters\n", SCREEN_ELEMENT_SIZE);
-    INFO("GRAPH_ELEMENT_SIZE   = %f meters\n", GRAPH_ELEMENT_SIZE);
-    INFO("MAX_SCREEN           = %d\n", MAX_SCREEN);
 
     // initialize status_str, which is used by the display software
     strcpy(p->status_str, "CALCULATING");
@@ -92,12 +80,11 @@ static void * calculate_screen_image_thread(void *cx)
                 screen2_amp[screen_idx] += ret_amp2;
                 yscreen += SCREEN_ELEMENT_SIZE;
             }
-        }
 
-        // update status_str
-        progress++;
-        sprintf(p->status_str, "CALCULATING - %2d PERCENT\n", 
-               (int)(100. * progress / max_progress));
+            // update status_str
+            progress++;
+            sprintf(p->status_str, "CALCULATING - %2d PERCENT", (int)(100. * progress / max_progress));
+        }
     }
 
     amplitude_cleanup(p);
@@ -108,32 +95,28 @@ static void * calculate_screen_image_thread(void *cx)
     // display software
 
     // declare variables used below
-    int i, j, k, max_graph, screen_elements_per_graph_element;
+    int i, j, k;
     double *graph, maximum_graph_element_value;
 
     // allocate memory for graph which will be displayed
-    screen_elements_per_graph_element = GRAPH_ELEMENT_SIZE / SCREEN_ELEMENT_SIZE;
-    max_graph = MAX_SCREEN / screen_elements_per_graph_element;
-    INFO("screen_elements_per_graph_element = %d\n", screen_elements_per_graph_element);
-    INFO("max_graph                         = %d\n", max_graph);
-    graph = calloc(max_graph, sizeof(double));
+    graph = calloc(MAX_GRAPH, sizeof(double));
 
     // create the graph elements by averaging the screen1_amp and screen2_amp
     // elements that are associated with each graph element
     k = 0;
-    for (i = 0; i < max_graph; i++) {
+    for (i = 0; i < MAX_GRAPH; i++) {
         double sum = 0;
-        for (j = 0; j < screen_elements_per_graph_element; j++) {
+        for (j = 0; j < SCREEN_ELEMENTS_PER_GRAPH_ELEMENT; j++) {
             sum += screen1_amp[k] * screen1_amp[k];
             sum += screen2_amp[k] * screen2_amp[k];
             k++;
         }
-        graph[i] = sum / screen_elements_per_graph_element;
+        graph[i] = sum / SCREEN_ELEMENTS_PER_GRAPH_ELEMENT;
     }
 
     // normalize graph elements to range 0 to 1
     maximum_graph_element_value = 0;
-    for (i = 0; i < max_graph; i++) {
+    for (i = 0; i < MAX_GRAPH; i++) {
         if (graph[i] > maximum_graph_element_value) {
             maximum_graph_element_value = graph[i];
         }
@@ -142,31 +125,28 @@ static void * calculate_screen_image_thread(void *cx)
         strcpy(p->status_str, "ERROR - MAX_GRAPH_ELEMENT_VALUE IS ZERO");
         return NULL;
     }
-    for (i = 0; i < max_graph; i++) {
+    for (i = 0; i < MAX_GRAPH; i++) {
         graph[i] /= maximum_graph_element_value;
     }
 
-#if 0
     // debug print the graph
-    for (i = 0; i < max_graph; i++) {
+    for (i = 0; i < MAX_GRAPH; i++) {
         DEBUG("#%6d %6.4f - %s\n", 
                i, graph[i], stars(graph[i], 50, 1));
     }
-#endif
 
     // publish the graph, so that the code in display.c can display it
-    p->max_graph = max_graph;
-    p->graph_element_size = GRAPH_ELEMENT_SIZE;
-    __sync_synchronize();
     p->graph = graph;
-    strcpy(p->status_str, "COMPLETE");
+    strcpy(p->status_str, "CALCULATIONS COMPLETE");
 
     // exit thread
     return NULL;
 }
 
-static void amplitude_init(params_t *p)
+static void amplitude_init(param_t *p)
 {
+    #define MAX_SAVE_RESULT  (MAX_SCREEN)
+
     p->save_amplitude_result1     = calloc(MAX_SAVE_RESULT, sizeof(double));
     p->save_amplitude_result2     = calloc(MAX_SAVE_RESULT, sizeof(double));
     p->distance_to_screen_squared = p->distance_to_screen * p->distance_to_screen;
@@ -174,7 +154,7 @@ static void amplitude_init(params_t *p)
     p->amplitude_calcs            = 0;
 }
 
-static void amplitude_cleanup(params_t *p)
+static void amplitude_cleanup(param_t *p)
 {
     DEBUG("amplitude_calls = %10ld\n", p->amplitude_calls);
     DEBUG("amplitude_calcs = %10ld\n", p->amplitude_calcs);
@@ -189,7 +169,7 @@ static void amplitude_cleanup(params_t *p)
     p->amplitude_calcs            = 0;
 }
 
-static void amplitude(params_t *p, double delta_y, double *amp1, double *amp2)
+static void amplitude(param_t *p, double delta_y, double *amp1, double *amp2)
 {
     double d, n, angle;
     int save_idx;

@@ -75,6 +75,16 @@ SOFTWARE.
         exit(1); \
     } while (0)
 
+#define INFO_INTERVAL(us, fmt, args...) \
+    do { \
+        uint64_t now = microsec_timer(); \
+        static uint64_t last; \
+        if (now - last > (us)) { \
+            INFO(fmt, args); \
+            last = now; \
+        } \
+    } while (0)
+
 #define ERROR_INTERVAL(us, fmt, args...) \
     do { \
         uint64_t now = microsec_timer(); \

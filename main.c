@@ -18,7 +18,7 @@ char *config_filename;
 // prototypes
 //
 
-int read_params(void);
+int read_param(void);
 
 // -----------------  MAIN  -----------------------------------------------------
 
@@ -26,21 +26,33 @@ int main(int argc, char **argv)
 {
     int rc;
 
-    // XXX todo arg
-    // get config_filename arg
+    // debug print defined constants
+    INFO("SCREEN_SIZE                       = %f\n", SCREEN_SIZE);
+    INFO("SCREEN_ELEMENT_SIZE               = %f\n", SCREEN_ELEMENT_SIZE);
+    INFO("MAX_GRAPH                         = %d\n", MAX_GRAPH);
+    BLANK_LINE;
+
+    // debug print derived constants
+    INFO("MAX_SCREEN                        = %d\n", MAX_SCREEN);
+    INFO("GRAPH_ELEMENT_SIZE                = %f\n", GRAPH_ELEMENT_SIZE);
+    INFO("SCREEN_ELEMENTS_PER_GRAPH_ELEMENT = %d\n", SCREEN_ELEMENTS_PER_GRAPH_ELEMENT);
+    BLANK_LINE;
+
+    // get config_filename arg  XXX todo opt -f
+    // XXX rename to param.txt
     config_filename = "config";
 
     // read program parameters
-    rc = read_params();
+    rc = read_param();
     if (rc != 0) {
-        ERROR("read_params failed, %s\n", strerror(-rc));
+        ERROR("read_param failed, %s\n", strerror(-rc));
         return -1;
     }
 
-    // calc XXX
-    calculate_screen_image(&params[0]);
+    // calc XXX comment
+    calculate_screen_image(&param[0]);
 
-    // run time 
+    // run time loop is in display_handler
     display_handler();
 
     // done
@@ -49,13 +61,15 @@ int main(int argc, char **argv)
 
 // -----------------  READ_CONFIG  ----------------------------------------------
 
-int read_params(void)
+int read_param(void)
 {
     FILE *fp;
     char s[500];
-    params_t *p;
+    param_t *p;
     int cnt, i, j, line=0;
     char *sptr;
+
+// XXX check MAX_param
 
     // open config file
     fp = fopen(config_filename, "r");
@@ -77,8 +91,8 @@ int read_params(void)
             continue;  // s is all whitespace
         }
 
-        // scan the line into params
-        p = &params[max_params];
+        // scan the line into param
+        p = &param[max_param];
         cnt = sscanf(s, "%s %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
                      p->name,
                      &p->distance_to_screen,
@@ -94,6 +108,7 @@ int read_params(void)
         }
 
 // XXX sanity check and put start < end
+//     and any others checks
 
         // determine how many slits are defined by the scanned in line
         p->max_slit = (cnt - 3) / 2;
@@ -111,19 +126,17 @@ int read_params(void)
         // XXX
         strcpy(p->status_str, "NO DATA YET");
 
-        // increment the number of params
-        max_params++;
+        // increment the number of param
+        max_param++;
     }
 
     // close the config file
     fclose(fp);
 
-    // XXX sanity check params
-
-    // debug print the params
-    INFO("CONFIG FILE PARAMS ...\n");
-    for (i = 0; i < max_params; i++) {
-        p = &params[i];
+    // debug print the param
+    INFO("CONFIG FILE param ...\n");
+    for (i = 0; i < max_param; i++) {
+        p = &param[i];
         sptr = s;
         sptr += sprintf(sptr, "%s: wl=%.0f nm  d=%.2f m",
                         p->name, p->wavelength*1e9, p->distance_to_screen);
