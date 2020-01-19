@@ -8,8 +8,10 @@
 #include <errno.h>
 #include <pthread.h>
 #include <math.h>
+#include <assert.h>
 
 #include <util_misc.h>
+#include <util_sdl.h>
 
 //
 // defines

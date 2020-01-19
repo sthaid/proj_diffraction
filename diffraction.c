@@ -40,7 +40,7 @@ void calculate_screen_image(params_t *p)
 
 static void * calculate_screen_image_thread(void *cx)
 {
-    params_t *p = cx;
+    //params_t *p = cx;
 
 
 
