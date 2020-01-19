@@ -1,3 +1,5 @@
+#define ENABLE_LOGGING_AT_DEBUG_LEVEL
+
 #include "common.h"
 
 //
@@ -14,6 +16,8 @@
 //
 // variables
 //
+
+static int param_select_idx;
 
 //
 // prototypes
@@ -108,6 +112,10 @@ static int param_select_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         int none;
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
+    int i;
+    int fontsz = 24;
+
+   #define SDL_EVENT_PARAM_SELECT (SDL_EVENT_USER_DEFINED + 0)
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -125,6 +133,15 @@ static int param_select_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
+        for (i = 0; i < max_params; i++) {
+            sdl_render_text_and_register_event(
+                pane, COL2X(0,fontsz), ROW2Y(i,fontsz), fontsz,
+                params[i].name,
+                (i != param_select_idx ? LIGHT_BLUE : WHITE), BLACK,
+                SDL_EVENT_PARAM_SELECT+i,
+                SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        }
+
         return PANE_HANDLER_RET_NO_ACTION;
     }
 
@@ -133,6 +150,12 @@ static int param_select_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     // -----------------------
 
     if (request == PANE_HANDLER_REQ_EVENT) {
+        switch (event->event_id) {
+        case SDL_EVENT_PARAM_SELECT...SDL_EVENT_PARAM_SELECT+MAX_PARAMS-1:
+            param_select_idx = event->event_id - SDL_EVENT_PARAM_SELECT;
+            DEBUG("set param_select_idx = %d\n", param_select_idx);
+            break;
+        }
         return PANE_HANDLER_RET_DISPLAY_REDRAW;
     }
 
@@ -156,6 +179,7 @@ static int param_values_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         int none;
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
+    int fontsz = 24;  // XXX define
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -173,6 +197,12 @@ static int param_values_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
+        params_t *p = &params[param_select_idx];
+        sdl_render_printf(
+                pane, COL2X(0,fontsz), ROW2Y(0,fontsz), fontsz,
+                WHITE, BLACK,
+                "distance = %.3f m   wavelength = %.0f nm",
+                p->distance_to_screen, p->wavelength*1e9);
         return PANE_HANDLER_RET_NO_ACTION;
     }
 

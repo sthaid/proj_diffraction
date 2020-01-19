@@ -18,6 +18,8 @@
 // defines
 //
 
+// XXX use param
+// XXX check for MAX_PARAMS when reading config
 #define MAX_PARAMS 20
 #define MAX_SLIT   4
 

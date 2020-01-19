@@ -40,9 +40,6 @@ int main(int argc, char **argv)
     // calc XXX
     calculate_screen_image(&params[0]);
 
-pause();
-exit(1);
-
     // run time 
     display_handler();
 
