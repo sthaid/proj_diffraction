@@ -41,14 +41,13 @@ void calculate_screen_image(params_t *p)
     pthread_t thread_id;
 
     // if calculation in progress or already complete then just return
-    if (p->graph) {
+    if (p->calc_inprog_or_complete) {
         return;
     }
 
-    // set p->graph to (void*)1 to indicate the calculation is in progress,
-    // and create a thread to do the calculation; when the thread completes it
-    // will set p->graph equal to the result
-    p->graph = (void*)1;
+    // set flag to indicate calculation has started, 
+    // and create a thread to do the calculation, and create the p->graph
+    p->calc_inprog_or_complete = true;
     pthread_create(&thread_id, NULL, calculate_screen_image_thread, p);
 }
 
@@ -62,10 +61,10 @@ static void * calculate_screen_image_thread(void *cx)
     double *screen1_amp, *screen2_amp;
     long progress=0, max_progress=0;
 
-    DEBUG("SCREEN_SIZE          = %f meters\n", SCREEN_SIZE);
-    DEBUG("SCREEN_ELEMENT_SIZE  = %f meters\n", SCREEN_ELEMENT_SIZE);
-    DEBUG("GRAPH_ELEMENT_SIZE   = %f meters\n", GRAPH_ELEMENT_SIZE);
-    DEBUG("MAX_SCREEN           = %d\n", MAX_SCREEN);
+    INFO("SCREEN_SIZE          = %f meters\n", SCREEN_SIZE);
+    INFO("SCREEN_ELEMENT_SIZE  = %f meters\n", SCREEN_ELEMENT_SIZE);
+    INFO("GRAPH_ELEMENT_SIZE   = %f meters\n", GRAPH_ELEMENT_SIZE);
+    INFO("MAX_SCREEN           = %d\n", MAX_SCREEN);
 
     // initialize status_str, which is used by the display software
     strcpy(p->status_str, "CALCULATING");
@@ -115,8 +114,8 @@ static void * calculate_screen_image_thread(void *cx)
     // allocate memory for graph which will be displayed
     screen_elements_per_graph_element = GRAPH_ELEMENT_SIZE / SCREEN_ELEMENT_SIZE;
     max_graph = MAX_SCREEN / screen_elements_per_graph_element;
-    DEBUG("screen_elements_per_graph_element = %d\n", screen_elements_per_graph_element);
-    DEBUG("max_graph                         = %d\n", max_graph);
+    INFO("screen_elements_per_graph_element = %d\n", screen_elements_per_graph_element);
+    INFO("max_graph                         = %d\n", max_graph);
     graph = calloc(max_graph, sizeof(double));
 
     // create the graph elements by averaging the screen1_amp and screen2_amp
@@ -140,7 +139,6 @@ static void * calculate_screen_image_thread(void *cx)
         }
     }
     if (maximum_graph_element_value == 0) {
-        p->graph = graph;
         strcpy(p->status_str, "ERROR - MAX_GRAPH_ELEMENT_VALUE IS ZERO");
         return NULL;
     }
@@ -157,6 +155,9 @@ static void * calculate_screen_image_thread(void *cx)
 #endif
 
     // publish the graph, so that the code in display.c can display it
+    p->max_graph = max_graph;
+    p->graph_element_size = GRAPH_ELEMENT_SIZE;
+    __sync_synchronize();
     p->graph = graph;
     strcpy(p->status_str, "COMPLETE");
 
