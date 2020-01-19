@@ -1,6 +1,11 @@
 # name           distance  wavelen      slit start/end pairs
 #                (meters)  (nanometer)  (millimeters)
 
-double_slit_1       1         700       xxx xxx   xxx xxx
-                                        
+# 1 * 700e-9 / .00045 = .00155 = 1.55 mm   PROGRAM RESULT  1.5 mm
+# similar to what I can buy
+#   width = .15 mm
+#   spacing between edges of slits = .30
+#   spacing between center of slits = .45
+double_slit_1       1         700       -.30 -.15   +.15 +.30
+
 

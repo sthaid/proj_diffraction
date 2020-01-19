@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
 #include <math.h>
 
 #include <util_misc.h>
@@ -47,5 +48,6 @@ int      max_params;
 //
 
 void display_handler(void);
+void calculate_screen_image(params_t *p);
 
 #endif
