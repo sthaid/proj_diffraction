@@ -12,19 +12,44 @@
 // variables
 //
 
-char *config_filename;
-
 //
 // prototypes
 //
 
-int read_param(void);
+void help(void);
+int read_param(char *filename);
 
 // -----------------  MAIN  -----------------------------------------------------
 
 int main(int argc, char **argv)
 {
     int rc;
+    char *filename = "dsparam";
+    char opt_char;
+
+    // get options
+    while (true) {
+        opt_char = getopt(argc, argv, "f:h");
+        if (opt_char == -1) {
+            break;
+        }
+        switch (opt_char) {
+        case 'f':
+            filename = optarg;
+            break;
+        case 'h':
+            help();
+            return 0;
+        default:
+            return 1;
+        }
+    }
+
+    // read program parameters
+    rc = read_param(filename);
+    if (rc != 0) {
+        return 1;
+    }
 
     // debug print constants
     INFO("MAX_SCREEN                        = %d\n", MAX_SCREEN);
@@ -35,47 +60,40 @@ int main(int argc, char **argv)
     INFO("SCREEN_ELEMENTS_PER_GRAPH_ELEMENT = %f\n", SCREEN_ELEMENTS_PER_GRAPH_ELEMENT);
     BLANK_LINE;
 
-    // get config_filename arg  XXX todo opt -f
-    // XXX rename to param.txt
-    config_filename = "config";
-
-    // read program parameters
-    rc = read_param();
-    if (rc != 0) {
-        ERROR("read_param failed, %s\n", strerror(-rc));
-        return -1;
-    }
-
-    // calc XXX comment
+    // start the calculation of the screen image for the first param
     calculate_screen_image(&param[0]);
 
-    // run time loop is in display_handler
+    // run time loop 
     display_handler();
 
     // done
     return 0;
 }
 
-// -----------------  READ_CONFIG  ----------------------------------------------
-
-int read_param(void)
+void help(void)
 {
-    FILE *fp;
+    INFO("usage: ds [-f <param_filename>]\n");
+}
+
+// -----------------  READ_PARAM  -----------------------------------------------
+
+int read_param(char *filename)
+{
+    FILE *fp=NULL;
     char s[500];
     param_t *p;
-    int cnt, i, j, line=0;
+    int cnt, i, j, line=0, ret=0;
     char *sptr;
 
-// XXX check MAX_param
-
-    // open config file
-    fp = fopen(config_filename, "r");
+    // open param file
+    fp = fopen(filename, "r");
     if (fp == NULL) {
-        ERROR("failed to open '%s', %s\n", config_filename, strerror(errno));
-        return -ENOENT;
+        ERROR("param file '%s' failed to open, %s\n", filename, strerror(errno));
+        ret = -ENOENT;
+        goto error_return;
     }
 
-    // read lines from config file
+    // read lines from param file
     while (fgets(s, sizeof(s), fp) != NULL) {
         // keep track of line number
         line++;
@@ -86,6 +104,13 @@ int read_param(void)
         }
         if (strspn(s, " \r\n\t") == strlen(s)) {
             continue;  // s is all whitespace
+        }
+
+        // if too many params then return error
+        if (max_param == MAX_PARAM) {
+            ERROR("param file '%s' has too many params\n", filename);
+            ret = -EINVAL;
+            goto error_return;
         }
 
         // scan the line into param
@@ -99,20 +124,20 @@ int read_param(void)
                      &p->slit[2].start, &p->slit[2].end,
                      &p->slit[3].start, &p->slit[3].end);
         if (cnt != 5 && cnt != 7 && cnt != 9 && cnt != 11) {
-            ERROR("config file '%s' error on line %d, cnt=%d\n", config_filename, line, cnt);
-            fclose(fp);
-            return -EINVAL;
+            ERROR("param file '%s' error on line %d, cnt=%d\n", filename, line, cnt);
+            ret = -EINVAL;
+            goto error_return;
         }
 
-// XXX sanity check and put start < end
-//     and any others checks
-
-        // determine how many slits are defined by the scanned in line
+        // init other param fields
+        // - number of slits defined
+        // - status_str
         p->max_slit = (cnt - 3) / 2;
+        strcpy(p->status_str, "NO DATA YET");
 
         // adjust the units, to meters:
-        // - the config file wavelength is in nanometers
-        // - the config file slit start/end are in millimeters
+        // - the param file wavelength is in nanometers
+        // - the param file slit start/end are in millimeters
         // these need to be converted to meters
         p->wavelength *= 1e-9;
         for (i = 0; i < p->max_slit; i++) {
@@ -120,18 +145,28 @@ int read_param(void)
             p->slit[i].end   *= 1e-3;
         }
 
-        // XXX
-        strcpy(p->status_str, "NO DATA YET");
+        // sanity check that slit start is <= slit end
+        for (i = 0; i < p->max_slit; i++) {
+            if (p->slit[i].start > p->slit[i].end) {
+                ERROR("param file '%s' slit %d start must be <= end\n", filename, i+1);
+                ret = -EINVAL;
+                goto error_return;
+            }
+        }
 
         // increment the number of param
         max_param++;
     }
 
-    // close the config file
-    fclose(fp);
+    // if no params then return error
+    if (max_param == 0) {
+        ERROR("param file '%s' contains no param lines\n", filename);
+        ret = -EINVAL;
+        goto error_return;
+    }
 
     // debug print the param
-    INFO("CONFIG FILE param ...\n");
+    INFO("PARAM FILE ...\n");
     for (i = 0; i < max_param; i++) {
         p = &param[i];
         sptr = s;
@@ -145,6 +180,14 @@ int read_param(void)
     }
     BLANK_LINE;
 
-    // return success
+    // success return
+    fclose(fp);
     return 0;
+
+    // error return
+error_return:
+    if (fp) {
+        fclose(fp);
+    }
+    return ret;
 }

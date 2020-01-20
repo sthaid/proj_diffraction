@@ -1,8 +1,3 @@
-/* XXX  comments on how this file works
-https://en.wikipedia.org/wiki/Huygens%E2%80%93Fresnel_principle#See_also
-https://courses.lumenlearning.com/physics/chapter/27-3-youngs-double-slit-experiment/
-*/
-
 #include "common.h"
 
 //
@@ -67,12 +62,15 @@ static void * calculate_screen_image_thread(void *cx)
         }
     }
 
-    // XXX comments
+    // initialization
     screen1_amp = calloc(MAX_SCREEN, sizeof(double));
     screen2_amp = calloc(MAX_SCREEN, sizeof(double));
-
     amplitude_init(p);
 
+    // determine the amplitude projected from each point of each slit to
+    // each point of the screen; and sum these amplitudes into the 
+    // screen1_amp and screen2_amp arrays; these 2 arrays contain amplitudes
+    // that are 90 degrees out of phase
     for (slit_idx = 0; slit_idx < p->max_slit; slit_idx++) {
         for (ysource = p->slit[slit_idx].start; ysource <= p->slit[slit_idx].end; ysource += SCREEN_ELEMENT_SIZE) {
             yscreen = -SCREEN_SIZE / 2;
@@ -83,28 +81,23 @@ static void * calculate_screen_image_thread(void *cx)
                 yscreen += SCREEN_ELEMENT_SIZE;
             }
 
-            // update status_str
-            progress++;
-            sprintf(p->status_str, "CALCULATING - %2d PERCENT", (int)(100. * progress / max_progress));
+            sprintf(p->status_str, "CALCULATING - %2d PERCENT", (int)(100. * ++progress / max_progress));
         }
     }
 
-    amplitude_cleanup(p);
-
-    // most of the computational work was done above, 
-    // below the values in screen1_amp and screen2_amp are
-    // used to generate the p->graph which is displayed by the
-    // display software
+    // Most of the computational work was done in the loop above.
+    // The values in screen1_amp and screen2_amp are used below to 
+    // generate the p->graph which is displayed by the display software.
 
     // declare variables used below
-    int i, j, k;
+    int i, k=0;
     double *graph, maximum_graph_element_value;
 
-    // allocate memory for graph which will be displayed
+    // allocate memory for the graph which will be displayed
     graph = calloc(MAX_GRAPH, sizeof(double));
 
     // create the graph elements by averaging the screen1_amp and screen2_amp
-    // elements that are associated with each graph element
+    // elements that comprise each graph element
     for (i = 0; i < MAX_GRAPH; i++) {
         double sum = 0;
         int cnt = 0;
@@ -126,7 +119,8 @@ static void * calculate_screen_image_thread(void *cx)
     }
     if (maximum_graph_element_value == 0) {
         strcpy(p->status_str, "ERROR - MAX_GRAPH_ELEMENT_VALUE IS ZERO");
-        return NULL;
+        free(graph);
+        goto cleanup;
     }
     for (i = 0; i < MAX_GRAPH; i++) {
         graph[i] /= maximum_graph_element_value;
@@ -142,13 +136,17 @@ static void * calculate_screen_image_thread(void *cx)
     p->graph = graph;
     strcpy(p->status_str, "CALCULATIONS COMPLETE");
 
-    // exit thread
+    // cleanup, and exit thread
+cleanup:
+    amplitude_cleanup(p);
+    free(screen1_amp);
+    free(screen2_amp);
     return NULL;
 }
 
 static void amplitude_init(param_t *p)
 {
-    #define MAX_SAVE_RESULT  (MAX_SCREEN)
+    #define MAX_SAVE_RESULT MAX_SCREEN
 
     p->save_amplitude_result1     = calloc(MAX_SAVE_RESULT, sizeof(double));
     p->save_amplitude_result2     = calloc(MAX_SAVE_RESULT, sizeof(double));
