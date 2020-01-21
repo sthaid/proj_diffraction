@@ -91,6 +91,7 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     if (request == PANE_HANDLER_REQ_RENDER) {
         param_t *p = &param[param_select_idx];
         int ytop, ybottom, xbase, first_graph_idx, last_graph_idx, i;
+        double ycenter;
 
         // print the selected param status_str
         sdl_render_printf(
@@ -114,15 +115,15 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
             last_graph_idx -= (ybottom - pane->h + 1);
             ybottom = pane->h - 1;
         }
+        ycenter = (ybottom + ytop) / 2.0;
 
         // draw vertical reference coordinate line for the screen, and
         // draw the scale labels on this line
         sdl_render_line(pane, xbase, ytop, xbase, ybottom, WHITE);
 
-        { int ycenter, n, ylabel;
-        ycenter = (ybottom + ytop) / 2;
+        { int n, ylabel;
         n = (ycenter - ytop) / 100;
-        ylabel = ycenter - 100 * n;
+        ylabel = nearbyint(ycenter - 100 * n);
         for (i = 0; i <= 2*n; i++) {
             sdl_render_line(pane, xbase, ylabel, xbase+10, ylabel, WHITE);
             sdl_render_printf(
@@ -161,17 +162,16 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         xbase = 140;
         sdl_render_line(pane, xbase, ytop, xbase, ybottom, WHITE);
 
-        { int ycenter, n, ylabel;
-        ycenter = (ybottom + ytop) / 2;
+        { int n, ylabel;
         n = (ycenter - ytop) / 100;
-        ylabel = ycenter - 100 * n;
+        ylabel = nearbyint(ycenter - 100 * n);
         for (i = 0; i <= 2*n; i++) {
             sdl_render_line(pane, xbase-10, ylabel, xbase, ylabel, WHITE);
             sdl_render_printf(
                 pane, 0, ylabel-sdl_font_char_height(FONTSZ)/2, FONTSZ,
                 WHITE, BLACK,
                 "%+0.2f mm", 
-                (n-i) * 100 * GRAPH_ELEMENT_SIZE/10 * 1e3);  // XXX define for 10
+                (n-i) * 100 * SOURCE_ELEMENT_SIZE * 1e3);
             ylabel += 100;
         } }
 
@@ -179,8 +179,8 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         // above with black lines representing the slits
         for (i = 0; i < p->max_slit; i++) {
             int yslit_start, yslit_end;
-            yslit_start =  (ytop + ybottom) / 2 + p->slit[i].start / (GRAPH_ELEMENT_SIZE/10);
-            yslit_end   =  (ytop + ybottom) / 2 + p->slit[i].end / (GRAPH_ELEMENT_SIZE/10);
+            yslit_start =  nearbyint(ycenter + p->slit[i].start / SOURCE_ELEMENT_SIZE);
+            yslit_end   =  nearbyint(ycenter + p->slit[i].end / SOURCE_ELEMENT_SIZE);
             sdl_render_line(pane, xbase, yslit_start, xbase, yslit_end, BLACK);
         }
             
