@@ -1,3 +1,4 @@
+//XXX #define ENABLE_LOGGING_AT_DEBUG_LEVEL
 #include "common.h"
 
 //
@@ -101,13 +102,17 @@ static void * calculate_screen_image_thread(void *cx)
     for (i = 0; i < MAX_GRAPH; i++) {
         double sum = 0;
         int cnt = 0;
-        while (k < i * SCREEN_ELEMENTS_PER_GRAPH_ELEMENT) {
+        while (k < nearbyint((i + 1) * SCREEN_ELEMENTS_PER_GRAPH_ELEMENT)) {
+            if (k == MAX_SCREEN) {
+                WARN("MAX_GRAPH=%d MAX_SCREEN=%d i=%d k=%d\n", MAX_GRAPH, MAX_SCREEN, i, k);
+                break;
+            }
             sum += screen1_amp[k] * screen1_amp[k];
             sum += screen2_amp[k] * screen2_amp[k];
-            k++;
             cnt++;
+            k++;
         }
-        graph[i] = sum / cnt;
+        graph[i] = (cnt > 0 ? sum / cnt : 0);
     }
 
     // normalize graph elements to range 0 to 1
@@ -129,7 +134,7 @@ static void * calculate_screen_image_thread(void *cx)
     // debug print the graph
     for (i = 0; i < MAX_GRAPH; i++) {
         DEBUG("#%6d %6.4f - %s\n", 
-               i, graph[i], stars(graph[i], 50, 1));
+              i, graph[i], stars(graph[i], 50, 1));
     }
 
     // publish the graph, so that the code in display.c can display it
