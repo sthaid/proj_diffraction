@@ -54,6 +54,6 @@ by this software agrees with this equation:
 
 ### References
 
-* https://en.wikipedia.org/wiki/Huygens%E2%80%93Fresnel_principle#See_also
+* https://en.wikipedia.org/wiki/Huygens%E2%80%93Fresnel_principle
 * https://courses.lumenlearning.com/physics/chapter/27-3-youngs-double-slit-experiment/
 
