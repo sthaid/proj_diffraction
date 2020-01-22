@@ -90,15 +90,8 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
 
     if (request == PANE_HANDLER_REQ_RENDER) {
         param_t *p = &param[param_select_idx];
-        int ytop, ybottom, xbase, first_graph_idx, last_graph_idx, i;
+        int ytop, ybottom, xbase, first_graph_idx, last_graph_idx, i, y;
         double ycenter;
-
-        // print the selected param status_str
-        sdl_render_printf(
-                pane, COL2X(30,FONTSZ), pane->h-ROW2Y(2,FONTSZ), FONTSZ,
-                WHITE, BLACK,
-                "%s",
-                p->status_str);
 
         // set local variables used to display the screen intensity graph;
         // this graph is displayed vertically on the right side of the pane
@@ -137,7 +130,6 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         // if the selected param's graph is available then plot it just to the left 
         // of the vertical reference displayed by the code above
         if (p->graph) {
-            int    y;
             int    max_points = 0;
             int    graph_idx = first_graph_idx;
             static point_t points[10000];
@@ -154,6 +146,15 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
             }
 
             sdl_render_lines(pane, points, max_points, WHITE);
+        }
+
+        // if graph fringe indexes have been located by the diffraction.c code 
+        // then display horizontal red lines at the location of these 2 fringes
+        if (p->graph_fringe_idx1 != 0 && p->graph_fringe_idx2 != 0) {
+            y = p->graph_fringe_idx1 - first_graph_idx;
+            sdl_render_line(pane, xbase, y, xbase-800, y, RED);
+            y = p->graph_fringe_idx2 - first_graph_idx;
+            sdl_render_line(pane, xbase, y, xbase-800, y, RED);
         }
 
         // draw vertical reference coordinate line for the slit source(s), and
@@ -182,6 +183,25 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
             yslit_start =  nearbyint(ycenter + p->slit[i].start / SOURCE_ELEMENT_SIZE);
             yslit_end   =  nearbyint(ycenter + p->slit[i].end / SOURCE_ELEMENT_SIZE);
             sdl_render_line(pane, xbase, yslit_start, xbase, yslit_end, BLACK);
+        }
+
+        // print the selected param status_str
+        sdl_render_printf(
+                pane, COL2X(25,FONTSZ), pane->h-ROW2Y(4,FONTSZ), FONTSZ,
+                WHITE, BLACK,
+                "%s   ",
+                p->status_str);
+        if (p->program_fringe_sep > 0) {
+            sdl_render_printf(
+                    pane, COL2X(25,FONTSZ), pane->h-ROW2Y(3,FONTSZ), FONTSZ,
+                    RED, BLACK,
+                    "PROGRAM FRINGE SEP  %4.2f mm   ", p->program_fringe_sep * 1e3);
+        }
+        if (p->equation_fringe_sep > 0) {
+            sdl_render_printf(
+                    pane, COL2X(25,FONTSZ), pane->h-ROW2Y(2,FONTSZ), FONTSZ,
+                    RED, BLACK,
+                    "EQUATION FRINGE SEP %4.2f mm   ", p->equation_fringe_sep * 1e3);
         }
             
         return PANE_HANDLER_RET_NO_ACTION;

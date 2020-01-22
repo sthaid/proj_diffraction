@@ -29,7 +29,7 @@
 #define GRAPH_ELEMENT_SIZE                (MAX_SCREEN * SCREEN_ELEMENT_SIZE / MAX_GRAPH)
 #define SCREEN_ELEMENTS_PER_GRAPH_ELEMENT (GRAPH_ELEMENT_SIZE / SCREEN_ELEMENT_SIZE)
 
-#define SOURCE_ELEMENT_SIZE               (GRAPH_ELEMENT_SIZE * 0.10)
+#define SOURCE_ELEMENT_SIZE               (GRAPH_ELEMENT_SIZE)
 
 //
 // typedefs
@@ -49,6 +49,10 @@ typedef struct {
     // published by diffraction.c, for use by display.c
     bool    calc_inprog_or_complete;
     double *graph;
+    int     graph_fringe_idx1;
+    int     graph_fringe_idx2;
+    double  program_fringe_sep;
+    double  equation_fringe_sep;
     char    status_str[100];
 
     // private use by diffraction.c

@@ -1,4 +1,3 @@
-//XXX #define ENABLE_LOGGING_AT_DEBUG_LEVEL
 #include "common.h"
 
 //
@@ -49,7 +48,7 @@ static void * calculate_screen_image_thread(void *cx)
     param_t *p = cx;
     int slit_idx, screen_idx;
     double ysource, yscreen, ret_amp1, ret_amp2;
-    double *screen1_amp, *screen2_amp;
+    double *screen1_amp, *screen2_amp, *screen_inten;
     long progress=0, max_progress=0;
 
     // initialize status_str, which is used by the display software
@@ -66,6 +65,7 @@ static void * calculate_screen_image_thread(void *cx)
     // initialization
     screen1_amp = calloc(MAX_SCREEN, sizeof(double));
     screen2_amp = calloc(MAX_SCREEN, sizeof(double));
+    screen_inten = calloc(MAX_SCREEN, sizeof(double));
     amplitude_init(p);
 
     // determine the amplitude projected from each point of each slit to
@@ -86,29 +86,35 @@ static void * calculate_screen_image_thread(void *cx)
         }
     }
 
-    // Most of the computational work was done in the loop above.
-    // The values in screen1_amp and screen2_amp are used below to 
-    // generate the p->graph which is displayed by the display software.
+    // create screen_inten by summing the squared screen1/2_amp
+    for (screen_idx = 0; screen_idx < MAX_SCREEN; screen_idx++) {
+        screen_inten[screen_idx] = screen1_amp[screen_idx] * screen1_amp[screen_idx] + 
+                                   screen2_amp[screen_idx] * screen2_amp[screen_idx];
+    }
 
-    // declare variables used below
+    //
+    // Most of the computational work was done in the loop above.
+    // The value in screen_inten is used below to 
+    // generate the graph which is displayed by the display software.
+    //
+
     int i, k=0;
     double *graph, maximum_graph_element_value;
 
     // allocate memory for the graph which will be displayed
     graph = calloc(MAX_GRAPH, sizeof(double));
 
-    // create the graph elements by averaging the screen1_amp and screen2_amp
-    // elements that comprise each graph element
+    // create the graph elements by averaging the screen_inten
+    // elements that make up each graph element
     for (i = 0; i < MAX_GRAPH; i++) {
         double sum = 0;
         int cnt = 0;
         while (k < nearbyint((i + 1) * SCREEN_ELEMENTS_PER_GRAPH_ELEMENT)) {
             if (k == MAX_SCREEN) {
-                WARN("MAX_GRAPH=%d MAX_SCREEN=%d i=%d k=%d\n", MAX_GRAPH, MAX_SCREEN, i, k);
+                FATAL("BUG MAX_GRAPH=%d MAX_SCREEN=%d i=%d k=%d\n", MAX_GRAPH, MAX_SCREEN, i, k);
                 break;
             }
-            sum += screen1_amp[k] * screen1_amp[k];
-            sum += screen2_amp[k] * screen2_amp[k];
+            sum += screen_inten[k];
             cnt++;
             k++;
         }
@@ -137,15 +143,81 @@ static void * calculate_screen_image_thread(void *cx)
               i, graph[i], stars(graph[i], 50, 1));
     }
 
-    // publish the graph, so that the code in display.c can display it
+    //
+    // locate the largest fringe, and the fringe adjacent to it, and
+    // determine the separation of these 2 finges; and
+    // determine the expected separation between adjacent fringes using the equation
+    //
+    //              distance-to-screen * wavelength
+    //   delta-y = ---------------------------------
+    //              distance-between-slit-centers
+    //    
+
+    int  max_inten_idx=-1, adjacent_fringe_idx=-1;
+    double max_inten=0;
+
+    for (i = 0; i < MAX_SCREEN; i++) {
+        double fudge;
+        // this fudge factor is used to give slight emphasis to the fringes in the
+        // center of the screen; the fudge factor ranges from a value of 1.0 at both
+        // ends of the screen to a value of 1.001 at the center of the screen
+        fudge = 1.0 + (double)(MAX_SCREEN/2 - abs(i - MAX_SCREEN/2)) / (MAX_SCREEN/2) * .001;
+        if (screen_inten[i]*fudge > max_inten) {
+            max_inten_idx = i;
+            max_inten = screen_inten[i]*fudge;
+        }
+    }
+
+    if (max_inten_idx != -1) {
+        if (max_inten_idx >= MAX_SCREEN/2) {
+            for (i = max_inten_idx-10; i >= 1; i--) {
+                if (screen_inten[i] >= screen_inten[i-1] && screen_inten[i] >= screen_inten[i+1]) {
+                    adjacent_fringe_idx = i;
+                    break;
+                }
+            }
+        } else {
+            for (i = max_inten_idx+10; i <= MAX_SCREEN-2; i++) {
+                if (screen_inten[i] >= screen_inten[i-1] && screen_inten[i] >= screen_inten[i+1]) {
+                    adjacent_fringe_idx = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    //
+    // publish the results for the code in display.c to display
+    //
+
+    // - the graph
     p->graph = graph;
+    // - graph indexes for the 2 fringes located, and
+    //   the program determined fringe separation
+    if (max_inten_idx != -1 && adjacent_fringe_idx != -1) {
+        p->graph_fringe_idx1 = nearbyint(max_inten_idx / SCREEN_ELEMENTS_PER_GRAPH_ELEMENT);
+        p->graph_fringe_idx2 = nearbyint(adjacent_fringe_idx / SCREEN_ELEMENTS_PER_GRAPH_ELEMENT);
+        p->program_fringe_sep = abs(max_inten_idx-adjacent_fringe_idx) * SCREEN_ELEMENT_SIZE;
+    }
+    // - the expected fringe separation determined by equation
+    if (p->max_slit == 2) {
+        double slit0_center = (p->slit[0].start + p->slit[0].end) / 2.;
+        double slit1_center = (p->slit[1].start + p->slit[1].end) / 2.;
+        double slit_center_distance = fabs(slit0_center - slit1_center);
+        p->equation_fringe_sep = p->distance_to_screen * p->wavelength / slit_center_distance;
+    }
+    // - status
     strcpy(p->status_str, "CALCULATIONS COMPLETE");
 
+    //
     // cleanup, and exit thread
+    //
+
 cleanup:
     amplitude_cleanup(p);
     free(screen1_amp);
     free(screen2_amp);
+    free(screen_inten);
     return NULL;
 }
 
