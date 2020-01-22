@@ -91,8 +91,7 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
-   #define SDL_EVENT_ZOOM_IN  (SDL_EVENT_USER_DEFINED + 0)
-   #define SDL_EVENT_ZOOM_OUT (SDL_EVENT_USER_DEFINED + 1)
+   #define SDL_EVENT_ZOOM     (SDL_EVENT_USER_DEFINED + 0)
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -211,13 +210,14 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
             ylabel += 100;
         } }
 
-        // draw the slits by overwriting the slit vertical reference line drawn
-        // above with black lines representing the slits
+        // draw GREEN lines to indicate the location of the slits
         for (i = 0; i < p->max_slit; i++) {
             int yslit_start, yslit_end;
             yslit_start =  nearbyint(ycenter + p->slit[i].start / SOURCE_ELEMENT_SIZE);
             yslit_end   =  nearbyint(ycenter + p->slit[i].end / SOURCE_ELEMENT_SIZE);
-            sdl_render_line(pane, xbase, yslit_start, xbase, yslit_end, BLACK);
+            for (y = yslit_start; y <= yslit_end; y++) {
+                sdl_render_line(pane, xbase-5, y, xbase+5, y, GREEN);
+            }
         }
 
         // print the selected param status_str
@@ -240,12 +240,7 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         }
 
         // register for zoom events
-        sdl_render_text_and_register_event(
-            pane, xbase+20, ROW2Y(0,FONTSZ), FONTSZ, "ZOOM_IN", LIGHT_BLUE, BLACK, 
-            SDL_EVENT_ZOOM_IN, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-        sdl_render_text_and_register_event(
-            pane, xbase+20, ROW2Y(2,FONTSZ), FONTSZ, "ZOOM_OUT", LIGHT_BLUE, BLACK, 
-            SDL_EVENT_ZOOM_OUT, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        sdl_register_event(pane, pane, SDL_EVENT_ZOOM, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
             
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -259,14 +254,15 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         #define ZOOM_STEP (SCREEN_SIZE * .2)
 
         switch (event->event_id) {
-        case SDL_EVENT_ZOOM_IN:
-            if (graph_size > ZOOM_STEP+EPSILON) {
-                graph_size -= ZOOM_STEP;
-            }
-            break;
-        case SDL_EVENT_ZOOM_OUT:
-            if (graph_size < SCREEN_SIZE-EPSILON) {
-                graph_size += ZOOM_STEP;
+        case SDL_EVENT_ZOOM:
+            if (event->mouse_wheel.delta_y > 0) {
+                if (graph_size > ZOOM_STEP+EPSILON) {
+                    graph_size -= ZOOM_STEP;
+                }
+            } else if (event->mouse_wheel.delta_y < 0) {
+                if (graph_size < SCREEN_SIZE-EPSILON) {
+                    graph_size += ZOOM_STEP;
+                }
             }
             break;
         }
@@ -479,9 +475,10 @@ static int param_select_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
 
     if (request == PANE_HANDLER_REQ_RENDER) {
         // display names and register events for all params
+        sdl_render_text(pane, 0, 0, FONTSZ, "SELECT ...", WHITE, BLACK);
         for (i = 0; i < max_param; i++) {
             sdl_render_text_and_register_event(
-                pane, COL2X(0,FONTSZ), ROW2Y(i,FONTSZ), FONTSZ,
+                pane, COL2X(0,FONTSZ), ROW2Y(i+2,FONTSZ), FONTSZ,
                 param[i].name,
                 (i != param_select_idx ? LIGHT_BLUE : WHITE), BLACK,
                 SDL_EVENT_PARAM_SELECT+i,
