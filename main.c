@@ -55,9 +55,6 @@ int main(int argc, char **argv)
     INFO("MAX_SCREEN                        = %d\n", MAX_SCREEN);
     INFO("SCREEN_SIZE                       = %f\n", SCREEN_SIZE);
     INFO("SCREEN_ELEMENT_SIZE               = %0.9f\n", SCREEN_ELEMENT_SIZE);
-    INFO("MAX_GRAPH                         = %d\n", MAX_GRAPH);
-    INFO("GRAPH_ELEMENT_SIZE                = %f\n", GRAPH_ELEMENT_SIZE);
-    INFO("SCREEN_ELEMENTS_PER_GRAPH_ELEMENT = %f\n", SCREEN_ELEMENTS_PER_GRAPH_ELEMENT);
     BLANK_LINE;
 
     // start the calculation of the screen image for the first param

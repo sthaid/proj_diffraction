@@ -9,6 +9,11 @@
 
 #define FONTSZ 24
 
+#define MAX_GRAPH                         1000
+#define GRAPH_ELEMENT_SIZE                (graph_size / MAX_GRAPH)
+#define SCREEN_ELEMENTS_PER_GRAPH_ELEMENT (GRAPH_ELEMENT_SIZE / SCREEN_ELEMENT_SIZE)
+#define SOURCE_ELEMENT_SIZE               (GRAPH_ELEMENT_SIZE)
+
 //
 // typedefs
 //
@@ -19,11 +24,24 @@
 
 static int param_select_idx;
 
+static double graph_size = SCREEN_SIZE;
+
+static bool   graph_is_avail;
+static double graph[MAX_GRAPH];
+static int    graph_fringe_idx1;
+static int    graph_fringe_idx2;
+static double program_fringe_sep;
+static double equation_fringe_sep;
+
 //
 // prototypes
 //
 
 static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
+static void convert_screen_inten_to_graph(param_t *p);
+#ifdef ENABLE_LOGGING_AT_DEBUG_LEVEL
+static char * stars(double value, int stars_max, double value_max);
+#endif
 static int param_select_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
 static int param_values_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
 
@@ -64,7 +82,7 @@ void display_handler(void)
         );
 }
 
-// -----------------  PANE HANDLERS  --------------------------------------------
+// -----------------  SCREEN IMAGE PANE HANDLER  --------------------------------
 
 static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
@@ -72,6 +90,9 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         int none;
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
+
+   #define SDL_EVENT_ZOOM_IN  (SDL_EVENT_USER_DEFINED + 0)
+   #define SDL_EVENT_ZOOM_OUT (SDL_EVENT_USER_DEFINED + 1)
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -92,6 +113,20 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         param_t *p = &param[param_select_idx];
         int ytop, ybottom, xbase, first_graph_idx, last_graph_idx, i, y;
         double ycenter;
+
+        // process screen_inten and set the following global vars:
+        // - graph_is_avail,graph - the intensity graph to be plotted
+        // - graph_fringe_idx1    - location of the highest intensity fringe
+        // - graph_fringe_idx2    - location of fringe adjacent to the highest intensity fringe
+        // - program_fringe_sep   - fringe separation based upon the 2 fringe indexes
+        //                          described above
+        // - equation_fringe_sep  - fringe seperation based upon an equation
+        //
+        // note that this routine really only need be called when a new param
+        // has been selected, or when the graph_size changes as a result of a 
+        // zoom event; however this routine takes only 3ms, so it is simple to just
+        // call it every time
+        convert_screen_inten_to_graph(p);
 
         // set local variables used to display the screen intensity graph;
         // this graph is displayed vertically on the right side of the pane
@@ -129,13 +164,13 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
 
         // if the selected param's graph is available then plot it just to the left 
         // of the vertical reference displayed by the code above
-        if (p->graph) {
+        if (graph_is_avail) {
             int    max_points = 0;
             int    graph_idx = first_graph_idx;
             static point_t points[10000];
 
             for (y = ytop; y <= ybottom; y++) {
-                points[max_points].x = xbase-10 - p->graph[graph_idx] * 700;
+                points[max_points].x = xbase-10 - graph[graph_idx] * 700;
                 points[max_points].y = y;
                 graph_idx++;
                 max_points++;
@@ -150,10 +185,10 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
 
         // if graph fringe indexes have been located by the diffraction.c code 
         // then display horizontal red lines at the location of these 2 fringes
-        if (p->graph_fringe_idx1 != 0 && p->graph_fringe_idx2 != 0) {
-            y = p->graph_fringe_idx1 - first_graph_idx;
+        if (graph_fringe_idx1 != 0 && graph_fringe_idx2 != 0) {
+            y = graph_fringe_idx1 - first_graph_idx;
             sdl_render_line(pane, xbase, y, xbase-800, y, RED);
-            y = p->graph_fringe_idx2 - first_graph_idx;
+            y = graph_fringe_idx2 - first_graph_idx;
             sdl_render_line(pane, xbase, y, xbase-800, y, RED);
         }
 
@@ -191,18 +226,26 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
                 WHITE, BLACK,
                 "%s   ",
                 p->status_str);
-        if (p->program_fringe_sep > 0) {
+        if (program_fringe_sep > 0) {
             sdl_render_printf(
                     pane, COL2X(25,FONTSZ), pane->h-ROW2Y(3,FONTSZ), FONTSZ,
                     RED, BLACK,
-                    "PROGRAM FRINGE SEP  %4.2f mm   ", p->program_fringe_sep * 1e3);
+                    "PROGRAM FRINGE SEP  %4.2f mm   ", program_fringe_sep * 1e3);
         }
-        if (p->equation_fringe_sep > 0) {
+        if (equation_fringe_sep > 0) {
             sdl_render_printf(
                     pane, COL2X(25,FONTSZ), pane->h-ROW2Y(2,FONTSZ), FONTSZ,
                     RED, BLACK,
-                    "EQUATION FRINGE SEP %4.2f mm   ", p->equation_fringe_sep * 1e3);
+                    "EQUATION FRINGE SEP %4.2f mm   ", equation_fringe_sep * 1e3);
         }
+
+        // register for zoom events
+        sdl_render_text_and_register_event(
+            pane, xbase+20, ROW2Y(0,FONTSZ), FONTSZ, "ZOOM_IN", LIGHT_BLUE, BLACK, 
+            SDL_EVENT_ZOOM_IN, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        sdl_render_text_and_register_event(
+            pane, xbase+20, ROW2Y(2,FONTSZ), FONTSZ, "ZOOM_OUT", LIGHT_BLUE, BLACK, 
+            SDL_EVENT_ZOOM_OUT, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
             
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -212,6 +255,21 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     // -----------------------
 
     if (request == PANE_HANDLER_REQ_EVENT) {
+        #define EPSILON (SCREEN_SIZE/100)
+        #define ZOOM_STEP (SCREEN_SIZE * .2)
+
+        switch (event->event_id) {
+        case SDL_EVENT_ZOOM_IN:
+            if (graph_size > ZOOM_STEP+EPSILON) {
+                graph_size -= ZOOM_STEP;
+            }
+            break;
+        case SDL_EVENT_ZOOM_OUT:
+            if (graph_size < SCREEN_SIZE-EPSILON) {
+                graph_size += ZOOM_STEP;
+            }
+            break;
+        }
         return PANE_HANDLER_RET_DISPLAY_REDRAW;
     }
 
@@ -228,6 +286,171 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     assert(0);
     return PANE_HANDLER_RET_NO_ACTION;
 }
+
+static void convert_screen_inten_to_graph(param_t *p)
+{
+    int    i, k, max_screen, offset;
+    double maximum_graph_element_value;
+    double *screen_inten = p->screen_inten;
+
+    // sanity check graph_size
+    if (graph_size > SCREEN_SIZE || graph_size <= 0) {
+        FATAL("graph_size=%f SCREEN_SIZE=%f\n", graph_size, SCREEN_SIZE);
+    }
+
+    // preset return values to indicate 'no-data'
+    graph_is_avail = false;
+    graph_fringe_idx1 = 0;
+    graph_fringe_idx2 = 0;
+    program_fringe_sep = 0;
+    equation_fringe_sep = 0;
+
+    // if p->screen_inten is not available then return
+    if (screen_inten == NULL) {
+        return;
+    }
+
+    // adjust screen_inten and MAX_SCREEN to account for graph_size
+    // being less than SCREEN_SIZE; if graph_size==SCREEN_SIZE then
+    // there is no adjustment; otherwise (when graph_size<SCREEN_SIZE)
+    // the span of the screen_inten array is adjusted to be
+    // equal to the graph_size
+    offset = nearbyint(MAX_SCREEN * (1. - graph_size/SCREEN_SIZE) / 2);
+    screen_inten += offset;
+    max_screen = MAX_SCREEN - 2 * offset;
+
+    // create the graph elements by averaging the screen_inten
+    // elements that make up each graph element
+    k = 0;
+    for (i = 0; i < MAX_GRAPH; i++) {
+        double sum = 0;
+        int cnt = 0;
+        while (k < nearbyint((i + 1) * SCREEN_ELEMENTS_PER_GRAPH_ELEMENT)) {
+            if (k == max_screen) {
+                FATAL("BUG MAX_GRAPH=%d max_screen=%d i=%d k=%d\n", MAX_GRAPH, max_screen, i, k);
+                break;
+            }
+            sum += screen_inten[k];
+            cnt++;
+            k++;
+        }
+        graph[i] = (cnt > 0 ? sum / cnt : 0);
+    }
+
+    // normalize graph elements to range 0 to 1
+    maximum_graph_element_value = 0;
+    for (i = 0; i < MAX_GRAPH; i++) {
+        if (graph[i] > maximum_graph_element_value) {
+            maximum_graph_element_value = graph[i];
+        }
+    }
+    if (maximum_graph_element_value == 0) {
+        FATAL("maximum_graph_element_value == 0\n");
+    }
+    for (i = 0; i < MAX_GRAPH; i++) {
+        graph[i] /= maximum_graph_element_value;
+    }
+
+    // debug print the graph
+    for (i = 0; i < MAX_GRAPH; i++) {
+        DEBUG("#%6d %6.4f - %s\n", 
+              i, graph[i], stars(graph[i], 50, 1));
+    }
+
+    // set graph_is_avail flag
+    graph_is_avail = true;
+
+    //
+    // locate the largest fringe, and the fringe adjacent to it, and
+    // determine the separation of these 2 finges; and
+    // determine the expected separation between adjacent fringes using the equation
+    //
+    //              distance-to-screen * wavelength
+    //   delta-y = ---------------------------------
+    //              distance-between-slit-centers
+    //    
+
+    int  max_inten_idx=-1, adjacent_fringe_idx=-1;
+    double max_inten=0;
+
+    for (i = 0; i < max_screen; i++) {
+        double fudge;
+        // this fudge factor is used to give slight emphasis to the fringes in the
+        // center of the screen; the fudge factor ranges from a value of 1.0 at both
+        // ends of the screen to a value of 1.001 at the center of the screen
+        fudge = 1.0 + (double)(max_screen/2 - abs(i - max_screen/2)) / (max_screen/2) * .001;
+        if (screen_inten[i]*fudge > max_inten) {
+            max_inten_idx = i;
+            max_inten = screen_inten[i]*fudge;
+        }
+    }
+
+    if (max_inten_idx != -1) {
+        if (max_inten_idx >= max_screen/2) {
+            for (i = max_inten_idx-10; i >= 1; i--) {
+                if (screen_inten[i] >= screen_inten[i-1] && screen_inten[i] >= screen_inten[i+1]) {
+                    adjacent_fringe_idx = i;
+                    break;
+                }
+            }
+        } else {
+            for (i = max_inten_idx+10; i <= max_screen-2; i++) {
+                if (screen_inten[i] >= screen_inten[i-1] && screen_inten[i] >= screen_inten[i+1]) {
+                    adjacent_fringe_idx = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    //
+    // return:
+    // - the location of the 2 fringes as indexes into the graph array
+    // - the fringe separation as determined by this software simulation, and
+    // - the fringe separation as determined by equation
+    //
+
+    if (max_inten_idx != -1 && adjacent_fringe_idx != -1) {
+        graph_fringe_idx1 = nearbyint(max_inten_idx / SCREEN_ELEMENTS_PER_GRAPH_ELEMENT);
+        graph_fringe_idx2 = nearbyint(adjacent_fringe_idx / SCREEN_ELEMENTS_PER_GRAPH_ELEMENT);
+    }
+
+    if (max_inten_idx != -1 && adjacent_fringe_idx != -1) {
+        program_fringe_sep = abs(max_inten_idx-adjacent_fringe_idx) * SCREEN_ELEMENT_SIZE;
+    }
+
+    if (p->max_slit == 2) {
+        double slit0_center = (p->slit[0].start + p->slit[0].end) / 2.;
+        double slit1_center = (p->slit[1].start + p->slit[1].end) / 2.;
+        double slit_center_distance = fabs(slit0_center - slit1_center);
+        equation_fringe_sep = p->distance_to_screen * p->wavelength / slit_center_distance;
+    }
+}
+
+#ifdef ENABLE_LOGGING_AT_DEBUG_LEVEL
+static char * stars(double value, int stars_max, double value_max)
+{
+    static char stars[1000];
+    int len;
+    bool overflow = false;
+
+    len = nearbyint((value / value_max) * stars_max);
+    if (len > stars_max) {
+        len = stars_max;
+        overflow = true;
+    }
+
+    memset(stars, '*', len);
+    stars[len] = '\0';
+    if (overflow) {
+        strcpy(stars+len, "...");
+    }
+
+    return stars;
+}
+#endif
+
+// -----------------  PARAM SELECT PANE HANDLER  --------------------------------
 
 static int param_select_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
@@ -298,6 +521,8 @@ static int param_select_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     assert(0);
     return PANE_HANDLER_RET_NO_ACTION;
 }
+
+// -----------------  PARAM VALUES PANE HANDLER  --------------------------------
 
 static int param_values_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
