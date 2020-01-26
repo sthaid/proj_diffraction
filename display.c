@@ -251,7 +251,7 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
 
     if (request == PANE_HANDLER_REQ_EVENT) {
         #define EPSILON (SCREEN_SIZE/100)
-        #define ZOOM_STEP (SCREEN_SIZE * .2)
+        #define ZOOM_STEP (SCREEN_SIZE * .1)
 
         switch (event->event_id) {
         case SDL_EVENT_ZOOM:
