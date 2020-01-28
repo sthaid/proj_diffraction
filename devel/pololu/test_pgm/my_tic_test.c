@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
+#include <math.h>
 #include <tic.h>
 
 // defines
@@ -23,24 +24,26 @@
         } \
     } while (0)
 
-#define MIN_VIN_VOLTAGE 10000  // mv
-#define MAX_VIN_VOLTAGE 15000
+#define MIN_VIN_VOLTAGE 16000  // mv
+#define MAX_VIN_VOLTAGE 24000
 
 // variables
 
 tic_handle * handle;
-tic_settings * settings;
-tic_variables * variables;
-int signal_rcvd;
+int          signal_rcvd;
+bool         calibrated;
+int          pos;
+int          home_pos;
 
 // prototypes
 
 void open_tic(void);
 void exit_handler(void);
 void sig_handler(int sig);
+void print_status(void);
+void get_pos_and_vel(int *curr_pos, int *tgt_pos, int *curr_vel, int *tgt_vel);
 
 void * keep_alive_thread(void * cx);
-void * monitor_pos_thread(void * cx);
 char * operation_state_str(int op_state);
 char * error_status_str(int err_stat) ;
 
@@ -49,11 +52,14 @@ void check_variables(void);
 
 // -----------------  MAIN  ----------------------------------------------
 
-int main(int argc, char **arg)
+int main(int argc, char **argv)
 {
-    int pos;
     pthread_t thread_id;
     struct sigaction act;
+    char s[100];
+    int cnt;
+    char cmd[100], arg[100];
+    double mm;
 
     // get handle to the tic device
     open_tic();
@@ -76,22 +82,117 @@ int main(int argc, char **arg)
 
     // create threads to:
     // - reset command timeout
-    // - monitor position and status
     pthread_create(&thread_id, NULL, keep_alive_thread, NULL);
-    pthread_create(&thread_id, NULL, monitor_pos_thread, NULL);
 
     // energize and exit_safe_start 
     ERR_CHK(tic_energize(handle));
     ERR_CHK(tic_exit_safe_start(handle));
 
-    // slowly increment position
-    for (pos = 0; pos < 200*32; pos++) {
-        ERR_CHK(tic_set_target_position(handle, pos));
-        usleep(2250000);  // 2.25 secs
-
+    // to calibrate the home position, use the 'cal' command
+    // > cal +3      : move 3 mm in poisitve dir
+    // > cal -2      : move 2 mm in negative dir
+    // > cal done
+    //
+    // valid after calibrated ...
+    // > goto 10     : goto postion 10 mm
+    // > run         : run sequence, start at -15mm, step .1mm and delay 1 second between steps
+    // > home        : goto home
+    //
+    // other cmds
+    // > stop
+    //
+    // exit program with
+    // - ^c or ^d 
+    while (printf("> "), fgets(s,sizeof(s),stdin) != NULL) {
+        // check for having received a signal; and if so then terminate 
+        // XXX maybe just use signal for run cmd
         if (signal_rcvd) {
             fprintf(stderr, "terminating due to signal %d\n", signal_rcvd);
-            return 1;
+            break;
+        }
+
+        // parse string s into cmd and arg;
+        cmd[0] = arg[0] = '\0';
+        sscanf(s, "%s %s", cmd, arg);
+
+        // if no cmd then print status and continue
+        if (cmd[0] == '\0') {
+            print_status();
+            continue;
+        }
+
+        // process the cmd
+        if (strcmp(cmd,"stop") == 0) {
+            // XXX or is it better to stop by settng the position, so decel is respected
+            //     or probably okay to stop abruptly
+            ERR_CHK(tic_halt_and_hold(handle));
+        } else if (strcmp(cmd, "cal") == 0) {
+            if (strcmp(arg, "done") == 0) {
+                int curr_pos, tgt_pos, curr_vel, tgt_vel;
+                get_pos_and_vel(&curr_pos, &tgt_pos, &curr_vel, &tgt_vel);
+                if (curr_pos != tgt_pos || curr_vel != 0 || tgt_vel != 0) {
+                    fprintf(stderr, "ERROR can't complete cal: curr_pos=%d tgt_pos=%d curr_vel=%d tgt_vel=%d\n",
+                            curr_pos, tgt_pos, curr_vel, tgt_vel);
+                    continue;
+                }
+                home_pos = pos = curr_pos;
+                calibrated = true;
+                fprintf(stderr, "calibration completed, home_pos=%d\n", home_pos);
+            } else {
+                int cnt;
+                double mm;
+                cnt = sscanf(arg, "%lf", &mm);
+                fprintf(stderr, "XXX cal cnt %d mm %f\n", cnt, mm);
+                if (cnt != 1 || mm < -20 || mm > 20) {
+                    fprintf(stderr, "ERROR: invalid arg to 'cal' command\n");
+                    continue;
+                }
+                pos = pos + mm * (200 * 32 / 5);
+                ERR_CHK(tic_set_target_position(handle, pos));
+                if (calibrated) {
+                    calibrated = false;
+                    fprintf(stderr, "now uncalibrated\n");
+                }
+            }
+        } else if (strcmp(cmd, "goto") == 0) {
+            if (!calibrated) {
+                fprintf(stderr, "ERROR: not calibrated\n");
+                continue;
+            }
+            cnt = sscanf(arg, "%lf", &mm);
+            if (cnt != 1 || mm < -20 || mm > 20) {
+                fprintf(stderr, "ERROR: invalid arg to 'goto' command\n");
+                continue;
+            }
+            pos = home_pos + mm * (200 * 32 / 5);
+            ERR_CHK(tic_set_target_position(handle, pos));
+        } else if (strcmp(cmd, "home") == 0) {
+            if (!calibrated) {
+                fprintf(stderr, "ERROR: not calibrated\n");
+                continue;
+            }
+            pos = home_pos;
+            ERR_CHK(tic_set_target_position(handle, pos));
+        } else if (strcmp(cmd, "run") == 0) {
+            if (!calibrated) {
+                fprintf(stderr, "ERROR: not calibrated\n");
+                continue;
+            }
+            mm = -20;
+            pos = home_pos + mm * (200 * 32 / 5);
+            ERR_CHK(tic_set_target_position(handle, pos));
+            // wait for it to get there
+            sleep(5);
+            for (mm = -20; mm < 20; mm += 0.1) {
+// XXX ABORT SHIT ON SIGnal
+                pos = home_pos + mm * (200 * 32 / 5);
+                ERR_CHK(tic_set_target_position(handle, pos));
+                // XXX and wait here too
+// XXX also print positon along the way both in steps and mm
+                sleep(1);
+            }
+        } else {
+            fprintf(stderr, "ERROR: invalid cmd\n");
         }
     }
 
@@ -128,21 +229,61 @@ void open_tic()
 
 void exit_handler(void)
 {
-    fprintf(stderr, "exit_handler\n");
-
     // enter_safe_start and deenergize
     ERR_CHK(tic_enter_safe_start(handle));
     ERR_CHK(tic_deenergize(handle));
 
     // cleanup
-    tic_settings_free(settings);
-    tic_variables_free(variables);
     tic_handle_close(handle);
 }
 
 void sig_handler(int sig)
 {
     signal_rcvd = sig;
+}
+
+void print_status(void)
+{
+    tic_variables *variables = NULL;
+
+    ERR_CHK(tic_get_variables(handle, &variables, false));
+
+    int operation_state    = tic_variables_get_operation_state(variables);
+    int energized          = tic_variables_get_energized(variables);
+    int position_uncertain = tic_variables_get_position_uncertain(variables);
+    int error_status       = tic_variables_get_error_status(variables);
+    int vin_voltage        = tic_variables_get_vin_voltage(variables);
+    int target_position    = tic_variables_get_target_position(variables);
+    int current_position   = tic_variables_get_current_position(variables);
+
+    tic_variables_free(variables);
+    variables = NULL;
+
+    // XXX briefly unless an error
+    //  also HOME,  CALIBRATED, UNCAL   ERROR
+    fprintf(stderr, "op_state=%d(%s) energized=%d pos_unc=%d err_status=0x%x(%s) mv=%d tgt_pos=%d curr_pos=%d\n",
+            operation_state, operation_state_str(operation_state),
+            energized,
+            position_uncertain,
+            error_status, error_status_str(error_status),
+            vin_voltage,
+            target_position,
+            current_position);
+}
+
+void get_pos_and_vel(int *curr_pos, int *tgt_pos, int *curr_vel, int *tgt_vel)
+{
+    tic_variables *variables = NULL;
+
+    ERR_CHK(tic_get_variables(handle, &variables, false));
+
+    *curr_pos = tic_variables_get_current_position(variables);
+    *tgt_pos  = tic_variables_get_target_position(variables);
+    *curr_vel = tic_variables_get_current_velocity(variables);
+    *tgt_vel  = tic_variables_get_target_velocity(variables);
+
+    tic_variables_free(variables);
+    variables = NULL;
 }
 
 // -----------------  THREADS  -------------------------------------------
@@ -152,35 +293,6 @@ void * keep_alive_thread(void * cx)
     while (true) {
         ERR_CHK(tic_reset_command_timeout(handle));
         usleep(100000);
-    }
-    return NULL;
-}
-
-void * monitor_pos_thread(void * cx)
-{
-    sleep(3);
-
-    while (true) {
-        ERR_CHK(tic_get_variables(handle, &variables, false));
-
-        int operation_state    = tic_variables_get_operation_state(variables);
-        int energized          = tic_variables_get_energized(variables);
-        int position_uncertain = tic_variables_get_position_uncertain(variables);
-        int error_status       = tic_variables_get_error_status(variables);
-        int vin_voltage        = tic_variables_get_vin_voltage(variables);
-        int target_position    = tic_variables_get_target_position(variables);
-        int current_position   = tic_variables_get_current_position(variables);
-
-        fprintf(stderr, "op_state=%d(%s) energized=%d pos_unc=%d err_status=0x%x(%s) mv=%d tgt_pos=%d curr_pos=%d\n",
-                operation_state, operation_state_str(operation_state),
-                energized,
-                position_uncertain,
-                error_status, error_status_str(error_status),
-                vin_voltage,
-                target_position,
-                current_position);
-
-        sleep(1);
     }
     return NULL;
 }
@@ -229,7 +341,7 @@ void check_settings(void)
             fprintf(stderr, "  %-32s = %d\n", #x, tic_settings_get_##x(settings)); \
         } while (0)
 
-    tic_settings_free(settings);
+    tic_settings * settings = NULL;
 
     ERR_CHK(tic_get_settings(handle, &settings));
 
@@ -258,6 +370,7 @@ void check_settings(void)
 
     // Calculation of max_speed and max_accel register values ...
     //
+    // XXX comments
     // Telescope moves at 3 degrees per sec.
     // Stepper Shaft = 18 deg/sec
     //
@@ -289,15 +402,18 @@ void check_settings(void)
     CHECK_SETTING(disable_safe_start, 0);                // 0 => safe start not disabled
     CHECK_SETTING(soft_error_response, 2);               // 2 => decel to hold
     CHECK_SETTING(command_timeout, 1000);                // 1000 ms
-    CHECK_SETTING(current_limit, 992);                   // 992 ma
+    CHECK_SETTING(current_limit, 1472);                  // 1472 ma
     CHECK_SETTING(current_limit_code_during_error, 255); // 0xff => feature disabled
     CHECK_SETTING(step_mode, 5);                         // 5 => 1/32 step
-    CHECK_SETTING(decay_mode, 2);                        // 2 => fast
-    CHECK_SETTING(max_speed, 3200000);                   // 3200000 => shaft 18 deg/sec
+    CHECK_SETTING(decay_mode, 0);                        // 0 => mixed
+    CHECK_SETTING(max_speed, 64000000);                  // 64000000 => shaft 360 deg/sec
     CHECK_SETTING(starting_speed, 0);                    // 0 => disallow instant accel or decel
-    CHECK_SETTING(max_accel, 3200);                      // 3200 => accel to max speed in 10 secs
+    CHECK_SETTING(max_accel, 640000);                    // 640000 => accel to max speed in 1 secs
     CHECK_SETTING(max_decel, 0);                         // 0 => max_decel is same as max_accel
     CHECK_SETTING(invert_motor_direction,0);             // 0 => do not invert direction   
+
+    tic_settings_free(settings);
+    settings = NULL;
 }
 
 // -----------------  VARIABLES  -----------------------------------------
@@ -309,7 +425,7 @@ void check_variables(void)
             fprintf(stderr, "  %-32s = %d\n", #x, tic_variables_get_##x(variables)); \
         } while (0)
 
-    tic_variables_free(variables);
+    tic_variables *variables = NULL;
 
     ERR_CHK(tic_get_variables(handle, &variables, false));
 
@@ -341,9 +457,12 @@ void check_variables(void)
 
     // check voltage
     int vin_voltage = tic_variables_get_vin_voltage(variables);
-    if (vin_voltage < 10000 || vin_voltage > 15000) {
+    if (vin_voltage < MIN_VIN_VOLTAGE || vin_voltage > MAX_VIN_VOLTAGE) {
         fprintf(stderr, "ERROR variable vin_voltage=%d out of range %d to %d\n",
                 vin_voltage, MIN_VIN_VOLTAGE, MAX_VIN_VOLTAGE);
         exit(1);
     }
+
+    tic_variables_free(variables);
+    variables = NULL;
 }
