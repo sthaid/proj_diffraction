@@ -1,3 +1,5 @@
 *.o
 *.d
 ds
+my_tic_test
+rate

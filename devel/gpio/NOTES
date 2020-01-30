@@ -1,0 +1,79 @@
+===========================
+What's in this directory ?
+===========================
+
+Python Scripts from the Canakit Install Guide
+- test_blink.py
+- test_switch.py
+
+WiringPi Sample Programs
+- wpi_blink.c   - blink led on gpio-out 18
+- wpi_switch.c  - switch led on gpio-out-18 based in gpio-in-25
+- wpi_timing.c  - measure gpio-in-25 read rate
+
+Bcm2835 Library Sample Programs
+- bcm_blink.c
+- bcm_switch.c
+- bcm_timing.c
+
+===========================
+RPi GPIO Code Samples - from the web
+===========================
+
+https://elinux.org/RPi_GPIO_Code_Samples#Direct_register_access
+
+For C, the GPIO access options are:
+- Director Register Access
+- WiringPi
+- sysfs
+- bcm2835 library
+- pigpio
+
+===========================
+Wiring Pi
+===========================
+
+http://wiringpi.com/reference/
+
+http://wiringpi.com/wiringpi-deprecated/
+http://wiringpi.com/wiringpi-updated-to-2-52-for-the-raspberry-pi-4b/
+https://projects.drogon.net/wiringpi-pin-numbering/
+
+--- commands ---
+gpio readall
+gpio -v
+
+--- to update wiringpi ---
+cd /tmp
+wget https://project-downloads.drogon.net/wiringpi-latest.deb
+sudo dpkg -i wiringpi-latest.deb
+
+--- wiringPi's "gpio readall" Examples ---
+http://www.cpmspectrepi.uk/raspberry_pi/MoinMoinExport/WiringPiGpioReadall.html#Pi_4_B
+
+===========================
+bcm2835 library
+===========================
+
+http://www.airspayce.com/mikem/bcm2835/
+For documentation:
+  MainPage -> Modules -> GPIO Register Access
+
+--- comments at the above website for realtime ---
+#define <sched.h>
+#define <sys/mman.h>
+struct sched_param sp;
+memset(&sp, 0, sizeof(sp));
+sp.sched_priority = sched_get_priority_max(SCHED_FIFO);
+sched_setscheduler(0, SCHED_FIFO, &sp);
+mlockall(MCL_CURRENT | MCL_FUTURE);
+
+--- installation ---
+# download the latest version of the library, say bcm2835-1.xx.tar.gz, then:
+tar zxvf bcm2835-1.xx.tar.gz
+cd bcm2835-1.xx
+./configure
+make
+sudo make check
+sudo make install
+
