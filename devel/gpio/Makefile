@@ -1,9 +1,19 @@
 TARGETS = wpi_blink wpi_switch wpi_timing \
-          bcm_blink bcm_switch bcm_timing
+          bcm_blink bcm_switch bcm_timing \
+          dra_blink dra_switch dra_timing
 
-CFLAGS = -g -O2 -Wall -lm -lrt
+CFLAGS = -g -O2 -Wall -lm -lrt -I. -I../../util
 
 all: $(TARGETS)
+
+dra_blink: dra_blink.c
+	gcc $(CFLAGS) $^ -o $@
+
+dra_switch: dra_switch.c
+	gcc $(CFLAGS) $^ -o $@
+
+dra_timing: dra_timing.c ../../util/util_misc.c
+	gcc $(CFLAGS) $^ -o $@
 
 wpi_blink: wpi_blink.c
 	gcc $(CFLAGS) -lwiringPi $^ -o $@
@@ -26,11 +36,3 @@ bcm_timing: bcm_timing.c ../../util/util_misc.c
 clean:
 	rm -f $(TARGETS)
 
-
-
-
-#bcm_blink.c
-#wpi_blink.c
-#wpi_switch.c
-#wpi_timing.c
-#gcc -o timing  -lwiringPi timing.c ../../util/util_misc.c

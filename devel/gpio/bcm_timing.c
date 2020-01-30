@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <bcm2835.h>
-#include "../../util/util_misc.h"
+#include <util_misc.h>
+
+#define MAX_CNT 10000000  // 10 million
 
 int main(int argc, char **argv)
 {
@@ -16,7 +18,7 @@ int main(int argc, char **argv)
 
     cnt_v_set = 0;
     start_us = microsec_timer();
-    for (cnt = 0; cnt < 1000000; cnt++) {
+    for (cnt = 0; cnt < MAX_CNT; cnt++) {
         v = bcm2835_gpio_lev(25);
         if (v == HIGH) {
             cnt_v_set++;

@@ -1,25 +1,24 @@
 #include <stdio.h>
-#include <wiringPi.h>
+#include <dra_gpio.h>
 #include <util_misc.h>
 
 #define MAX_CNT 10000000  // 10 million
 
-int main (void)
+int main(int argc, char **argv)
 {
     unsigned long cnt, cnt_v_set;
     unsigned long start_us, end_us;
     double duration_secs;
     int v;
 
-    if (wiringPiSetupGpio () == -1)
-        return 1;
+    gpio_init();
 
-    pinMode (25, INPUT);
+    set_gpio_pin_mode(25, PIN_MODE_INPUT);
 
     cnt_v_set = 0;
     start_us = microsec_timer();
     for (cnt = 0; cnt < MAX_CNT; cnt++) {
-        v = digitalRead(25);
+        v = gpio_read(25);
         if (v) {
             cnt_v_set++;
         }
@@ -32,3 +31,4 @@ int main (void)
 
     return 0;
 }
+
