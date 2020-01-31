@@ -26,9 +26,10 @@ code at elinux.org. Not inlcuded is the ability to set pull up/down.
 - dra_blink.c
 - dra_switch.c
 - dra_timing.c
+- dra_pulse.c - counts pulses (rising edges), and prints the pulse rate
 
 ===========================
-Results form the gpio input timing programs
+Results from the gpio input timing programs
 ===========================
 
 [DS haid@ds gpio]$ sudo ./wpi_timing 
@@ -42,6 +43,25 @@ cnt=10000000  cnt_v_set=10000000
 [DS haid@ds gpio]$ sudo ./dra_timing 
 million_cnt/sec = 64.45
 cnt=10000000  cnt_v_set=10000000
+
+===========================
+Results from dra_pulse
+===========================
+
+  ------------- Signal Generator ----------          ------ DRA_PULSE ------
+WAVE    VOLTAGE     OFFSET  DUTY    FREQUENCY     GPIO_READ_RATE    PULSE_RATE  (million/sec)
+
+Square  3.3         100%    10%     1 MHZ              39           1.00
+Square  3.3         100%    10%     1.3 MHZ            39           1.30
+Square  3.3         100%    10%     1.5 MHZ            37           1.44 - 1.50
+
+Summary: 
+- The 1 MHZ frequency 10% duty cycle is a pulse width of 100 ns.
+  This is the pulse width that needs to be measured; so the Raspberry Pi4 
+  appears to meet my needs for detection of 100 ns pulses using GPIO.
+- Start to have problems with the signal generator set to 1.5 MHZ. The 
+  pulse width should be about 66 ns in this case; and the pulse rate should
+  be 1.50 million/sec.
 
 ===========================
 RPi GPIO Code Samples - from the web

@@ -1,6 +1,6 @@
 TARGETS = wpi_blink wpi_switch wpi_timing \
           bcm_blink bcm_switch bcm_timing \
-          dra_blink dra_switch dra_timing
+          dra_blink dra_switch dra_timing dra_pulse
 
 CFLAGS = -g -O2 -Wall -lm -lrt -I. -I../../util
 
@@ -13,6 +13,9 @@ dra_switch: dra_switch.c
 	gcc $(CFLAGS) $^ -o $@
 
 dra_timing: dra_timing.c ../../util/util_misc.c
+	gcc $(CFLAGS) $^ -o $@
+
+dra_pulse: dra_pulse.c ../../util/util_misc.c
 	gcc $(CFLAGS) $^ -o $@
 
 wpi_blink: wpi_blink.c
