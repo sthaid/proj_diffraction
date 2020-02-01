@@ -2,7 +2,7 @@ TARGETS = wpi_blink wpi_switch wpi_timing \
           bcm_blink bcm_switch bcm_timing \
           dra_blink dra_switch dra_timing dra_pulse
 
-CFLAGS = -g -O2 -Wall -lm -lrt -I. -I../../util
+CFLAGS = -g -O3 -Wall -lm -lrt -I. -I../../util
 
 all: $(TARGETS)
 
