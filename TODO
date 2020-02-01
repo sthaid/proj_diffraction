@@ -1,0 +1,227 @@
+===============================================
+TODO
+===============================================
+
+clean up other TODO files and the ~/double_slit dirs
+clean up emails
+check protovantage order
+
+check out how grounding works on my power supply, can + be grounded
+get newest model raspberry pi with hardware for gpio pin access
+wrtie s/w for rpi to read the gpio and count the pulses, start
+ using sig gen directly as input, then go through the stretcher
+
+start on the test box
+- clean it out, and tape around it
+- consider mounting it on a board, with the terminal block
+- what connections are needed to the terminal block
+
+sipm
+- read through sipm sensor specs, and take notes
+- make sipm directory, and keep notes on the sipm specs
+- change name of pololu dir
+- test sipm with oscilloscope
+
+place order from amazon for ...
+- breadboard 3.3v power 
+- 9v power for the above
+- utility knife blades
+- metal epoxy
+
+make slit for sensor, using knife blades, angle bracket, metal epoxy;
+and test it
+
+build the pulse stretcher and test with signal generator
+- what is the length of the pulse, and amplitude
+
+sensor mount
+- draw a design diagram
+
+check lowes for parts for the real setup
+- box
+  - wood for the box
+  - more press in place caulk for the hole
+  - perhaps some rubber insulation for the top
+  - 4 wire cable, for the motor, maybe a couple of more wires for good measure;
+    OR instead of extra wires in the cable, could make an extra hole or 2 and cover them
+  - pvc flange and pipe  (3 or 4 inch ?)
+  - pvc flange cap, for testing the box, may need 2, if one will be used for the test led
+  - circular saw to cut the hole for the pvc pipe
+- sensor mount
+  - angle bracket
+  - nylon screws
+  - etc ...
+
+the real sensor box
+- make drawing, including the wiring
+- make the box
+- test for light leaks
+- mount the rail and the sensor
+- test the dark count rate in the box in lighted room and darkened room
+- consider painting interior black
+- include a low level light source in the box, such as a green led at 
+  low voltage, and/or taped over with electrical tape;  this may be best mounted
+  on a flange cap
+  
+the real double slit box
+- tbd
+
+rpi / gpio
+- try using real time enhancements
+- update dra_gpio.h to allow for setting pull up/down
+
+- - - - - MAYBE LATER - - - - - - 
+
+check into peltier cooling and eventually graph the dark rate based on cooling
+- the cooler would be cooling the entire sensor box
+- https://www.amazon.com/s?k=peltier+cooler&ref=nb_sb_noss_2
+
+===============================================
+BOX FOR PHOTON COUNTER
+===============================================
+
+PVC Pipe Sizes
+  https://www.pvcfittingsonline.com/resource-center/pvc-pipe-od-size-chart/
+
+SEARCH:  Square Mounting Flange Spigot/Street
+
+
+===============================================
+PULES STRETCHER   
+===============================================
+
+LTC6752 Pulse Stretcher Circuit/Monostable Multivibrator
+  input 15mv-3.3v pules,  5ns
+  output  3.3v pulse  100ns
+
+I think the GPIO max voltage is 3.3v
+
+http://www.proto-advantage.com/store/
+  Ordered 2x of 
+     SC70-6  LTC6752ISC6-4#TRMPBFCT-ND   Assembled with 0.65 pins
+
+===============================================
+RASPBERRY PI
+===============================================
+
+Recent Model
+  Raspberry Pi-4 B  1,2,4GB
+
+GPIO Access
+  https://www.amazon.com/gp/product/B01LYN4J3B/ref=ox_sc_act_title_1?smid=A3IRH1M32QHQ71&psc=1
+
+===============================================
+LINEAR RAIL ACTUATOR
+===============================================
+
+Purchased this Linear Rail Actuator
+- https://www.amazon.com/gp/product/B07DC42DLW/ref=ppx_yo_dt_b_asin_title_o01_s01?ie=UTF8&psc=1
+- 100mm Travel Length Linear Rail Guide Ballscrew Sfu1605 DIY 
+  CNC Router Parts X Y Z Linear Stage Actuator with NEMA17 Stepper Motor
+- some specs        
+   50mm/sec max
+   1.8 degrees per full step    200 steps per rev
+   1.7 amps
+   Effective Travel Len  100 mm
+   Total Len  258 mm
+   Red,Blue  A+  A-
+   Black  Green   B+ B-
+- I'm running this using 20 Volt and the TIC T825 Controller Module from Pololu
+
+another rail actuator: 
+   https://www.amazon.com/Travel-Ballscrew-Sfu1605-Actuator-Stepper/dp/B07DC42DLW/ref=pd_sbs_469_2/136-6149952-4441408?_encoding=UTF8&pd_rd_i=B07DC42DLW&pd_rd_r=0128aa24-e330-4914-8e07-b61e6c2aacf4&pd_rd_w=0LFoJ&pd_rd_wg=ryczL&pf_rd_p=bdd201df-734f-454e-883c-73b0d8ccd4c3&pf_rd_r=ZKSXZSMVNEMQGWPW2196&refRID=ZKSXZSMVNEMQGWPW2196&th=1
+   FOUND THIS ON THE STEPPER MOTOR 
+      https://www.machineryoffers.com/offer/7812-ChiHai-Motor-CH4240-1704A-2-phase-4-wire-Stepper-Motor-42mm-1-7A-2-2Ohm-3D-printer-motor-and-CNC-XYZ.html
+       42HS48-1704A-001  1.7A 5.2V
+
+stepper motor voltage ...
+  http://blog.inventables.com/p/stepper-motors.html
+  Stepper motors have a rated voltage and current.  
+  A typical stepper motor like our NEMA 17 might have a rated voltage of 2.8 
+  Volts and a maximum current of 1.68 Amps.  This basically means if you hook 
+  it up to 2.8 Volts it will draw 1.68 Amps.  If you try to run it at a 
+  higher voltage it will draw more current and get excessively hot.  
+  Most people don’t hook motors straight to a voltage source.  They use a 
+  stepper motor driver.  Stepper motor drivers regulate the current.  
+  If you hook it up to to 12V, for example, the motor while attempt to 
+  draw more current, but the stepper motor driver will not allow that 
+  to happen and use high frequency pulses to limit the average current 
+  to the desired maximum value.
+
+My controller
+  https://www.pololu.com/product/3130     TIC T825
+  It can operate from 8.5 V to 45 V and can deliver up to approximately 
+  1.5 A per phase without a heat sink or forced air flow (or 2.5 A max 
+  with sufficient additional cooling).
+
+===============================================
+DOUBLE SLIT ORDERED FROM AMAZON
+===============================================
+
+4 Double Slits of Different Spacings    U14101  <=== ORDERED THIS ONE
+  Slit Width (b)  =   .15 mm
+  Spacings (g)    =   .25  .5  .75  1.0
+  https://www.amazon.com/gp/product/B00KWZ5WQ0/ref=ox_sc_act_title_1?smid=ATVPDKIKX0DER&psc=1
+
+3 Double Slits with different widths    U14100
+  Slit Width (b)  =   .1  .15  .2
+  Spacings (g)    =     .3
+  https://www.amazon.com/gp/product/B00KWZ6DOU/ref=ox_sc_act_title_2?smid=ATVPDKIKX0DER&psc=1
+
+===============================================
+WAVELENGTH OF LIGHT    
+===============================================
+
+light wavelength
+- 400    to 700     nanometers
+- 400e-9 to 700e-9  meters
+- .4e-6  to .7e-6   meters
+- approx  0.5    micrometers
+- approx  0.0005 millimeter
+
+Infrared 750 nm to 1000000 nm
+Red      610-750 nm
+Green    500-570
+Blue     450-500    <==== this will work best with my SiPM
+Violet   400-425 nm
+
+===============================================
+LOW RATE PHOTON GENERATION
+===============================================
+
+how many photons are emitted from a laser pointer
+- http://umdberg.pbworks.com/w/page/50455623/Momentum%20of%20a%20laser%20beam
+- A laser pointer typically has a power rating of 1 mW, or 0.001 Joules per second. 
+  This means that every second a laser pointer emits a number of photons equal to 
+  (3.2x1018photons/J)(0.001J/s) = 3.2x1015 photons/s.
+
+Red light lasers were once the standard, but lost its supremacy down the road. 
+Red lasers lack the power and distance possible in newer models. Red lasers use 
+diodes, optics, and various electronic components. Its wavelength is 630-680nm 
+and its power is 5mW and below.
+
+===============================================
+SILICON PHOTMULTIPLIER  (SiPM)
+===============================================
+
+Digikey.com
+-----------
+  login   <== this is important
+  Product Index > Development Boards, Kits, Programmers > Evaluation Boards - Sensors
+     ON SEMI
+     Light Silicon Photomultiplier
+     C
+     Sort by Price
+  search result for SMA
+  want the 1MM with highest U
+  https://www.digikey.com/product-detail/en/on-semiconductor/MICROFC-SMA-10035-GEVB/MICROFC-SMA-10035-GEVBOS-ND/9744734
+    MICROFC-SMA-10035-GEVB
+    Digi-Key Part Number    MICROFC-SMA-10035-GEVBOS-ND	
+    Manufacturer	    ON Semiconductor	
+    Manufacturer            Part Number	MICROFC-SMA-10035-GEVB	
+    Description	            C-SERIES 1MM 35U SMA	
+    Manufacturer            Standard Lead Time	3 Weeks	
+    Detailed Description    MicroFC-10035 C Light, Silicon Photomultiplier (SiPM) Sensor Evaluation Board
+
+  The search page from above: https://www.digikey.com/products/en/development-boards-kits-programmers/evaluation-boards-sensors/795?FV=-1%7C488%2C345%7C364931%2C-8%7C795%2C-5%7C1054&quantity=0&ColumnSort=1000011&page=1&pageSize=25
+
