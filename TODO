@@ -2,55 +2,22 @@
 TODO
 ===============================================
 
-clean up other TODO files and the ~/double_slit dirs
-clean up emails
-check protovantage order
+parts or tools needed
+- circular saw to cut the hole for the pvc pipe
 
-check out how grounding works on my power supply, can + be grounded
-get newest model raspberry pi with hardware for gpio pin access
-wrtie s/w for rpi to read the gpio and count the pulses, start
- using sig gen directly as input, then go through the stretcher
+devel dir
+- move this file to devel, and 
+- clean up devel dir
+- may need a sipm dir 
 
-start on the test box
-- clean it out, and tape around it
-- consider mounting it on a board, with the terminal block
-- what connections are needed to the terminal block
-
-sipm
-- read through sipm sensor specs, and take notes
-- make sipm directory, and keep notes on the sipm specs
-- change name of pololu dir
-- test sipm with oscilloscope
-
-place order from amazon for ...
-- breadboard 3.3v power 
-- 9v power for the above
-- utility knife blades
-- metal epoxy
-
-make slit for sensor, using knife blades, angle bracket, metal epoxy;
-and test it
+make slit to test single slit diffraction, and to try to 
+make a slit with the utility knife blades
 
 build the pulse stretcher and test with signal generator
 - what is the length of the pulse, and amplitude
 
 sensor mount
 - draw a design diagram
-
-check lowes for parts for the real setup
-- box
-  - wood for the box
-  - more press in place caulk for the hole
-  - perhaps some rubber insulation for the top
-  - 4 wire cable, for the motor, maybe a couple of more wires for good measure;
-    OR instead of extra wires in the cable, could make an extra hole or 2 and cover them
-  - pvc flange and pipe  (3 or 4 inch ?)
-  - pvc flange cap, for testing the box, may need 2, if one will be used for the test led
-  - circular saw to cut the hole for the pvc pipe
-- sensor mount
-  - angle bracket
-  - nylon screws
-  - etc ...
 
 the real sensor box
 - make drawing, including the wiring
@@ -85,7 +52,6 @@ PVC Pipe Sizes
 
 SEARCH:  Square Mounting Flange Spigot/Street
 
-
 ===============================================
 PULES STRETCHER   
 ===============================================
@@ -107,7 +73,7 @@ RASPBERRY PI
 Recent Model
   Raspberry Pi-4 B  1,2,4GB
 
-GPIO Access
+GPIO Access - T Type Expansion Board
   https://www.amazon.com/gp/product/B01LYN4J3B/ref=ox_sc_act_title_1?smid=A3IRH1M32QHQ71&psc=1
 
 ===============================================
@@ -224,4 +190,98 @@ Digikey.com
     Detailed Description    MicroFC-10035 C Light, Silicon Photomultiplier (SiPM) Sensor Evaluation Board
 
   The search page from above: https://www.digikey.com/products/en/development-boards-kits-programmers/evaluation-boards-sensors/795?FV=-1%7C488%2C345%7C364931%2C-8%7C795%2C-5%7C1054&quantity=0&ColumnSort=1000011&page=1&pageSize=25
+
+===============================================
+Notes On The MICROFC-SMA-10035-GEVB - C-SERIES 1MM 35U SMA
+===============================================
+
+C-Series SiPM Sensorss    ON Semiconductor
+-----------------------------------------
+Overview
+- low dark count rate
+- high PDE
+- ultrafast timing applications
+- fast output rsie time 300ps pulse width 600 ps
+- sizes 1mm, 3mm, 6mm
+- surface mount package
+- performance similar to conventinal PMT
+
+Performance Parameters  (for 1mm 35u)
+- Breakdown Voltabe Vbr             24.2 - 24.7 V
+- recommended overvoltage range      1.0 - 5.0  V
+  (voltage above Vbr
+- spectral range                    300 - 950 nm
+- peak wavelength                   420 nm
+- PDE at peak wavelenght, Vbr+2.5   31%
+- PDE at peak wavelenght, Vbr+2.5   31%
+- Gain Vbr+2.5                      3x10^6
+- Dark Current Vbr+2.5              15 nA
+- Dark Count Rate Vbr+2.5           30 KHZ  - max 96 khz
+- Fast Output                       0.3ns rise,  0.6ns width
+- Number of Microcells              504
+- Maximum current level             6 mA
+
+PDE Graph for 30035   at Vbr+2.5
+- Red      610-750 nm       680     7%
+- Green    500-570 nm       530    17%
+- Blue     450-500 nm       480    23%
+
+Dark Count Rate 30035 (Example)
+- 10 - 50 khz/mm^2   for Overvoltage 1 - 5
+
+Evaluation Boards - SMA Biasing Borard MicroFc-SMA-XXXXX
+- the ouput can be connected directly to a 50 ohm terminated oscilloscope
+- connectors:
+     Vbias  :  Positive bias input  (cathode)
+     Fout   :  Fast Output
+     Sout   :  Standard Output  (ande)
+
+Reference Designs for the SMA and SMTPA MLP-Packaged SiPM Evaluation Boards
+---------------------------------------------------------------------------
+
+J1 Bias
+J2 Fout
+J3 Sout
+
+Sout is attached to 49R9-0402 Resisotor
+  This appears to be 49.9 ohms
+
+Introduction to the Silicon Photomultiplier (SiPM)
+-------------------------------------------------
+
+Standard Output Pulse Shape  (not for my part though)
+- 20mv  130 ns
+- 20mv  75 ms
+- 80mv - 50 ms
+- 100mv - max
+  
+Biasing and Readout of ON Semiconductor SiPM Sensors
+-----------------------------------------------------
+
+P-on-N structure used for blue-sensitive SiPMs - C-Series, J-series
+
+N-on-P structure creaes a more red sensitive SiPM - RB Series
+
+For P-on-N (C Series) the ouptu polarity should be positive
+
+Amplifier examples are provided in this document
+
+XXX Continue Here
+-----------------
+
+2-3 mv
+how much db gain is needed 
+buy more cables
+what amplifier ?
+
+===============================================
+DIODES
+===============================================
+
+    Anode  ------------->|------------  Cathode
+
+    LED Larger Pin
+
+
+    GPIO 3.3v  -------->|--------220ohm-------- GND
 
