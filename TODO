@@ -2,13 +2,6 @@
 TODO
 ===============================================
 
-parts or tools needed
-- circular saw to cut the hole for the pvc pipe
-
-devel dir
-- move this file to devel, and 
-- clean up devel dir
-- may need a sipm dir 
 
 make slit to test single slit diffraction, and to try to 
 make a slit with the utility knife blades
@@ -36,6 +29,13 @@ the real double slit box
 rpi / gpio
 - try using real time enhancements
 - update dra_gpio.h to allow for setting pull up/down
+
+parts or tools needed
+- circular saw to cut the hole for the pvc pipe
+
+devel dir
+- clean up devel dir
+- may need a sipm dir 
 
 - - - - - MAYBE LATER - - - - - - 
 
@@ -195,7 +195,7 @@ Digikey.com
 Notes On The MICROFC-SMA-10035-GEVB - C-SERIES 1MM 35U SMA
 ===============================================
 
-C-Series SiPM Sensorss    ON Semiconductor
+DOC: C-Series SiPM Sensorss    ON Semiconductor
 -----------------------------------------
 Overview
 - low dark count rate
@@ -236,7 +236,7 @@ Evaluation Boards - SMA Biasing Borard MicroFc-SMA-XXXXX
      Fout   :  Fast Output
      Sout   :  Standard Output  (ande)
 
-Reference Designs for the SMA and SMTPA MLP-Packaged SiPM Evaluation Boards
+DOC: Reference Designs for the SMA and SMTPA MLP-Packaged SiPM Evaluation Boards
 ---------------------------------------------------------------------------
 
 J1 Bias
@@ -246,7 +246,7 @@ J3 Sout
 Sout is attached to 49R9-0402 Resisotor
   This appears to be 49.9 ohms
 
-Introduction to the Silicon Photomultiplier (SiPM)
+DOC: Introduction to the Silicon Photomultiplier (SiPM)
 -------------------------------------------------
 
 Standard Output Pulse Shape  (not for my part though)
@@ -255,7 +255,7 @@ Standard Output Pulse Shape  (not for my part though)
 - 80mv - 50 ms
 - 100mv - max
   
-Biasing and Readout of ON Semiconductor SiPM Sensors
+DOC: Biasing and Readout of ON Semiconductor SiPM Sensors
 -----------------------------------------------------
 
 P-on-N structure used for blue-sensitive SiPMs - C-Series, J-series
@@ -266,13 +266,64 @@ For P-on-N (C Series) the ouptu polarity should be positive
 
 Amplifier examples are provided in this document
 
-XXX Continue Here
------------------
+Amplification Needed
+--------------------
 
-2-3 mv
-how much db gain is needed 
-buy more cables
-what amplifier ?
+Dark Count Pulse
+- Amplitude = 2 mv
+- Needed for Pulse Stretcher:
+  - 15 mv  to 3..3v
+  - 5 ns
+- the 5 ns should not be a problem
+
+What DB gain is needed to get from 2 mv to:
+- http://www.sengpielaudio.com/calculatorVoltagePower.htm
+- http://www.sengpielaudio.com/calculator-amplification.htm
+- Decibals:
+  - doubling voltage is about 6db gain
+  - doubling power is about 3db gain
+- 15 mv  = 17 db gain
+- 30     = 23 db gain
+- 50     = 28 db gain
+- 100    = 34 db gain
+- 200    = 40 db gain
+
+"More than one amplifier stage may be required to provide
+ sufficient gain. A low noise 50 ohm voltage amplifier with
+ a bandwidth of 1 GHz with a gain of 20 dB is suggested."
+- A 2 mv + 20 db => 20 mv
+
+"Figure 18. MicroFC−10020 Dark Pulse Shape. 
+ Readout on Standard Output with 50  Series Resistor
+ Connected to 2 x ZX60−43S+ Amplifiers in Series. Overvoltage = 5 V"
+- This figure shows pulse amplitude of 200 mv, and 
+  width at 50 mv of 25 ns
+
+Looking for a Voltage Amplifier:
+- 50 ohm
+- bandwidth  1 Ghz
+- gain      20 db
+
+Coax connectors
+- SMA     -  50 ohm
+- F Type  - 75 ohm, commonly used with RG59U cable
+- SMP     - sub miniature push on
+
+ZX60−43-S+
+- https://www.minicircuits.com/WebStore/dashboard.html?model=ZX60-43-S%2B
+- price is $70
+- needs 5 vdc power
+- connector is SMA
+- 0.5 to 4000 MHZ   50ohm   SMA
+
+HiLetgo 0.1-2000MHz RF WideBand Amplifier 30dB High Gain Low Noise LNA Amplifier
+- need to confirm supply voltage, it is either
+  - 6-12 or
+  - 5 typical, 7 max
+- gain is 30 db
+- .1 - 2000 MHZ
+- someone suggested this is the component: https://www.qsl.net/n9zia/metricom/ina02184.pdf
+  but I should confirm that
 
 ===============================================
 DIODES
