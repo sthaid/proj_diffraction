@@ -2,12 +2,16 @@
 TODO
 ===============================================
 
+SiPM
+- make bigger hole in test box
+- test amplifier
+  - first check on the voltage, does it take 5 volts or 6-12?
+- build pulse stretcher
+  - test with signal generator
+- connect pulse stretcher to Raspberry PI
 
 make slit to test single slit diffraction, and to try to 
 make a slit with the utility knife blades
-
-build the pulse stretcher and test with signal generator
-- what is the length of the pulse, and amplitude
 
 sensor mount
 - draw a design diagram
@@ -320,6 +324,12 @@ HiLetgo 0.1-2000MHz RF WideBand Amplifier 30dB High Gain Low Noise LNA Amplifier
 - need to confirm supply voltage, it is either
   - 6-12 or
   - 5 typical, 7 max
+  - comment:  ended up looking the amp up and found that the board uses a 
+              INA-02186 Monolithic Microwave Integrated Circuit for the amp 
+              and that specific chip has a typical voltage of 5.5v and a max 
+              voltage of 7v. I am not sure if past versions used a different 
+              chip but the one on mine clearly is not rated for the 
+              advertised voltages.
 - gain is 30 db
 - .1 - 2000 MHZ
 - someone suggested this is the component: https://www.qsl.net/n9zia/metricom/ina02184.pdf
