@@ -11,6 +11,9 @@
 // XXX TODO
 // - real time ?
 
+// defines
+#define GPIO_PIN  26
+
 // variables
 volatile bool done;
 
@@ -37,7 +40,7 @@ int main(int argc, char **argv)
     while (true) {
         // get pulse rate, and print results
         get_pulse_rate(1000000, &gpio_read_rate, &pulse_rate);
-        printf("gpio_read_rate = %.2f  pulse_rate = %.2f   (units million/sec)\n",
+        printf("gpio_read_rate = %.3f  pulse_rate = %.6f   (units million/sec)\n",
                gpio_read_rate/1000000, pulse_rate/1000000);
 
         // short delay
@@ -67,7 +70,7 @@ void get_pulse_rate(unsigned int intvl_us, double *gpio_read_rate, double *pulse
     start_us = microsec_timer();
     while (!done) {
         // read gpio input
-        v = gpio_read(21);
+        v = gpio_read(GPIO_PIN);
         read_cnt++;
 
         // if detected rising edge then increment pulse_cnt
