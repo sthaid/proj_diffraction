@@ -2,54 +2,105 @@
 TODO
 ===============================================
 
-Search for XXX TBD                                                              NEXT
+Laser Box                                                               TODO
+- find a solid base
+- design box, and make drawings, could use tinkercad
+  - how much space will be needed for the interferometer
+- measure laser diameter and design 3d print parts
+- will need the height of the sensor for box design
+- need to buy
+  - buy circular saw to cut the hole for the pvc pipe
+  - buy neutral density filter, but first determine what level is needed
+  - misc parts, such as angle brackets and light insulation, etc
 
-Prepare short sma cable for connection from amp to pulse stretcher              NEXT
+Laser Mount 
+- pick out green laser and get dimensions                            DONE
+  - will need to measure the dimensions when it gets here
+- tinkercad pieces needed, and print them                            TODO
+  - cone and backplate                                               
+  - the ball and hole 
+  - laser end support
+- what is size of ND filter                                          DONE
+     50 x 50 mm   thickness 2.1 mm  and 2.8 mm for OD 3 and 4
+     SCHOTT NG9, 3.0 OD, 50mm Sq., Absorptive ND Filter
+     SCHOTT NG9, 4.0 OD, 50mm Sq., Absorptive ND Filter
+- buy laser pointer with on/off switch                               DONE
+     https://www.apinex.com/ret2/JLPS-20B.html
+- hardware for laser back end support                                RECEIVED
+  - m3 screw with knob,                                              
+  - m3 nuts                                                         
+   - searches for the nutes
+       "inside outside thread nut"
+       "metric threaded insert"
+       T Nuts
+       "inside outside thread screw sleeve conversion nut"
 
-build 6V battery power supply with terminal block, switch and power LED         NEXT
+SiPM sensor
+- need to know height of sensor for Laser Box design                   TODO
+- design the mount for the SiPM sensor
+- connect to new amplifier and view dark pulses on scope
+- add some light and compare pulse rate with light on and off
+- ordered the ZX60−43S+  - should receive 2nd eamil Feb 12             ORDERED
+- rpi / gpio
+  - try using real time enhancements
+  - update dra_gpio.h to allow for setting pull up/down
+- try to make use of the inexpensive RF amplifiers ?                   MAYBE LATER
+  - how to make band pass filter
+  - simulate band pass filter with my circuit simulator             
+    (maybe modify it to do a frequency sweep graph, 
+     but this is probably too hard)
+  - buy 2nd $10 amp
+  - buy parts for band pass filter
+  - make the band pass filter, and try another 2nd $10 amp           
 
-Buy, Misc
-- coax cable, BNC ?
+Work on my double slit proto
+- assemlbe once parts are received                                  TODO
+- mount for my double slit                                          TODO
+- .1 mm diameter wire                                               RECEIVED
+- thickness measurements
+  - thickness of razor blade  .089 mm
+  - thickness of paper        .095 mm
+  - diameter of wire ordered  .099 mm
+- hardware from bolt depot                                          RECEIVED 
+  - m3 nuts        10
+  - m3 washers     10   fender
+  - m3 screws      10   5mm len
+  - m3 screws      10   8mm len
+  - m3 screws      10  10mm len
+  - and same as above for m4
+  - #39 drill, 2.5mm
+- 3d print - sla                                                    ORDERED
+  info: razor is 22 x 43
+  tinkercad
+   - piece  46 x 46 x 8
+   - center box is 10 x 10
+   - m3 screw holes 11 mm off center line, and diameter 3.5 mm
+   - slits are on center line, and are     1  10.5 8
+       3 mm from edge of box
+       10.5 mm long
+       1 mm wide
+   - cylindr 5 x 5 x 8
+- order shims                                                       OREDERED FROM ACCU & EBAY
+- INFO shims
+  - 0.1 mm stainless steel shim
+  - Thickness Feeler Gauge 0.1mm Stainless Steel
+  - https://www.ebay.com/itm/4-5-x-10-x-0-1mm-Stainless-Steel-Shim-Washer-10pcs/323746351062?hash=item4b60c947d6:g:BU8AAOSwVDpca35V
+  - https://www.accu.co.uk/704-shim-washers#elasticsearch_id_feature_894828=894828_125&id_elasticsearch_category=704&orderby=ranking&orderway=asc
+        ACCU 22 x 16
+             18 x 12
+             16 x 10
+             14 x 8
+             12 x 6
+             10 x 5
+             8 x 4
+             6 x 3
+        EBAY 10 x 4.5
 
-Buy for mounting knife edge
-- #39 drill, BUT ONLY  if need 3mm hardware
-- 3mm pan head screws and washers, and nuts   TRY BOLT DEPOT                 
+Updata photons program to account for the percentage of photons      TODO
+that actually go through the slit
+- also print the parameters with the results
 
-Buy for Double SLit Box
-- circular saw to cut the hole for the pvc pipe
-- neutral density filter, but first determine what level is needed
-- blue or purple laser module, 5mw with power metering
-
-- - - - - - - - - 
-
-make double slit using razor blades                                          NEXT
-
-photon filtering                                                             NEXT
-- calculate number of photons
-- estimate count rate on screen
-- find laser module and power                                               
-- purchase filter from Edmunds
-
-try to make use of the inexpensive RF amplifiers ?                   MAYBE LATER
-- how to make band pass filter
-- 2nd $10 amp
-- parts for band pass filter
-
-make the box for the slit and filter
-- drawing
-- parts list
-
-SiPM
-- simulate band pass filter with my circuit simulator                  MAYBE LATER
-  (maybe modify it to do a frequency sweep graph, 
-   but this is probably too hard)
-- make bad pass filter, and try another 2nd $10 amp                    MAYBE LATER
-- ordered the ZX60−43S+  - should receive 2nd eamil Feb 12              ORDERED
-
-sensor mount
-- draw a design diagram
-
-the real sensor box
+sensor box
 - make drawing, including the wiring
 - make the box
 - test for light leaks
@@ -57,24 +108,21 @@ the real sensor box
 - test the dark count rate in the box in lighted room and darkened room
 - consider painting interior black
 - mount a low level light source on the flange cap for testing
-  
-rpi / gpio
-- try using real time enhancements
-- update dra_gpio.h to allow for setting pull up/down
 
-- - - - - LATER - - - - - - 
-
-devel dir
+Misc
+- check amazon order for double slit                                 TODO
 - clean up devel dir
   - add README
   - update pololu setting.txt and do_apply_settngs
-- may need a sipm dir 
 
-- - - - - MAYBE LATER - - - - - - 
+===============================================
+POSSIBLE FUTURE ENHANCEMENTS
+===============================================
 
-check into peltier cooling and eventually graph the dark rate based on cooling
+check into peltier cooling 
 - the cooler would be cooling the entire sensor box
 - https://www.amazon.com/s?k=peltier+cooler&ref=nb_sb_noss_2
+- graph the dark rate based on cooling
 
 ===============================================
 BOX FOR PHOTON COUNTER
@@ -159,7 +207,7 @@ Some Problems Encountered
    detected by the dra_pulse program when the SigGen was disabled. Fixed
    this by using the 9V battery connected to the Breadboard power supply.
 
-Future Investigations XXX TBD
+Future Investigations TODO    
   1) Try voltage divider instead of single 1k resistor to GPIO pin.
   2) What voltage causes gpio to read '1'.
   3) what is the input resistance for the gpio.
@@ -304,6 +352,7 @@ Digikey.com
   The search page from above: https://www.digikey.com/products/en/development-boards-kits-programmers/evaluation-boards-sensors/795?FV=-1%7C488%2C345%7C364931%2C-8%7C795%2C-5%7C1054&quantity=0&ColumnSort=1000011&page=1&pageSize=25
 
 ===============================================
+SILICON PHOTMULTIPLIER  (SiPM) ...
 Notes On The MICROFC-SMA-10035-GEVB - C-SERIES 1MM 35U SMA
 ===============================================
 
@@ -341,7 +390,7 @@ PDE Graph for 30035   at Vbr+2.5
 Dark Count Rate 30035 (Example)
 - 10 - 50 khz/mm^2   for Overvoltage 1 - 5
 
-Evaluation Boards - SMA Biasing Borard MicroFc-SMA-XXXXX
+Evaluation Boards - SMA Biasing Borard MicroFc-SMA-xxxxx
 - the ouput can be connected directly to a 50 ohm terminated oscilloscope
 - connectors:
      Vbias  :  Positive bias input  (cathode)
@@ -457,3 +506,5 @@ DIODES
 
     GPIO 3.3v  -------->|--------220ohm-------- GND
 
+
+    LED Voltage drop approx 1.8V
