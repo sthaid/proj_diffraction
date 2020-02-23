@@ -1,17 +1,25 @@
+
+
 ===============================================
 TODO
 ===============================================
+
+General TODO
+- clean up book marks doubleslit2
+- place print order
+- order screws from boltdepot, need at least 7
 
 Laser Box                                                               TODO
 - find a solid base
 - design box, and make drawings, could use tinkercad
   - how much space will be needed for the interferometer
-- measure laser diameter and design 3d print parts
 - will need the height of the sensor for box design
 - need to buy
   - buy circular saw to cut the hole for the pvc pipe
   - buy neutral density filter, but first determine what level is needed
-  - misc parts, such as angle brackets and light insulation, etc
+- buy misc parts
+  - 1" wood base   SHOULD ARRIVE MARCH 4
+- design 3d print parts for laser mount
 
 Laser Mount 
 - pick out green laser and get dimensions                            DONE
@@ -26,14 +34,55 @@ Laser Mount
      SCHOTT NG9, 4.0 OD, 50mm Sq., Absorptive ND Filter
 - buy laser pointer with on/off switch                               DONE
      https://www.apinex.com/ret2/JLPS-20B.html
-- hardware for laser back end support                                RECEIVED
-  - m3 screw with knob,                                              
-  - m3 nuts                                                         
-   - searches for the nutes
+- searching for 'inside outside thread nut'
        "inside outside thread nut"
        "metric threaded insert"
        T Nuts
        "inside outside thread screw sleeve conversion nut"
+- tinkercad dimensions, and notes
+  - laser end dimensions
+    - fron end  13.60 mm
+    - back end  13.40 mm
+  - sphere
+    - laser end diameter      = 13.60
+    - sphre diameter          = 24
+    - small cylnder diameter  = 8 mm
+    - large cylinder diameter = 13.6   height 16
+    - laser cylinder end below spere center by 4 mm
+  - screws to be used
+    - https://www.boltdepot.com/Product-Details.aspx?product=2301
+    - Sheet metal screws, Self tapping, Phillips pan head, Stainless steel 18-8, #6 x 5/8"
+    - head dia max .270"      = 6.858 mm      USE 7.0 mm
+    - head height max  .097"  = 2.46 mm       USE 2.6 mm
+    - diameter .138"          = 3.505 mm      USE 3.6 mm
+  - cone and nd filter mount
+    - nd filter mount dimensions  50 x 50 x 7 mm
+    - cone hole diameter          8 mm
+    - cone max od                 25 mm
+    - cone angle                  30 degrees 
+    - cone dims for tinkercad
+      - top radius    = 4 mm
+      - base radius   = 12.5
+      - height        = 14.72
+      - then rotate   = 180 degrees
+    - cylinder dims for tinkercad
+      - 25.4 x 25.4 x 14.72
+    - box to be placed below cylinder/cone combo
+      - dims  50 x 50 x 7
+      - 8 mm hole in middle
+    - screw dims for tinkercad
+                DIA         HEIGHT
+       thread  3.6mm      through-hole
+       head    7.0mm      2.6
+  - back end attachment to laser
+    - 13.40 diameter hollow cylinder
+    - 25 x 25 x 10 box
+  - back end support
+    - bottom   41 x 30 x 8
+    - side      8 x 30 x 41  OR copy and rotate bottom
+    - holes for adjusting screws 
+      - centered 12.5 mm from ends
+      - dia = 5.6 mm
 
 SiPM sensor
 - need to know height of sensor for Laser Box design                   TODO
@@ -508,3 +557,187 @@ DIODES
 
 
     LED Voltage drop approx 1.8V
+
+===============================================
+3D PRINTING - ABS vs PLA materials
+===============================================
+
+https://www.3dhubs.com/knowledge-base/pla-vs-abs-whats-difference/
+https://www.3dhubs.com/knowledge-base/post-processing-fdm-printed-parts/
+
+FDM = Fused Deposition Modeling
+
+PLA and ABS are the 2 most common FDM desktop printing materials. 
+Both are thermoplastics, meaning they enter a soft and moldable 
+state when heated and then return to a solid when cooled. 
+Via the FDM process, both are melted and then extruded through a 
+nozzle to build up the layers that create a final part.
+
+ABS (Acrylonitrile Butadiene Styrene) is a common thermoplastic 
+well known in the injection molding industry. It is used for applications 
+such as LEGO, electronic housings and automotive bumper parts.
+
+PLA (Polylactic Acid) is a biodegradable (under the correct conditions) 
+thermoplastic derived from renewable resources such as corn starch or 
+sugarcane. It is one of the most popular bioplastics, used for many 
+applications ranging from plastic cups to medical implants.
+
+Generally the tolerances and accuracy of FDM printed components are 
+largely dependent upon printer calibration and model complexity. 
+However, ABS and PLA can be used to create dimensionally accurate parts, 
+printing details down to 0.8 mm and minimum features down to 1.2 mm. 
+For connecting or interlocking parts, a tolerance of 0.5 mm is 
+recommended and using a minimum wall thickness of 1-2 mm will ensure 
+adequate strength in wall elements.
+- details                      0.8 mm
+- minimum features             1.2 mm
+- connecting parts tolerance   0.5 mm
+- min wall thickness           1 - 2 mm
+
+PROPERTY                ABS                             PLA
+--------            ----------------------      ---------------------------
+Part Accuracy                                   Less Likely to Warp
+
+Strength            better ductility            rapid prototyping when form is
+                    higher flexural strength      more critical than function
+                    better elongation
+                      before breaking
+
+Surface Finish &    print layers visible        print layers visible
+Post Processing     matte finish                semi transparent, glossier
+                    easily sanded               more difficult to sand and 
+                    often machined                machine than ABS
+                      such as drilled
+
+heat resistance     up to 105 C                 up to 60 C
+
+biodegradeability   no, but can be recycled     yes
+
+rules-of-thumb ...
+- printing          harder                      easier
+- cost              similar                     similar
+- mechanical        better for                  less prone to warping
+                    - strength
+                    - ductility
+                    - machinability
+                    - thermal stability
+- aesthetics                                    better suited for parts
+                                                with fine detail beacuse
+                                                it is easier to print with
+                                                at lower temperatures
+
+===============================================
+3D PRINTING - SLA
+===============================================
+
+https://www.3dhubs.com/knowledge-base/introduction-sla-3d-printing/
+
+SLA = Stereolithography 
+
+In SLA, an object is created by selectively curing a polymer 
+resin layer-by-layer using an ultraviolet (UV) laser beam. 
+The materials used in SLA are photosensitive thermoset polymers 
+that come in a liquid form.
+
+If parts of very high accuracy or smooth surface finish are needed, 
+SLA is the most cost-effective 3D printing technology available
+
+SLA has many common characteristics with Direct Light Processing (DLP), 
+another Vat Photopolymerization 3D printing technology. For simplicity, 
+the two technologies can be treated as equals.
+
+The liquid resin is solidified through a process called photopolymerization: 
+during solidification, the monomer carbon chains that compose the liquid 
+resin are activated by the light of the UV laser and become solid, creating 
+strong unbreakable bonds between each other. The photopolymerization process 
+is irreversible and there is no way to convert the SLA parts back to their 
+liquid form: when heated, they will burn instead of melting. This is because 
+the materials that are produced with SLA are made of thermoset polymers, 
+as opposed to the thermoplastics that FDM uses.
+
+Printer Parameters
+- most print parameters are fixed by the manufacturer and cannot be changed
+- input: layer height
+- input: part orientation
+
+The typical layer height in SLA ranges between 25 and 100 microns. 
+Lower layer heights capture curved geometries more accurately but increase 
+the build time (and cost) and the probability of a failed print. 
+A layer height of 100 microns is suitable for most common applications.
+
+Bottom Up / Desktop SLA
+- dimensional accuracy:  +/- 0.010 to 0.250 mm
+- support: 
+  - Overhangs and bridges still need to be supported, 
+  - minimizing the cross-sectional area of each layer 
+    is the most crucial criterion: the forces applied 
+    to the part during the peeling step may cause it to 
+    detach from the build platform. 
+    These forces are proportional to the cross-sectional 
+    area of each layer. For this reason, parts are oriented 
+    in an angle and the reduction of support is not a 
+    primary concern.
+
+Curling
+- One of the biggest problems relating to the accuracy of parts 
+  produced via SLA is curling. Curling is similar to warping in FDM.
+- During solidification/curing, the resin shrinks slightly upon 
+  exposure to the printer's light source. When the shrinkage is 
+  considerable, large internal stresses develop between the new layer and 
+  the previously solidified material, which results to curling of the part.
+
+Curing:
+- SLA parts must be post-cured, by placing them in a cure box under 
+  intense UV light (and sometimes at elevated temperatures). This improves 
+  greatly the hardness and temperature resistance of the SLA part but makes 
+  it more brittle.
+- Leaving the part in the sun will also induce curing. Extended exposure 
+  to UV light has a detrimental effect in the physical properties and appearance 
+  of an SLA part: they may curl, become very brittle and change color. 
+  For this reason, spray coating with a clear UV acrylic paint before 
+  use is highly recommended.
+
+Materials                       PROS                     CONS
+- Standard Resin            Smooth finish           Relatively Brittle
+- Clear Resin               Transparent             Requires post processing
+                                                      for a very clear finish
+- Castable Resin            For creating mold
+                              patterns
+                            Low ash after burnout
+- Touch or Durable Resin    ABS like mechanical     low thermal resistance
+                            properties
+
+Post Processing
+- https://www.3dhubs.com/knowledge-base/post-processing-fdm-printed-parts/
+- sanding
+- polishing
+- spray coating
+- finishing with a mineraloil
+
+Benefits & Limitations of SLA
+- Advantages:
+  - very high dimensional accuracy and with intricate details
+  - very smooth surface finish, making them ideal for visual prototypes.
+  - speciality SLA materials are available, such as clear, flexible and castable resins.
+- Disadvateges
+  - generally brittle and not suitable for functional prototypes.
+  - mechanical properties and visual appearance of SLA parts will degrade 
+    overtime when the parts are exposed to sunlight.
+  - support structures are always required and post-processing is necessary 
+    to remove the visual marks left on the SLA part.
+
+Specs for Desktop
+- Dimensional Accuracy      .10 mm
+- Build Size                145 x 14 x 175  mm
+- Common Layer Thickness    25 - 100 microns    (.025 - .100 mm)
+- Support                   essential to producing an accurate part
+
+Rules of Thumb
+- best suited for producing visual prototypes with:
+  . very smooth surface and 
+  . very fine details 
+  from a range of thermoset materials.
+- Desktop SLA is ideal for manufacturing small ("smaller-than-a-fist") 
+  injection molded-like parts at an affordable price.
+- Industrial SLA machines can produce very large parts (as big as 
+  1500 x 750 x 500 mm).
