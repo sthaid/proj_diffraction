@@ -24,6 +24,36 @@ SOFTWARE.
 #define __UTIL_GEOMETRY_H__
 
 //
+// defines
+//
+
+#define VECT_INIT(_v, _a, _b, _c) \
+    do { \
+        (_v)->a = (_a); \
+        (_v)->b = (_b); \
+        (_v)->c = (_c); \
+    } while (0)
+
+#define POINT_INIT(_p, _x, _y, _z) \
+    do { \
+        (_p)->x = (_x); \
+        (_p)->y = (_y); \
+        (_p)->z = (_z); \
+    } while (0)
+
+#define LINE_INIT(_l, _x,_y,_z, _a,_b,_c) \
+    do { \
+        POINT_INIT(&(_l)->p, _x, _y, _z); \
+        VECT_INIT(&(_l)->v, _a, _b, _c); \
+    } while(0)
+
+#define PLANE_INIT(_plane, _x,_y,_z, _a,_b,_c) \
+    do { \
+        POINT_INIT(&(_plane)->p, _x, _y, _z); \
+        VECT_INIT(&(_plane)->n, _a, _b, _c); \
+    } while (0)
+
+//
 // typedefs
 //
 
