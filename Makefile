@@ -7,6 +7,8 @@ CFLAGS = -g -O2 -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-clobb
 util/util_sdl.o: CFLAGS += $(shell sdl2-config --cflags)
 
 SRC_IFSIM = main.c \
+            sim.c \
+            display.c \
             util/util_geometry.c \
             util/util_misc.c \
             util/util_sdl.c \
