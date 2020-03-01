@@ -94,6 +94,7 @@ double dot_product(vector_t *v1, vector_t *v2);
 
 char *vector_str(vector_t *v, char *s);
 char *point_str(point_t *p, char *s);
+char *line_str(line_t *l, char *s);
 
 #endif
 

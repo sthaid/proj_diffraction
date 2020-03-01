@@ -152,13 +152,20 @@ double dot_product(vector_t *v1, vector_t *v2)
 
 char *vector_str(vector_t *v, char *s)
 {
-    sprintf(s, "(%0.2f,%0.2f,%0.2f)", v->a, v->b, v->c);
+    sprintf(s, "vect=(%g,%g,%g)", v->a, v->b, v->c);
     return s;
 }
 
 char *point_str(point_t *p, char *s)
 {
-    sprintf(s, "(%0.2f,%0.2f,%0.2f)", p->x, p->y, p->z);
+    sprintf(s, "point=(%g,%g,%g)", p->x, p->y, p->z);
+    return s;
+}
+
+char *line_str(line_t *l, char *s)
+{
+    char s1[100], s2[100];
+    sprintf(s, "%s %s",  point_str(&l->p,s1), vector_str(&l->v,s2));
     return s;
 }
 
