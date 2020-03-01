@@ -27,6 +27,11 @@ SOFTWARE.
 
 // XXX todo - check for error conditions, such as denominator==0
 
+inline double square(double x)
+{
+    return x * x;
+}
+
 // -----------------  INTERSECT LINE AND PLANE  -----------------------------
 
 int intersect(line_t *line, plane_t *plane, point_t *point_result)
@@ -113,11 +118,20 @@ int reflect(point_t *point, plane_t *plane, point_t *point_result)
     return 0;
 }
 
+// -----------------  DISTANCE BETWEEN POINTS  ------------------------------
+
+double distance(point_t *p1, point_t *p2)
+{
+    return sqrt( square(p1->x - p2->x) +
+                 square(p1->y - p2->y) +
+                 square(p1->z - p2->z) );
+}
+
 // -----------------  VARIOUS VECTOR OPERATIONS  ----------------------------
 
 double magnitude(vector_t *v)
 {
-    return sqrt(v->a * v->a + v->b * v->b + v->c * v->c);
+    return sqrt( square(v->a) + square(v->b) + square(v->c) );
 }
 
 int normalize(vector_t *v)
@@ -185,8 +199,6 @@ int main(int argc, char **argv)
     line_t  line;
     plane_t plane;
     point_t point, point_result;
-
-    #define RAD2DEG(angle_in_radians) (angle_in_radians * (180 / M_PI))
 
     printf("TEST normalize and magnitude\n");
     VECT_INIT(&v, 1, -1, 1);

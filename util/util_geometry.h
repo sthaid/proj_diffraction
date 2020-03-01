@@ -53,6 +53,9 @@ SOFTWARE.
         VECT_INIT(&(_plane)->n, _a, _b, _c); \
     } while (0)
 
+#define RAD2DEG(angle_in_radians) ((angle_in_radians) * (180 / M_PI))
+#define DEG2RAD(angle_in_degrees) ((angle_in_degrees) * (M_PI / 180))
+
 //
 // typedefs
 //
@@ -85,6 +88,8 @@ typedef struct {
 
 int intersect(line_t *line, plane_t *plane, point_t *point_result);
 int reflect(point_t *point, plane_t *plane, point_t *point_result);
+
+double distance(point_t *p1, point_t *p2);
 
 double magnitude(vector_t *v);
 int normalize(vector_t *v);
