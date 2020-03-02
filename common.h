@@ -34,7 +34,7 @@ struct photon_s;
 
 typedef struct {
     char name[100];
-    int wavelength;   // mm
+    double wavelength;   // mm
     struct element_s {
         char name[100];
         geo_plane_t plane;
@@ -61,6 +61,7 @@ void sim_reset(void);
 void sim_run(void);
 void sim_stop(void);
 bool sim_is_running(void);
+void sim_get_screen(int zoom_factor, double **screen_arg, int *max_wh_arg, double *wh_mm_arg);
 
 int display_init(void);
 void display_hndlr(void);

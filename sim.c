@@ -4,6 +4,8 @@
 // defines
 //
 
+#define MAX_SCREEN 5000
+
 //
 // typedefs
 //
@@ -24,6 +26,9 @@ typedef struct element_s element_t;
 
 static volatile bool run;
 
+static double screen_amp1[MAX_SCREEN][MAX_SCREEN];
+static double screen_amp2[MAX_SCREEN][MAX_SCREEN];
+
 //
 // prototypes
 //
@@ -36,6 +41,15 @@ static void simulate_a_photon(void);
 static int source_single_slit_hndlr(element_t *elem, photon_t *photon);
 static int mirror_hndlr(element_t *elem, photon_t *photon);
 static int screen_hndlr(element_t *elem, photon_t *photon);
+
+//
+// inline procedures
+//
+
+static inline double square(double x)
+{
+    return x * x;
+}
 
 // -----------------  SIM APIS  -----------------------------------------------------
 
@@ -82,6 +96,60 @@ bool sim_is_running(void)
     return run;
 }
 
+void sim_get_screen(int zoom_factor, double **screen_arg, int *max_wh_arg, double *wh_mm_arg)
+{
+    int i,j,k,ii,jj,max_wh;
+    double max_screen_value;
+    double *screen;
+
+    // allocate memory for screen return buffer;
+    // caller must free it when done
+    max_wh = MAX_SCREEN / zoom_factor;
+    screen = malloc(max_wh*max_wh*sizeof(double));
+    INFO("screen = %p  max_wh=%d\n", screen, max_wh);
+
+    // using the screen_amp1, screen_amp2, and zoom_factor as input,
+    // compute the return screen buffer intensity values;
+    // these values will be normalized later
+    k = 0;
+    for (i = 0; i < max_wh; i++) {
+        for (j = 0; j < max_wh; j++) {
+            //INFO("i,j %d %d\n", i,j);
+            double sum = 0;
+            for (ii = i*zoom_factor; ii < (i+1)*zoom_factor; ii++) {
+                for (jj = j*zoom_factor; jj < (j+1)*zoom_factor; jj++) {
+                    //if (i==456 && j==1) printf("ii jj %d %d\n", ii,jj);
+                    sum += square(screen_amp1[ii][jj]) + square(screen_amp2[ii][jj]);
+                }
+            }
+            screen[k++] = sum;
+        }
+    }
+    assert(k == max_wh*max_wh);
+
+    // determine max_screen_value
+    max_screen_value = -1;
+    for (i = 0; i < max_wh*max_wh; i++) {
+        if (screen[i] > max_screen_value) {
+            max_screen_value = screen[i];
+        }
+    }
+    INFO("max_screen_value %g\n", max_screen_value);
+
+    // normalize screen values to range 0..1
+    if (max_screen_value) {
+        double max_screen_value_recipricol = 1 / max_screen_value;
+        for (i = 0; i < max_wh*max_wh; i++) {
+            screen[i] *= max_screen_value_recipricol;
+        }
+    }
+
+    // return values to caller
+    *screen_arg = screen;
+    *max_wh_arg = max_wh;
+    *wh_mm_arg  = max_wh * .01;  // XXX needs define
+}
+
 // -----------------  READ CONFIG FILE  ---------------------------------------------
 
 static int read_config_file(void)
@@ -116,6 +184,8 @@ static int read_config_file(void)
     max_config++;
 
     current_config = &config[0];
+
+    INFO("WAVELENGTH %g\n", current_config->wavelength);
 #endif
 
     return 0;
@@ -127,12 +197,16 @@ static void *sim_thread(void *cx)
 {
     while (true) {
         // wait for run flag to be set
+        INFO("WAITING FOR UN\n");
         while (!run) {
             usleep(10000);
         }
 
         // while run flag is set, simulate photons
+        INFO("RUN IS SET\n");
         while (run) {
+            sleep(1);
+            INFO("CALLING SIMULATE\n");
             simulate_a_photon();
             __sync_synchronize();
         }
@@ -154,11 +228,11 @@ static void simulate_a_photon(void)
         next = (elem->hndlr)(elem, &photon);
 
         if (next != -1) {
-            DEBUG("photon leaving %s %d, next %s %d - %s\n",
-                  elem->name, idx, element[next].name, next, line_str(&photon.current,s1));
+            INFO("photon leaving %s %d, next %s %d - %s\n",
+                  elem->name, idx, current_config->element[next].name, next, line_str(&photon.current,s1));
         } else {
-            DEBUG("photon done at %s %d, - %s\n",
-                  elem->name, idx, point_str(photon.current.p,s1));
+            INFO("photon done at %s %d, - %s\n",
+                  elem->name, idx, point_str(&photon.current.p,s1));
         }
 
         idx = next;
@@ -227,9 +301,6 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
-#define MAX_SCREEN 5000
-static double screen_amp1[MAX_SCREEN][MAX_SCREEN];
-static double screen_amp2[MAX_SCREEN][MAX_SCREEN];
 static int screen_hndlr(element_t *elem, photon_t *photon)
 {
     geo_point_t point_intersect;
@@ -267,17 +338,17 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
         amp2 = cos(angle);
         screen_amp1[screen_x_idx][screen_z_idx] += amp1;
         screen_amp2[screen_x_idx][screen_z_idx] += amp2;
-        //INFO("screen_amp1/2 [%d] = %g %g\n",
-             //screen_x_idx,
-             //screen_amp1[screen_x_idx][screen_z_idx],
-             //screen_amp2[screen_x_idx][screen_z_idx]);
+        INFO("screen_amp1/2 [%d] = %g %g\n",
+             screen_x_idx,
+             screen_amp1[screen_x_idx][screen_z_idx],
+             screen_amp2[screen_x_idx][screen_z_idx]);
     } else {
-        //INFO("SKIPPLING\n");
+        INFO("SKIPPLING\n");
     }
 
-    //INFO("screen_x = %g screen_z = %g   %d %d  - td = %g\n", 
-         //screen_x, screen_z, screen_x_idx, screen_z_idx,
-         //photon->total_distance);
+    INFO("screen_x = %g screen_z = %g   %d %d  - td = %g\n", 
+         screen_x, screen_z, screen_x_idx, screen_z_idx,
+         photon->total_distance);
 
     // set new photon position
     photon->current.p = point_intersect;

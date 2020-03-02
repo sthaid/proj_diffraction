@@ -27,7 +27,7 @@ SOFTWARE.
 
 // XXX todo - check for error conditions, such as denominator==0
 
-inline double square(double x)
+static inline double square(double x)
 {
     return x * x;
 }
