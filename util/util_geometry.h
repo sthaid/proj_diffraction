@@ -64,42 +64,42 @@ typedef struct {
     double x;
     double y;
     double z;
-} point_t;
+} geo_point_t;
 
 typedef struct {
     double a;
     double b;
     double c;
-} vector_t;
+} geo_vector_t;
 
 typedef struct {
-    point_t p;
-    vector_t v;
-} line_t;
+    geo_point_t p;
+    geo_vector_t v;
+} geo_line_t;
 
 typedef struct {
-    point_t p;
-    vector_t n;
-} plane_t;
+    geo_point_t p;
+    geo_vector_t n;
+} geo_plane_t;
 
 //
 // prototypes
 //
 
-int intersect(line_t *line, plane_t *plane, point_t *point_result);
-int reflect(point_t *point, plane_t *plane, point_t *point_result);
+int intersect(geo_line_t *line, geo_plane_t *plane, geo_point_t *point_result);
+int reflect(geo_point_t *point, geo_plane_t *plane, geo_point_t *point_result);
 
-double distance(point_t *p1, point_t *p2);
+double distance(geo_point_t *p1, geo_point_t *p2);
 
-double magnitude(vector_t *v);
-int normalize(vector_t *v);
+double magnitude(geo_vector_t *v);
+int normalize(geo_vector_t *v);
 
-void cross_product(vector_t *v1, vector_t *v2, vector_t *v_result);
-double dot_product(vector_t *v1, vector_t *v2);
+void cross_product(geo_vector_t *v1, geo_vector_t *v2, geo_vector_t *v_result);
+double dot_product(geo_vector_t *v1, geo_vector_t *v2);
 
-char *vector_str(vector_t *v, char *s);
-char *point_str(point_t *p, char *s);
-char *line_str(line_t *l, char *s);
+char *vector_str(geo_vector_t *v, char *s);
+char *point_str(geo_point_t *p, char *s);
+char *line_str(geo_line_t *l, char *s);
 
 #endif
 

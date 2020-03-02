@@ -34,7 +34,7 @@ inline double square(double x)
 
 // -----------------  INTERSECT LINE AND PLANE  -----------------------------
 
-int intersect(line_t *line, plane_t *plane, point_t *point_result)
+int intersect(geo_line_t *line, geo_plane_t *plane, geo_point_t *point_result)
 {
     // line
     //   LX = LXo + T LA
@@ -95,14 +95,14 @@ int intersect(line_t *line, plane_t *plane, point_t *point_result)
 
 // -----------------  REFLECT POINT ABOUT PLANE  ----------------------------
 
-int reflect(point_t *point, plane_t *plane, point_t *point_result)
+int reflect(geo_point_t *point, geo_plane_t *plane, geo_point_t *point_result)
 {
     // construct line through point, normal to the plane
-    line_t Line = { *point, plane->n };
+    geo_line_t Line = { *point, plane->n };
 
     // using defines from the above routine determine the value of T
     // for the intersection of this line with the plane
-    line_t *line = &Line;
+    geo_line_t *line = &Line;
     double PD, T, denominator;
 
     PD = PA * PXo + PB * PYo + PC * PZo;
@@ -120,7 +120,7 @@ int reflect(point_t *point, plane_t *plane, point_t *point_result)
 
 // -----------------  DISTANCE BETWEEN POINTS  ------------------------------
 
-double distance(point_t *p1, point_t *p2)
+double distance(geo_point_t *p1, geo_point_t *p2)
 {
     return sqrt( square(p1->x - p2->x) +
                  square(p1->y - p2->y) +
@@ -129,12 +129,12 @@ double distance(point_t *p1, point_t *p2)
 
 // -----------------  VARIOUS VECTOR OPERATIONS  ----------------------------
 
-double magnitude(vector_t *v)
+double magnitude(geo_vector_t *v)
 {
     return sqrt( square(v->a) + square(v->b) + square(v->c) );
 }
 
-int normalize(vector_t *v)
+int normalize(geo_vector_t *v)
 {
     double m;
 
@@ -150,33 +150,33 @@ int normalize(vector_t *v)
     return 0;
 }
 
-void cross_product(vector_t *v1, vector_t *v2, vector_t *v_result)
+void cross_product(geo_vector_t *v1, geo_vector_t *v2, geo_vector_t *v_result)
 {
     v_result->a = v1->b * v2->c - v1->c * v2->b;
     v_result->b = v1->c * v2->a - v1->a * v2->c;
     v_result->c = v1->a * v2->b - v1->b * v2->a;
 }
 
-double dot_product(vector_t *v1, vector_t *v2)
+double dot_product(geo_vector_t *v1, geo_vector_t *v2)
 {
     return v1->a*v2->a + v1->b*v2->b + v1->c*v2->c;
 }
 
 // -----------------  DEBUG SUPPORT  ----------------------------------------
 
-char *vector_str(vector_t *v, char *s)
+char *vector_str(geo_vector_t *v, char *s)
 {
     sprintf(s, "vect=(%g,%g,%g)", v->a, v->b, v->c);
     return s;
 }
 
-char *point_str(point_t *p, char *s)
+char *point_str(geo_point_t *p, char *s)
 {
     sprintf(s, "point=(%g,%g,%g)", p->x, p->y, p->z);
     return s;
 }
 
-char *line_str(line_t *l, char *s)
+char *line_str(geo_line_t *l, char *s)
 {
     char s1[100], s2[100];
     sprintf(s, "%s %s",  point_str(&l->p,s1), vector_str(&l->v,s2));
@@ -195,10 +195,10 @@ int main(int argc, char **argv)
 {
     char s1[100], s2[100], s3[100];
     double cosine;
-    vector_t v, v1, v2, v_cross;
-    line_t  line;
-    plane_t plane;
-    point_t point, point_result;
+    geo_vector_t v, v1, v2, v_cross;
+    geo_line_t  line;
+    geo_plane_t plane;
+    geo_point_t point, point_result;
 
     printf("TEST normalize and magnitude\n");
     VECT_INIT(&v, 1, -1, 1);

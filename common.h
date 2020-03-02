@@ -1,10 +1,20 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <pthread.h>
+#include <assert.h>
 
 #include <util_misc.h>
 #include <util_geometry.h>
+#include <util_sdl.h>
+
+//
+// notes
+// - lengths are in mm unless otherwise indicated
+//
 
 //
 // defines
@@ -12,6 +22,9 @@
 
 #define MAX_CONFIG 100
 #define MAX_ELEMENT 10
+
+#define NM2MM(x) ((x) * 1e-6)
+#define MM2NM(x) ((x) * 1e6)
 
 //
 // typedefs
@@ -21,9 +34,10 @@ struct photon_s;
 
 typedef struct {
     char name[100];
+    int wavelength;   // mm
     struct element_s {
         char name[100];
-        plane_t plane;
+        geo_plane_t plane;
         int next;
         int (*hndlr)(struct element_s *elem, struct photon_s *photon);
     } element[MAX_ELEMENT];
@@ -42,14 +56,14 @@ sim_config_t * current_config;
 //
 
 int sim_init(void);
-void sim_select_config(int config_idx);
+void sim_select_config(int idx);
 void sim_reset(void);
 void sim_run(void);
 void sim_stop(void);
 bool sim_is_running(void);
 
 int display_init(void);
-int display_hndlr(void);
+void display_hndlr(void);
 
 
 
