@@ -61,7 +61,7 @@ void sim_reset(void);
 void sim_run(void);
 void sim_stop(void);
 bool sim_is_running(void);
-void sim_get_screen(int zoom_factor, double **screen_arg, int *max_wh_arg, double *wh_mm_arg);
+void sim_get_screen(double **screen, int *max_screen, double *screen_width_and_height);
 
 int display_init(void);
 void display_hndlr(void);

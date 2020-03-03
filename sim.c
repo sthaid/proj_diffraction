@@ -1,3 +1,22 @@
+// XXX add double slit source
+
+// XXX try using the mirror
+
+// XXX add constraint checks on source and screen
+
+// XXX print photon rate
+//     mutex in screenamp hndlr
+//     use multiple threads
+//   DID THIS BUT 1 thread works best,  why?
+//   TRY AT WORK
+
+// XXX experiment with less than 5000 for MAX_SCREEN, to improve performance
+
+// XXX draw diagram, and add ray tracing
+
+// XXX pan and zoom for diagram and maybe for screen
+
+
 #include "common.h"
 
 //
@@ -29,6 +48,8 @@ static volatile bool run;
 static double screen_amp1[MAX_SCREEN][MAX_SCREEN];
 static double screen_amp2[MAX_SCREEN][MAX_SCREEN];
 
+static unsigned long photon_count;
+
 //
 // prototypes
 //
@@ -36,9 +57,11 @@ static double screen_amp2[MAX_SCREEN][MAX_SCREEN];
 static int read_config_file(void);
 
 static void *sim_thread(void *cx);
+static void *sim_monitor_thread(void *cx);
 static void simulate_a_photon(void);
 
 static int source_single_slit_hndlr(element_t *elem, photon_t *photon);
+static int source_round_hole_hndlr(element_t *elem, photon_t *photon);
 static int mirror_hndlr(element_t *elem, photon_t *photon);
 static int screen_hndlr(element_t *elem, photon_t *photon);
 
@@ -53,15 +76,21 @@ static inline double square(double x)
 
 // -----------------  SIM APIS  -----------------------------------------------------
 
+#define MAX_SIM_THREAD 1
+
 int sim_init(void)
 {
     pthread_t thread_id;
+    int i;
 
     if (read_config_file() < 0) {
         return -1;
     }
 
-    pthread_create(&thread_id, NULL, sim_thread, NULL);
+    for (i = 0; i < MAX_SIM_THREAD; i++) {
+        pthread_create(&thread_id, NULL, sim_thread, NULL);
+    }
+    pthread_create(&thread_id, NULL, sim_monitor_thread, NULL);
 
     return 0;
 }
@@ -96,24 +125,29 @@ bool sim_is_running(void)
     return run;
 }
 
-void sim_get_screen(int zoom_factor, double **screen_arg, int *max_wh_arg, double *wh_mm_arg)
+void sim_get_screen(double **screen_ret, int *max_screen_ret, double *screen_width_and_height_ret)
 {
-    int i,j,k,ii,jj,max_wh;
+    int i,j,k,ii,jj,max_screen;
     double max_screen_value;
     double *screen;
 
+    int zoom_factor = 10; // XXX
+
+    // XXX don't like MAX_SCREEN and max_screen, they are differnet
+
     // allocate memory for screen return buffer;
     // caller must free it when done
-    max_wh = MAX_SCREEN / zoom_factor;
-    screen = malloc(max_wh*max_wh*sizeof(double));
-    INFO("screen = %p  max_wh=%d\n", screen, max_wh);
+    max_screen = MAX_SCREEN / zoom_factor;
+    screen = malloc(max_screen*max_screen*sizeof(double));
+    //INFO("screen = %p  max_screen=%d\n", screen, max_screen);
 
+#if 1
     // using the screen_amp1, screen_amp2, and zoom_factor as input,
     // compute the return screen buffer intensity values;
     // these values will be normalized later
     k = 0;
-    for (i = 0; i < max_wh; i++) {
-        for (j = 0; j < max_wh; j++) {
+    for (i = 0; i < max_screen; i++) {
+        for (j = 0; j < max_screen; j++) {
             //INFO("i,j %d %d\n", i,j);
             double sum = 0;
             for (ii = i*zoom_factor; ii < (i+1)*zoom_factor; ii++) {
@@ -125,29 +159,35 @@ void sim_get_screen(int zoom_factor, double **screen_arg, int *max_wh_arg, doubl
             screen[k++] = sum;
         }
     }
-    assert(k == max_wh*max_wh);
+    assert(k == max_screen*max_screen);
+#else
+    memset(screen,0,max_screen*max_screen*sizeof(double));
+    for (i = 100; i < 300; i++) {
+        screen[250*500+i] = 1;
+    }
+#endif
 
     // determine max_screen_value
     max_screen_value = -1;
-    for (i = 0; i < max_wh*max_wh; i++) {
+    for (i = 0; i < max_screen*max_screen; i++) {
         if (screen[i] > max_screen_value) {
             max_screen_value = screen[i];
         }
     }
-    INFO("max_screen_value %g\n", max_screen_value);
+    DEBUG("max_screen_value %g\n", max_screen_value);
 
     // normalize screen values to range 0..1
     if (max_screen_value) {
         double max_screen_value_recipricol = 1 / max_screen_value;
-        for (i = 0; i < max_wh*max_wh; i++) {
+        for (i = 0; i < max_screen*max_screen; i++) {
             screen[i] *= max_screen_value_recipricol;
         }
     }
 
     // return values to caller
-    *screen_arg = screen;
-    *max_wh_arg = max_wh;
-    *wh_mm_arg  = max_wh * .01;  // XXX needs define
+    *screen_ret = screen;
+    *max_screen_ret = max_screen;
+    *screen_width_and_height_ret = MAX_SCREEN * .01;
 }
 
 // -----------------  READ CONFIG FILE  ---------------------------------------------
@@ -173,20 +213,23 @@ static int read_config_file(void)
         } while (0)
 
 #if 0
+    // XXX OLD 
     INIT_ELEM(0, source_single_slit, 0,0,0,       1,0,0,     1);
     INIT_ELEM(1, mirror,             500,0,0,     -1,1,0,    2);
     INIT_ELEM(2, screen,             500,500,0,   0,-1,0,    -1);
 #endif
-#if 1
-    INIT_CONFIG(max_config, "test1", NM2MM(532));
+
+    INIT_CONFIG(max_config, "test_round_hole", NM2MM(532));
+    INIT_CONFIG_ELEM(max_config, 0, source_round_hole,  0,0,0,       1,0,0,     1);
+    INIT_CONFIG_ELEM(max_config, 1, screen,             2000,0,0,    -1,0,0,    -1);
+    max_config++;
+
+    INIT_CONFIG(max_config, "test_single_slit", NM2MM(532));
     INIT_CONFIG_ELEM(max_config, 0, source_single_slit, 0,0,0,       1,0,0,     1);
     INIT_CONFIG_ELEM(max_config, 1, screen,             2000,0,0,    -1,0,0,    -1);
     max_config++;
 
     current_config = &config[0];
-
-    INFO("WAVELENGTH %g\n", current_config->wavelength);
-#endif
 
     return 0;
 }
@@ -205,11 +248,38 @@ static void *sim_thread(void *cx)
         // while run flag is set, simulate photons
         INFO("RUN IS SET\n");
         while (run) {
-            sleep(1);
-            INFO("CALLING SIMULATE\n");
+            //sleep(1);
+            //INFO("CALLING SIMULATE\n");
             simulate_a_photon();
-            __sync_synchronize();
+
+            __sync_fetch_and_add(&photon_count,1);
+            //__sync_synchronize();
         }
+    }
+
+    return NULL;
+}
+
+// XXX bump up prio, if needed
+static void *sim_monitor_thread(void *cx)
+{
+    unsigned long start_us, end_us;
+    unsigned long start_photon_count, end_photon_count;
+    double photons_per_sec;
+
+    // XXX monitor run flag
+
+    while (true) {
+        start_us = microsec_timer();
+        start_photon_count = photon_count;
+
+        sleep(1);
+
+        end_us = microsec_timer();
+        end_photon_count = photon_count;
+
+        photons_per_sec = (end_photon_count - start_photon_count) / ((end_us - start_us) / 1000000.);
+        INFO("RATE = %g million photons/sec\n", photons_per_sec/1000000);
     }
 
     return NULL;
@@ -228,10 +298,10 @@ static void simulate_a_photon(void)
         next = (elem->hndlr)(elem, &photon);
 
         if (next != -1) {
-            INFO("photon leaving %s %d, next %s %d - %s\n",
+            DEBUG("photon leaving %s %d, next %s %d - %s\n",
                   elem->name, idx, current_config->element[next].name, next, line_str(&photon.current,s1));
         } else {
-            INFO("photon done at %s %d, - %s\n",
+            DEBUG("photon done at %s %d, - %s\n",
                   elem->name, idx, point_str(&photon.current.p,s1));
         }
 
@@ -243,6 +313,8 @@ static void simulate_a_photon(void)
 }
 
 // -----------------  OPTICAL ELEMENT HANDLERS  -----------------------------------
+
+// XXX THESE all need to use config
 
 // XXX this is also constrained, must be aligned and z = 0
 static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
@@ -257,12 +329,13 @@ static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
 #else
     photon->current.p.x = 0;
     photon->current.p.y = random_range(-.05,+.05);
-    photon->current.p.z = 0;
+    photon->current.p.z = random_range(-1,+1);
 
-    double angle = random_range(DEG2RAD(-1),DEG2RAD(1));
+    double angle_width_spread = random_range(DEG2RAD(-1),DEG2RAD(1));
+    double angle_height_spread = random_range(DEG2RAD(-.01),DEG2RAD(.01));
     photon->current.v.a = 1;
-    photon->current.v.b = 1 * tan(angle);
-    photon->current.v.c = 0;
+    photon->current.v.b = 1 * tan(angle_width_spread);
+    photon->current.v.c = 1 * tan(angle_height_spread);
 #endif
 
 #if 0  // LATER
@@ -270,6 +343,36 @@ static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
     photon->max_point++;
 #endif
     
+    // return next element
+    return elem->next;
+}
+
+static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
+{
+    double y,z;
+
+    // init the photon to all fields 0
+    memset(photon, 0, sizeof(photon_t));
+
+    // set the photons current location (current.p) and direction (current.v)
+    //INFO("START\n");
+    do {
+        y = random_range(-.05,.05);
+        z = random_range(-.05,.05);
+    } while (square(y) + square(z) > square(.1));
+    //INFO("GOT yz %g %g\n",y,z);
+
+    photon->current.p.x = 0;
+    photon->current.p.y = y;
+    photon->current.p.z = z;
+
+    double angle_width_spread = random_range(DEG2RAD(-1),DEG2RAD(1));
+    double angle_height_spread = random_range(DEG2RAD(-1),DEG2RAD(1));
+
+    photon->current.v.a = 1;
+    photon->current.v.b = 1 * tan(angle_width_spread);
+    photon->current.v.c = 1 * tan(angle_height_spread);
+
     // return next element
     return elem->next;
 }
@@ -308,6 +411,8 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
     int screen_x_idx, screen_z_idx;
     char s[100] __attribute__((unused));
 
+    static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
     // intersect the photon with the screen
     intersect(&photon->current, &elem->plane, &point_intersect);
     DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
@@ -320,7 +425,7 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
     screen_x = point_intersect.y - elem->plane.p.y;
     screen_z = point_intersect.z - elem->plane.p.z;
 
-    screen_x_idx = nearbyint(screen_x * 100 + MAX_SCREEN/2);
+    screen_x_idx = nearbyint(screen_x * 100 + MAX_SCREEN/2);  // XXX this makes .01 m
     screen_z_idx = nearbyint(screen_z * 100 + MAX_SCREEN/2);
 #endif
 
@@ -336,17 +441,19 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
         angle = (n - floor(n)) * (2*M_PI);
         amp1 = sin(angle);
         amp2 = cos(angle);
-        screen_amp1[screen_x_idx][screen_z_idx] += amp1;
-        screen_amp2[screen_x_idx][screen_z_idx] += amp2;
-        INFO("screen_amp1/2 [%d] = %g %g\n",
+        pthread_mutex_lock(&mutex);
+        screen_amp1[screen_z_idx][screen_x_idx] += amp1;
+        screen_amp2[screen_z_idx][screen_x_idx] += amp2;
+        pthread_mutex_unlock(&mutex);
+        DEBUG("screen_amp1/2 [%d] = %g %g\n",
              screen_x_idx,
-             screen_amp1[screen_x_idx][screen_z_idx],
-             screen_amp2[screen_x_idx][screen_z_idx]);
+             screen_amp1[screen_z_idx][screen_x_idx],
+             screen_amp2[screen_z_idx][screen_x_idx]);
     } else {
-        INFO("SKIPPLING\n");
+        DEBUG("SKIPPLING\n");
     }
 
-    INFO("screen_x = %g screen_z = %g   %d %d  - td = %g\n", 
+    DEBUG("screen_x = %g screen_z = %g   %d %d  - td = %g\n", 
          screen_x, screen_z, screen_x_idx, screen_z_idx,
          photon->total_distance);
 
@@ -380,6 +487,7 @@ void print_screen_inten(void)
     double max_inten;
 
     for (i = 0; i < MAX_SCREEN; i++) {
+        // XXX reverse coords
         inten[i] = square(screen_amp1[i][MAX_SCREEN/2]) + square(screen_amp2[i][MAX_SCREEN/2]);
     }
 
