@@ -121,18 +121,32 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        geo_point_t p1 = {0,0,0};
-        geo_point_t p2 = {100,300,0};
-        draw_line(pane,&p1,&p2);
+        static geo_vector_t vertical = {0,0,1};
+        geo_vector_t result;
+        geo_point_t p1, p2;
+        int i;
+        struct element_s *e;
+        char title_str[200];
+
+        sprintf(title_str, "%s - %g nm", current_config->name, MM2NM(current_config->wavelength));
+        sdl_render_text(pane, 
+                        pane->w/2 - COL2X(strlen(title_str),FONTSZ)/2, 0, 
+                        FONTSZ, title_str, WHITE, BLACK);
+
+        for (i = 0; (e = &current_config->element[i])->hndlr; i++) {
+            cross_product(&e->plane.n, &vertical, &result);
+            set_vector_magnitude(&result, 10);  // XXX should be element diameter
+            point_plus_vector(&e->plane.p, &result, &p1);
+            point_minus_vector(&e->plane.p, &result, &p2);
+            draw_line(pane, &p1, &p2);
+        }
 
         sdl_register_event(pane, pane, SDL_EVENT_ZOOM, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
         sdl_register_event(pane, pane, SDL_EVENT_PAN, SDL_EVENT_TYPE_MOUSE_MOTION, pane_cx);
-
         sdl_render_text_and_register_event(
-                pane, COL2X(0,FONTSZ), ROW2Y(0,FONTSZ), FONTSZ,
+                pane, pane->w-COL2X(14,FONTSZ), ROW2Y(1,FONTSZ), FONTSZ,
                 "RESET_PAN_ZOOM", LIGHT_BLUE, BLACK,
                 SDL_EVENT_RESET_PAN_ZOOM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -179,6 +193,8 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     return PANE_HANDLER_RET_NO_ACTION;
 }
 
+// XXX comment about 'z' being ignored
+
 void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2)
 {
     point_t pixel_p1, pixel_p2;
@@ -191,7 +207,6 @@ void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2)
 
     sdl_render_line(pane, pixel_p1.x, pixel_p1.y, pixel_p2.x, pixel_p2.y, WHITE);
 }
-
 
 void transform(geo_point_t *geo_p, point_t *pixel_p)
 {

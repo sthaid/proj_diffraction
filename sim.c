@@ -185,7 +185,7 @@ static int read_config_file(void)
     #define INIT_CONFIG(_config_idx, _name, _wavelength) \
         do { \
             sim_config_t *cfg = &config[_config_idx]; \
-            strcpy(cfg->name, #_name); \
+            strcpy(cfg->name, _name); \
             cfg->wavelength = _wavelength; \
         } while (0)
 

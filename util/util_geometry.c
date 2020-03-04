@@ -118,36 +118,34 @@ int reflect(geo_point_t *point, geo_plane_t *plane, geo_point_t *point_result)
     return 0;
 }
 
-// -----------------  DISTANCE BETWEEN POINTS  ------------------------------
-
-double distance(geo_point_t *p1, geo_point_t *p2)
-{
-    return sqrt( square(p1->x - p2->x) +
-                 square(p1->y - p2->y) +
-                 square(p1->z - p2->z) );
-}
-
-// -----------------  VARIOUS VECTOR OPERATIONS  ----------------------------
+// -----------------  VECTOR OPERATIONS  ------------------------------------
 
 double magnitude(geo_vector_t *v)
 {
     return sqrt( square(v->a) + square(v->b) + square(v->c) );
 }
 
-int normalize(geo_vector_t *v)
+int set_vector_magnitude(geo_vector_t *v, double new_magnitude)
 {
-    double m;
+    double current_magnitude, factor;
 
-    m = magnitude(v);
-    if (m == 0) {
+    current_magnitude = magnitude(v);
+    if (current_magnitude == 0) {
         return -1;
     }
 
-    v->a /= m;
-    v->b /= m;
-    v->c /= m;
+    factor = new_magnitude / current_magnitude;
+
+    v->a *= factor;
+    v->b *= factor;
+    v->c *= factor;
 
     return 0;
+}
+
+int normalize(geo_vector_t *v)
+{
+    return set_vector_magnitude(v, 1.0);
 }
 
 void cross_product(geo_vector_t *v1, geo_vector_t *v2, geo_vector_t *v_result)
@@ -160,6 +158,29 @@ void cross_product(geo_vector_t *v1, geo_vector_t *v2, geo_vector_t *v_result)
 double dot_product(geo_vector_t *v1, geo_vector_t *v2)
 {
     return v1->a*v2->a + v1->b*v2->b + v1->c*v2->c;
+}
+
+// -----------------  MISCELLANEOUS OPERATIONS  -----------------------------
+
+double distance(geo_point_t *p1, geo_point_t *p2)
+{
+    return sqrt( square(p1->x - p2->x) +
+                 square(p1->y - p2->y) +
+                 square(p1->z - p2->z) );
+}
+
+void point_plus_vector(geo_point_t *p, geo_vector_t *v, geo_point_t *p_result)
+{
+    p_result->x = p->x + v->a;
+    p_result->y = p->y + v->b;
+    p_result->z = p->z + v->c;
+}
+
+void point_minus_vector(geo_point_t *p, geo_vector_t *v, geo_point_t *p_result)
+{
+    p_result->x = p->x - v->a;
+    p_result->y = p->y - v->b;
+    p_result->z = p->z - v->c;
 }
 
 // -----------------  DEBUG SUPPORT  ----------------------------------------
