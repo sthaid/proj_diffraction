@@ -77,6 +77,13 @@ void display_hndlr(void)
 
 // -----------------  INTERFEROMETER DIAGRAM PANE HANDLER  --------------------------------
 
+static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2);
+static void transform(geo_point_t *geo_p, point_t *pixel_p);
+
+static int x_pixel_org;
+static int y_pixel_org;
+static double scale_pixel_per_mm;
+
 static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
     struct {
@@ -84,16 +91,28 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
-   #define SDL_EVENT_XXX    (SDL_EVENT_USER_DEFINED + 0)
+    #define SDL_EVENT_ZOOM            (SDL_EVENT_USER_DEFINED + 0)
+    #define SDL_EVENT_PAN             (SDL_EVENT_USER_DEFINED + 1)
+    #define SDL_EVENT_RESET_PAN_ZOOM  (SDL_EVENT_USER_DEFINED + 2)
+
+    #define DEFAULT_X_PIXEL_ORG          0
+    #define DEFAULT_Y_PIXEL_ORG          (pane->h/2)
+    #define DEFAULT_SCALE_PIXEL_PER_MM   1.0
 
     // ----------------------------
     // -------- INITIALIZE --------
     // ----------------------------
 
     if (request == PANE_HANDLER_REQ_INITIALIZE) {
-        vars = pane_cx->vars = calloc(1,sizeof(*vars));
         INFO("PANE x,y,w,h  %d %d %d %d\n",
             pane->x, pane->y, pane->w, pane->h);
+
+        vars = pane_cx->vars = calloc(1,sizeof(*vars));
+
+        x_pixel_org = DEFAULT_X_PIXEL_ORG;
+        y_pixel_org = DEFAULT_Y_PIXEL_ORG;
+        scale_pixel_per_mm = DEFAULT_SCALE_PIXEL_PER_MM;
+
         return PANE_HANDLER_RET_NO_ACTION;
     }
 
@@ -102,6 +121,19 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
+        geo_point_t p1 = {0,0,0};
+        geo_point_t p2 = {100,300,0};
+        draw_line(pane,&p1,&p2);
+
+        sdl_register_event(pane, pane, SDL_EVENT_ZOOM, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
+        sdl_register_event(pane, pane, SDL_EVENT_PAN, SDL_EVENT_TYPE_MOUSE_MOTION, pane_cx);
+
+        sdl_render_text_and_register_event(
+                pane, COL2X(0,FONTSZ), ROW2Y(0,FONTSZ), FONTSZ,
+                "RESET_PAN_ZOOM", LIGHT_BLUE, BLACK,
+                SDL_EVENT_RESET_PAN_ZOOM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+
         return PANE_HANDLER_RET_NO_ACTION;
     }
 
@@ -111,9 +143,25 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
 
     if (request == PANE_HANDLER_REQ_EVENT) {
         switch (event->event_id) {
-        case SDL_EVENT_XXX:
+        case SDL_EVENT_ZOOM:
+            if (event->mouse_wheel.delta_y > 0) {
+                scale_pixel_per_mm *= 1.1;
+            } else if (event->mouse_wheel.delta_y < 0) {
+                scale_pixel_per_mm /= 1.1;
+            }
+            // XXX if it near one ..
+            break;
+        case SDL_EVENT_PAN:
+            x_pixel_org += event->mouse_motion.delta_x;
+            y_pixel_org += event->mouse_motion.delta_y;
+            break;
+        case SDL_EVENT_RESET_PAN_ZOOM:
+            x_pixel_org = DEFAULT_X_PIXEL_ORG;
+            y_pixel_org = DEFAULT_Y_PIXEL_ORG;
+            scale_pixel_per_mm = DEFAULT_SCALE_PIXEL_PER_MM;
             break;
         }
+
         return PANE_HANDLER_RET_DISPLAY_REDRAW;
     }
 
@@ -130,6 +178,27 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     assert(0);
     return PANE_HANDLER_RET_NO_ACTION;
 }
+
+void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2)
+{
+    point_t pixel_p1, pixel_p2;
+
+    transform(geo_p1, &pixel_p1);
+    transform(geo_p2, &pixel_p2);
+
+    //INFO("pixel %d %d   --   %d %d\n",
+         //pixel_p1.x, pixel_p1.y, pixel_p2.x, pixel_p2.y);
+
+    sdl_render_line(pane, pixel_p1.x, pixel_p1.y, pixel_p2.x, pixel_p2.y, WHITE);
+}
+
+
+void transform(geo_point_t *geo_p, point_t *pixel_p)
+{
+    pixel_p->x = nearbyint(x_pixel_org + geo_p->x * scale_pixel_per_mm);
+    pixel_p->y = nearbyint(y_pixel_org - geo_p->y * scale_pixel_per_mm);
+}
+    
 
 // -----------------  INTERFEROMETER PATTERN PANE HANDLER  ----------------------
 
