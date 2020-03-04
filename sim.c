@@ -1,19 +1,6 @@
-// XXX add double slit source
-
-// XXX try using the mirror
-
 // XXX add constraint checks on source and screen
-
-// XXX print photon rate
-//     mutex in screenamp hndlr
-//     use multiple threads
-//   DID THIS BUT 1 thread works best,  why?
-//   TRY AT WORK
-
 // XXX experiment with less than 5000 for MAX_SCREEN, to improve performance
-
 // XXX draw diagram, and add ray tracing
-
 // XXX pan and zoom for diagram and maybe for screen
 
 
@@ -61,6 +48,7 @@ static void *sim_monitor_thread(void *cx);
 static void simulate_a_photon(void);
 
 static int source_single_slit_hndlr(element_t *elem, photon_t *photon);
+static int source_double_slit_hndlr(element_t *elem, photon_t *photon);
 static int source_round_hole_hndlr(element_t *elem, photon_t *photon);
 static int mirror_hndlr(element_t *elem, photon_t *photon);
 static int screen_hndlr(element_t *elem, photon_t *photon);
@@ -229,7 +217,18 @@ static int read_config_file(void)
     INIT_CONFIG_ELEM(max_config, 1, screen,             2000,0,0,    -1,0,0,    -1);
     max_config++;
 
-    current_config = &config[0];
+    INIT_CONFIG(max_config, "test_double_slit", NM2MM(532));
+    INIT_CONFIG_ELEM(max_config, 0, source_double_slit, 0,0,0,       1,0,0,     1);
+    INIT_CONFIG_ELEM(max_config, 1, screen,             2000,0,0,    -1,0,0,    -1);
+    max_config++;
+
+    INIT_CONFIG(max_config, "test_double_slit_and_mirror", NM2MM(532));
+    INIT_CONFIG_ELEM(max_config, 0, source_double_slit, 0,0,0,         1,0,0,     1);
+    INIT_CONFIG_ELEM(max_config, 1, mirror,             1000,0,0,      -1,1,0,    2);
+    INIT_CONFIG_ELEM(max_config, 2, screen,             1000,1000,0,   0,-1,0,   -1);
+    max_config++;
+
+    current_config = &config[3];
 
     return 0;
 }
@@ -246,7 +245,7 @@ static void *sim_thread(void *cx)
         }
 
         // while run flag is set, simulate photons
-        INFO("RUN IS SET\n");
+        INFO("RUN IS SET - FOR %s\n", current_config->name);
         while (run) {
             //sleep(1);
             //INFO("CALLING SIMULATE\n");
@@ -260,7 +259,6 @@ static void *sim_thread(void *cx)
     return NULL;
 }
 
-// XXX bump up prio, if needed
 static void *sim_monitor_thread(void *cx)
 {
     unsigned long start_us, end_us;
@@ -268,7 +266,6 @@ static void *sim_monitor_thread(void *cx)
     double photons_per_sec;
 
     // XXX monitor run flag
-
     while (true) {
         start_us = microsec_timer();
         start_photon_count = photon_count;
@@ -347,6 +344,38 @@ static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
+static int source_double_slit_hndlr(element_t *elem, photon_t *photon)
+{
+    int which_slit;
+
+    // init the photon to all fields 0
+    memset(photon, 0, sizeof(photon_t));
+
+    // first choose the slit
+    which_slit = (random_range(0,1) < 0.5) ? 0 : 1;
+
+    // next choose the position within the slit
+    photon->current.p.x = 0;
+    photon->current.p.z = random_range(-1,+1);
+    if (which_slit == 0) {
+        //photon->current.p.y = random_range(-.15, -.05);
+        photon->current.p.y = random_range(-.225, -.125);
+    } else {
+        //photon->current.p.y = random_range(+.05, +.15);
+        photon->current.p.y = random_range(+.125, +.225);
+    }
+
+    // finally choose the direction
+    double angle_width_spread = random_range(DEG2RAD(-1),DEG2RAD(1));
+    double angle_height_spread = random_range(DEG2RAD(-.01),DEG2RAD(.01));
+    photon->current.v.a = 1;
+    photon->current.v.b = 1 * tan(angle_width_spread);
+    photon->current.v.c = 1 * tan(angle_height_spread);
+
+    // return next element
+    return elem->next;
+}
+
 static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
 {
     double y,z;
@@ -386,6 +415,9 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
     intersect(&photon->current, &elem->plane, &point_intersect);
     DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
 
+    // xxxx
+    photon->total_distance += distance(&photon->current.p, &point_intersect);
+
     // create a point a little before the intesect point
     point_tmp.x = point_intersect.x - photon->current.v.a;
     point_tmp.y = point_intersect.y - photon->current.v.b;
@@ -418,19 +450,18 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
     DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
 
     // determine screen coordinates of the intersect point
-#if 0
+    // call screen_x horizontal and screen_y vertical
+#if 1
     screen_x = point_intersect.x - elem->plane.p.x;
-    screen_z = point_intersect.z - elem->plane.p.z;
 #else
     screen_x = point_intersect.y - elem->plane.p.y;
+#endif
     screen_z = point_intersect.z - elem->plane.p.z;
 
     screen_x_idx = nearbyint(screen_x * 100 + MAX_SCREEN/2);  // XXX this makes .01 m
     screen_z_idx = nearbyint(screen_z * 100 + MAX_SCREEN/2);
-#endif
 
     photon->total_distance += distance(&photon->current.p, &point_intersect);
-
 
     if (screen_x_idx >= 0 && screen_x_idx < MAX_SCREEN &&
         screen_z_idx >= 0 && screen_z_idx < MAX_SCREEN)
@@ -464,47 +495,3 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
-
-#if 0
-char *stars(int n)
-{
-    static char s[50];
-
-    if (n > sizeof(s)-1) {
-        n = sizeof(s)-1;
-    }
-
-    memset(s, '*', n);
-    s[n] = '\0';
-    
-    return s;
-}
-
-void print_screen_inten(void)
-{
-    int i;
-    double inten[MAX_SCREEN];
-    double max_inten;
-
-    for (i = 0; i < MAX_SCREEN; i++) {
-        // XXX reverse coords
-        inten[i] = square(screen_amp1[i][MAX_SCREEN/2]) + square(screen_amp2[i][MAX_SCREEN/2]);
-    }
-
-    max_inten = -1;
-    for (i = 0; i < MAX_SCREEN; i++) {
-        if (inten[i] > max_inten) {
-            max_inten = inten[i];
-        }
-    }
-    printf("max_inten %g\n", max_inten);
-
-    for (i = 0; i < MAX_SCREEN; i++) {
-        inten[i] /= max_inten;
-    }
-
-    for (i = 0; i < MAX_SCREEN; i++) {
-        printf("%3d %0.3f - %s\n", i, inten[i], stars(nearbyint(50*inten[i])));
-    }
-}
-#endif

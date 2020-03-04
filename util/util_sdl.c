@@ -104,6 +104,7 @@ static sdl_event_t      sdl_push_ev;
 static struct pane_list_head_s * sdl_pane_list_head[10];
 static int              sdl_pane_list_head_idx;
 
+// XXX these values need to be swapped if used directly
 static uint32_t         sdl_color_to_rgba[] = {
                             //    red           green          blue    alpha
                                (127 << 24) | (  0 << 16) | (255 << 8) | 255,     // PURPLE
