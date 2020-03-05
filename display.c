@@ -81,8 +81,10 @@ static void draw_lines(rect_t *pane, geo_point_t *geo_point, int max_points, int
 static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color);
 static void transform(geo_point_t *geo_p, point_t *pixel_p);
 
-static int x_pixel_org;
-static int y_pixel_org;
+static int x_pixel_ctr;
+static int y_pixel_ctr;
+static double x_mm_ctr;
+static double y_mm_ctr;
 static double scale_pixel_per_mm;
 
 static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
@@ -98,8 +100,8 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     #define SDL_EVENT_PAN             (SDL_EVENT_USER_DEFINED + 1)
     #define SDL_EVENT_RESET_PAN_ZOOM  (SDL_EVENT_USER_DEFINED + 2)
 
-    #define DEFAULT_X_PIXEL_ORG          0
-    #define DEFAULT_Y_PIXEL_ORG          (pane->h/2)
+    #define DEFAULT_X_MM_CTR             (pane->w / 2 - 10)
+    #define DEFAULT_Y_MM_CTR             0
     #define DEFAULT_SCALE_PIXEL_PER_MM   1.0
 
     // ----------------------------
@@ -112,8 +114,10 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
 
         vars = pane_cx->vars = calloc(1,sizeof(*vars));
 
-        x_pixel_org = DEFAULT_X_PIXEL_ORG;
-        y_pixel_org = DEFAULT_Y_PIXEL_ORG;
+        x_pixel_ctr = pane->w / 2;
+        y_pixel_ctr = pane->h / 2;
+        x_mm_ctr = DEFAULT_X_MM_CTR;
+        y_mm_ctr = DEFAULT_Y_MM_CTR;
         scale_pixel_per_mm = DEFAULT_SCALE_PIXEL_PER_MM;
 
         return PANE_HANDLER_RET_NO_ACTION;
@@ -151,7 +155,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             cross_product(&v_plane, &v_vertical, &v_line);
             set_vector_magnitude(&v_line, 25);  // XXX should be element diameter
 
-            set_vector_magnitude(&v_plane, .5/scale_pixel_per_mm);
+            set_vector_magnitude(&v_plane, 0.5/scale_pixel_per_mm);
             p0 = e->plane.p;
             for (j = 0; j < 15; j++) {
                 point_plus_vector(&p0, &v_line, &p1);
@@ -192,15 +196,16 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             } else if (event->mouse_wheel.delta_y < 0) {
                 scale_pixel_per_mm /= 1.1;
             }
-            // XXX if it near one ..
             break;
         case SDL_EVENT_PAN:
-            x_pixel_org += event->mouse_motion.delta_x;
-            y_pixel_org += event->mouse_motion.delta_y;
+            x_mm_ctr -= (event->mouse_motion.delta_x / scale_pixel_per_mm);
+            y_mm_ctr += (event->mouse_motion.delta_y / scale_pixel_per_mm);
             break;
         case SDL_EVENT_RESET_PAN_ZOOM:
-            x_pixel_org = DEFAULT_X_PIXEL_ORG;
-            y_pixel_org = DEFAULT_Y_PIXEL_ORG;
+            x_pixel_ctr = pane->w / 2;
+            y_pixel_ctr = pane->h / 2;
+            x_mm_ctr = DEFAULT_X_MM_CTR;
+            y_mm_ctr = DEFAULT_Y_MM_CTR;
             scale_pixel_per_mm = DEFAULT_SCALE_PIXEL_PER_MM;
             break;
         }
@@ -250,10 +255,9 @@ void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color
 
 void transform(geo_point_t *geo_p, point_t *pixel_p)
 {
-    pixel_p->x = nearbyint(x_pixel_org + geo_p->x * scale_pixel_per_mm);
-    pixel_p->y = nearbyint(y_pixel_org - geo_p->y * scale_pixel_per_mm);
+    pixel_p->x = nearbyint(x_pixel_ctr + (geo_p->x - x_mm_ctr) * scale_pixel_per_mm);
+    pixel_p->y = nearbyint(y_pixel_ctr - (geo_p->y - y_mm_ctr) * scale_pixel_per_mm);
 }
-    
 
 // -----------------  INTERFEROMETER PATTERN PANE HANDLER  ----------------------
 

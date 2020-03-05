@@ -1251,6 +1251,133 @@ void sdl_render_line(rect_t * pane, int32_t x1, int32_t y1, int32_t x2, int32_t 
 
 void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t color)
 {
+#if 0
+    #define MAX_SDL_POINTS 1000
+
+    SDL_Point sdl_points[MAX_SDL_POINTS];
+    int32_t   i, max=0;
+    bool      point_is_within_pane;
+    bool      last_point_is_within_pane;
+    point_t   last_point;
+
+    #define ADD_POINT_TO_ARRAY(_point) \
+        do { \
+            sdl_points[max].x = (_point).x + pane->x; \
+            sdl_points[max].y = (_point).y + pane->y; \
+            max++; \
+    } while (0)
+
+    // return if number of points supplied by caller is invalid
+    if (count <= 1) {
+        return;
+    }
+
+    // set color
+    sdl_set_color(color);
+
+    // loop over points
+    for (i = 0; i < count; i++) {
+        // determine if point is within the pane
+        point_is_within_pane = (points[i].x >= 0 && points[i].x < pane->w && 
+                                points[i].y >= 0 && points[i].y < pane->h);
+
+        // if point is within pane
+        if (point_is_within_pane) {
+
+            // if there is no last point
+            //   add point to array
+            // else if last point is within pane
+            //   case is IN -> IN
+            //   add point to array
+            //   if array is full
+            //     render lines
+            //     add the last point in the list as the new first point in the list
+            //   endif
+            // else
+            //   case is OUT -> IN
+            //   assert point array is empty
+            //   find intersection at pane border 
+            //   add this intersecting point to the array, this is starting point
+            //   add the new point to the array too
+            // endif
+
+            if (i == 0) {
+                ADD_POINT_TO_ARRAY(points[i]);
+            } else if (last_point_is_within_pane) {
+                // case is IN -> IN
+                ADD_POINT_TO_ARRAY(points[i]);
+                if (max == MAX_SDL_POINTS) {
+                    SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
+                    max = 0;
+                    ADD_POINT_TO_ARRAY(points[i]);
+                }
+            } else {
+                // case is OUT -> IN 
+                point_t intersecting_point;
+
+                assert(max == 0);
+                //XXX find intersection
+                ADD_POINT_TO_ARRAY(intersecting_point);
+                ADD_POINT_TO_ARRAY(points[i]);
+            }
+
+        } else {   // point is not within pane
+
+            //   if there is no last point
+            //     nothing to do
+            //   else if last point is within pane
+            //     case is IN -> OUT
+            //     find intersection at pane border 
+            //     add this intersecting point to the array, this is ending point
+            //     render lines
+            //   else
+            //     case is OUT -> OUT
+            //     assert point array is empty
+            //     find intersection at pane border 
+            //     there should be either 0 or 2 intersections, or
+            //      possibly 1 when a line is very close to pane corner
+            //     if there are 2 intersections
+            //        draw the line between the 2 intersections
+            //     endif
+            //   endif
+
+            if (i == 0) {
+                // nothing to do
+            } else if (last_point_is_within_pane) {
+                // case is IN -> OUT
+                point_t intersecting_point;
+
+                // XXX find intersecintg
+                ADD_POINT_TO_ARRAY(intersecting_point);
+                SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
+                max = 0;
+            } else {
+                // case is OUT -> OUT
+                point_t intersecting_point[4];
+                int num_intersecting_points;
+
+                assert(max == 0);
+                // XXX find intersections
+                if (num_intersecting_points == 2) {
+                    ADD_POINT_TO_ARRAY(intersecting_point[0]);
+                    ADD_POINT_TO_ARRAY(intersecting_point[1]);
+                    SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
+                    max = 0;
+                }
+            }
+        }
+
+        // save last_point info for next time around the loop
+        last_point = points[i];
+        last_point_is_within_pane = point_is_within_pane;
+    }
+
+    // finish rendering the lines
+    if (max) {
+        SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
+    }
+
+#else
     #define MAX_SDL_POINTS 1000
 
     SDL_Point sdl_points[MAX_SDL_POINTS];
@@ -1263,7 +1390,7 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
     sdl_set_color(color);
 
     for (i = 0; i < count; i++) {
-#if 0  // XXXXXXXXXXXXXXXXXXXXXXXXX tbd
+#if 0
         if (points[i].x < 0 || points[i].x >= pane->w || points[i].y < 0 || points[i].y >= pane->h) {
             // XXX sdl_render_lines should compute intersection with pane border, 
             //     but this is too complicated for now
@@ -1290,6 +1417,7 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
     if (max) {
         SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
     }
+#endif
 }
 
 void sdl_render_circle(rect_t * pane, int32_t x_center, int32_t y_center, int32_t radius,
