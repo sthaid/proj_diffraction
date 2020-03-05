@@ -77,7 +77,8 @@ void display_hndlr(void)
 
 // -----------------  INTERFEROMETER DIAGRAM PANE HANDLER  --------------------------------
 
-static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2);
+static void draw_lines(rect_t *pane, geo_point_t *geo_point, int max_points, int color);
+static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color);
 static void transform(geo_point_t *geo_p, point_t *pixel_p);
 
 static int x_pixel_org;
@@ -86,8 +87,10 @@ static double scale_pixel_per_mm;
 
 static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
+    #define MAX_RSP 1000
+
     struct {
-        int none;
+        photon_t photons[MAX_RSP];
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
@@ -121,12 +124,10 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        static geo_vector_t vertical = {0,0,1};
-        geo_vector_t result;
-        geo_point_t p1, p2;
-        int i;
+        int i, j;
         struct element_s *e;
         char title_str[200];
+        int max_photons;
 
         sprintf(title_str, "%s - %g nm", current_config->name, MM2NM(current_config->wavelength));
         sdl_render_text(pane, 
@@ -134,11 +135,39 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
                         FONTSZ, title_str, WHITE, BLACK);
 
         for (i = 0; (e = &current_config->element[i])->hndlr; i++) {
+#if 0
             cross_product(&e->plane.n, &vertical, &result);
-            set_vector_magnitude(&result, 10);  // XXX should be element diameter
+            set_vector_magnitude(&result, 25);  // XXX should be element diameter
             point_plus_vector(&e->plane.p, &result, &p1);
             point_minus_vector(&e->plane.p, &result, &p2);
-            draw_line(pane, &p1, &p2);
+            draw_line(pane, &p1, &p2, WHITE);
+#else
+            geo_vector_t v_plane, v_vertical={0,0,1}, v_line;
+            geo_point_t p0, p1, p2;
+
+            v_plane = e->plane.n;
+            v_plane.c = 0;
+
+            cross_product(&v_plane, &v_vertical, &v_line);
+            set_vector_magnitude(&v_line, 25);  // XXX should be element diameter
+
+            set_vector_magnitude(&v_plane, .5/scale_pixel_per_mm);
+            p0 = e->plane.p;
+            for (j = 0; j < 15; j++) {
+                point_plus_vector(&p0, &v_line, &p1);
+                point_minus_vector(&p0, &v_line, &p2);
+                draw_line(pane, &p1, &p2, WHITE);
+                point_minus_vector(&p0, &v_plane, &p0);
+            }
+#endif
+        }
+
+        max_photons = MAX_RSP;  // XXX may be better if the sim just returned a malloced buffer that we free here, and tell 
+                                //     this routine what the size is
+        sim_get_recent_sample_photons(vars->photons, &max_photons);
+        //INFO("max_photon = %d\n", max_photons);
+        for (i = 0; i < max_photons; i++) {
+            draw_lines(pane, vars->photons[i].points, vars->photons[i].max_points, GREEN);
         }
 
         sdl_register_event(pane, pane, SDL_EVENT_ZOOM, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
@@ -195,17 +224,28 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
 
 // XXX comment about 'z' being ignored
 
-void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2)
+void draw_lines(rect_t *pane, geo_point_t *geo_points, int max_points, int color)
+{
+    int i;
+    point_t sdl_points[100];
+
+    // XXX error if more than 100, LATER,   or loop instead of error
+
+    for (i = 0; i < max_points; i++) {
+        transform(&geo_points[i], &sdl_points[i]);
+    }
+
+    sdl_render_lines(pane, sdl_points, max_points, color);
+}
+
+void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color)
 {
     point_t pixel_p1, pixel_p2;
 
     transform(geo_p1, &pixel_p1);
     transform(geo_p2, &pixel_p2);
 
-    //INFO("pixel %d %d   --   %d %d\n",
-         //pixel_p1.x, pixel_p1.y, pixel_p2.x, pixel_p2.y);
-
-    sdl_render_line(pane, pixel_p1.x, pixel_p1.y, pixel_p2.x, pixel_p2.y, WHITE);
+    sdl_render_line(pane, pixel_p1.x, pixel_p1.y, pixel_p2.x, pixel_p2.y, color);
 }
 
 void transform(geo_point_t *geo_p, point_t *pixel_p)

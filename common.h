@@ -30,7 +30,12 @@
 // typedefs
 //
 
-struct photon_s;
+typedef struct {
+    geo_line_t current;
+    geo_point_t points[10];
+    int max_points;
+    double total_distance;
+} photon_t;
 
 typedef struct {
     char name[100];
@@ -39,7 +44,7 @@ typedef struct {
         char name[100];
         geo_plane_t plane;
         int next;
-        int (*hndlr)(struct element_s *elem, struct photon_s *photon);
+        int (*hndlr)(struct element_s *elem, photon_t *photon);
     } element[MAX_ELEMENT];
 } sim_config_t;
 
@@ -62,6 +67,7 @@ void sim_run(void);
 void sim_stop(void);
 bool sim_is_running(void);
 void sim_get_screen(double **screen, int *max_screen, double *screen_width_and_height);
+void sim_get_recent_sample_photons(photon_t *photon, int *max_photon_inout);
 
 int display_init(void);
 void display_hndlr(void);

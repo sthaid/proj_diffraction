@@ -1263,6 +1263,7 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
     sdl_set_color(color);
 
     for (i = 0; i < count; i++) {
+#if 0  // XXXXXXXXXXXXXXXXXXXXXXXXX tbd
         if (points[i].x < 0 || points[i].x >= pane->w || points[i].y < 0 || points[i].y >= pane->h) {
             // XXX sdl_render_lines should compute intersection with pane border, 
             //     but this is too complicated for now
@@ -1272,6 +1273,7 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
             }
             continue;
         }
+#endif
 
         sdl_points[max].x = points[i].x + pane->x;
         sdl_points[max].y = points[i].y + pane->y;

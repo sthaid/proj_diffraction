@@ -12,19 +12,14 @@
 
 #define MAX_SCREEN 5000
 
+//#define MAX_RECENT_SAMPLE_PHOTONS 3
+#define MAX_RECENT_SAMPLE_PHOTONS 1000
+
 //
 // typedefs
 //
 
-typedef struct photon_s {
-    geo_line_t current;
-    geo_point_t point[10];
-    int max_point;
-    double total_distance;
-} photon_t;
-
 typedef struct element_s element_t;
-
 
 //
 // variables
@@ -35,7 +30,11 @@ static volatile bool run;
 static double screen_amp1[MAX_SCREEN][MAX_SCREEN];
 static double screen_amp2[MAX_SCREEN][MAX_SCREEN];
 
-static unsigned long photon_count;
+static unsigned long total_photon_count;
+
+static photon_t        recent_sample_photons[MAX_RECENT_SAMPLE_PHOTONS];
+static int             max_recent_sample_photons;
+static pthread_mutex_t recent_sample_photons_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //
 // prototypes
@@ -45,7 +44,7 @@ static int read_config_file(void);
 
 static void *sim_thread(void *cx);
 static void *sim_monitor_thread(void *cx);
-static void simulate_a_photon(void);
+static void simulate_a_photon(photon_t *photon);
 
 static int source_single_slit_hndlr(element_t *elem, photon_t *photon);
 static int source_double_slit_hndlr(element_t *elem, photon_t *photon);
@@ -62,21 +61,27 @@ static inline double square(double x)
     return x * x;
 }
 
+static inline int min(int a, int b) 
+{
+    return a < b ? a : b;
+}
+
 // -----------------  SIM APIS  -----------------------------------------------------
 
+// XXX move define
 #define MAX_SIM_THREAD 1
 
 int sim_init(void)
 {
     pthread_t thread_id;
-    int i;
+    long i;
 
     if (read_config_file() < 0) {
         return -1;
     }
 
     for (i = 0; i < MAX_SIM_THREAD; i++) {
-        pthread_create(&thread_id, NULL, sim_thread, NULL);
+        pthread_create(&thread_id, NULL, sim_thread, (void*)i);
     }
     pthread_create(&thread_id, NULL, sim_monitor_thread, NULL);
 
@@ -178,6 +183,29 @@ void sim_get_screen(double **screen_ret, int *max_screen_ret, double *screen_wid
     *screen_width_and_height_ret = MAX_SCREEN * .01;
 }
 
+void sim_get_recent_sample_photons(photon_t *photons_out, int *max_photons_inout)
+{
+    int max;
+
+    // acquire mutex
+    pthread_mutex_lock(&recent_sample_photons_mutex);
+
+    // max is the smaller of caller's array and the
+    // number of recent sample photons acuumulated by the simulation
+    max = min(*max_photons_inout, max_recent_sample_photons);
+
+    // copy the recent_sample_photons to caller's buffer
+    memcpy(photons_out, recent_sample_photons, max*sizeof(photon_t));
+    *max_photons_inout = max;
+
+    // reset number of recent_sample_photons to 0, so that we'll
+    // start accumulating them again
+    max_recent_sample_photons = 0;
+
+    // release mutex
+    pthread_mutex_unlock(&recent_sample_photons_mutex);
+}
+
 // -----------------  READ CONFIG FILE  ---------------------------------------------
 
 static int read_config_file(void)
@@ -237,9 +265,14 @@ static int read_config_file(void)
 
 static void *sim_thread(void *cx)
 {
+    long id = (long)cx;
+    photon_t photon;
+
+    INFO("STARTING id %ld\n", id);
+
     while (true) {
         // wait for run flag to be set
-        INFO("WAITING FOR UN\n");
+        INFO("WAITING FOR RUN\n");
         while (!run) {
             usleep(10000);
         }
@@ -247,12 +280,16 @@ static void *sim_thread(void *cx)
         // while run flag is set, simulate photons
         INFO("RUN IS SET - FOR %s\n", current_config->name);
         while (run) {
-            //sleep(1);
-            //INFO("CALLING SIMULATE\n");
-            simulate_a_photon();
+            simulate_a_photon(&photon);
+            __sync_fetch_and_add(&total_photon_count,1);
 
-            __sync_fetch_and_add(&photon_count,1);
-            //__sync_synchronize();
+            // XXX comment
+            if (id == 0 && max_recent_sample_photons < MAX_RECENT_SAMPLE_PHOTONS) {
+                pthread_mutex_lock(&recent_sample_photons_mutex);
+                recent_sample_photons[max_recent_sample_photons++] = photon;
+                pthread_mutex_unlock(&recent_sample_photons_mutex);
+                //INFO("max_recent_sample_photons = %d\n", max_recent_sample_photons);
+            }
         }
     }
 
@@ -268,12 +305,12 @@ static void *sim_monitor_thread(void *cx)
     // XXX monitor run flag
     while (true) {
         start_us = microsec_timer();
-        start_photon_count = photon_count;
+        start_photon_count = total_photon_count;
 
         sleep(1);
 
         end_us = microsec_timer();
-        end_photon_count = photon_count;
+        end_photon_count = total_photon_count;
 
         photons_per_sec = (end_photon_count - start_photon_count) / ((end_us - start_us) / 1000000.);
         INFO("RATE = %g million photons/sec\n", photons_per_sec/1000000);
@@ -282,24 +319,23 @@ static void *sim_monitor_thread(void *cx)
     return NULL;
 }
 
-static void simulate_a_photon(void)
+static void simulate_a_photon(photon_t *photon)
 {
     int idx=0, next;
     element_t *elem;
     char s1[100] __attribute__((unused));
-    photon_t photon;
 
     while (true) {
         elem = &current_config->element[idx];
 
-        next = (elem->hndlr)(elem, &photon);
+        next = (elem->hndlr)(elem, photon);
 
         if (next != -1) {
             DEBUG("photon leaving %s %d, next %s %d - %s\n",
-                  elem->name, idx, current_config->element[next].name, next, line_str(&photon.current,s1));
+                  elem->name, idx, current_config->element[next].name, next, line_str(&photon->current,s1));
         } else {
             DEBUG("photon done at %s %d, - %s\n",
-                  elem->name, idx, point_str(&photon.current.p,s1));
+                  elem->name, idx, point_str(&photon->current.p,s1));
         }
 
         idx = next;
@@ -335,10 +371,8 @@ static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
     photon->current.v.c = 1 * tan(angle_height_spread);
 #endif
 
-#if 0  // LATER
-    photon->point[photon->max_point] = photon->current.p;
-    photon->max_point++;
-#endif
+    // add new current photon position to points array
+    photon->points[photon->max_points++] = photon->current.p;
     
     // return next element
     return elem->next;
@@ -372,6 +406,9 @@ static int source_double_slit_hndlr(element_t *elem, photon_t *photon)
     photon->current.v.b = 1 * tan(angle_width_spread);
     photon->current.v.c = 1 * tan(angle_height_spread);
 
+    // add new current photon position to points array
+    photon->points[photon->max_points++] = photon->current.p;
+
     // return next element
     return elem->next;
 }
@@ -402,6 +439,9 @@ static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
     photon->current.v.b = 1 * tan(angle_width_spread);
     photon->current.v.c = 1 * tan(angle_height_spread);
 
+    // add new current photon position to points array
+    photon->points[photon->max_points++] = photon->current.p;
+
     // return next element
     return elem->next;
 }
@@ -431,6 +471,9 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
     photon->current.v.a = point_intersect.x - point_reflected.x;
     photon->current.v.b = point_intersect.y - point_reflected.y;
     photon->current.v.c = point_intersect.z - point_reflected.z;
+
+    // add new current photon position to points array
+    photon->points[photon->max_points++] = photon->current.p;
 
     // return next element
     return elem->next;
@@ -490,6 +533,9 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
 
     // set new photon position
     photon->current.p = point_intersect;
+
+    // add new current photon position to points array
+    photon->points[photon->max_points++] = photon->current.p;
 
     // return next element
     return elem->next;
