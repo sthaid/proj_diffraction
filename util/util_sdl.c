@@ -124,12 +124,16 @@ static uint32_t         sdl_color_to_rgba[] = {
 // prototypes
 //
 
-static void sdl_exit_handler(void);
-static void sdl_set_color(int32_t color); 
-static void sdl_font_init(int32_t ptsize);
-static void sdl_pane_terminate(struct pane_list_head_s * pane_list_head, pane_cx_t * pane_cx);
-static int32_t sdl_pane_move_speed(void);
-static char * sdl_print_screen_filename(void);
+static void exit_handler(void);
+static void set_color(int32_t color); 
+static void font_init(int32_t ptsize);
+static void pane_terminate(struct pane_list_head_s * pane_list_head, pane_cx_t * pane_cx);
+static int32_t pane_move_speed(void);
+static int find_1_intersect(point_t *p1, point_t *p2, rect_t *pane, point_t *p_intersect);
+static int find_n_intersect(point_t *p1, point_t *p2, rect_t *pane, point_t *p_intersect);
+static int find_x_intersect(point_t *p1, point_t *p2, double X, point_t *p_intersect);
+static int find_y_intersect(point_t *p1, point_t *p2, double Y, point_t *p_intersect);
+static char *print_screen_filename(void);
 
 // 
 // inline procedures
@@ -227,14 +231,14 @@ int32_t sdl_init(int32_t *w, int32_t *h, bool resizeable)
     SDL_StopTextInput();
 
     // register exit handler
-    atexit(sdl_exit_handler);
+    atexit(exit_handler);
 
     // return success
     DEBUG("success\n");
     return 0;
 }
 
-static void sdl_exit_handler(void)
+static void exit_handler(void)
 {
     int32_t i;
     
@@ -272,7 +276,7 @@ void sdl_get_max_texture_dim(int32_t * max_texture_dim)
                            sdl_renderer_info.max_texture_height);
 }
 
-static void sdl_set_color(int32_t color)
+static void set_color(int32_t color)
 {
     uint8_t r, g, b, a;
     uint32_t rgba;
@@ -285,7 +289,7 @@ static void sdl_set_color(int32_t color)
     SDL_SetRenderDrawColor(sdl_renderer, r, g, b, a);
 }
 
-static void sdl_font_init(int32_t font_ptsize)
+static void font_init(int32_t font_ptsize)
 {
     // if this font has already been initialized then return
     if (sdl_font[font_ptsize].font != NULL) {
@@ -390,7 +394,7 @@ void sdl_pane_manager(void *display_cx,                        // optional, cont
             ret = pane_cx->pane_handler(pane_cx, PANE_HANDLER_REQ_RENDER, NULL, NULL);
 
             if (ret == PANE_HANDLER_RET_PANE_TERMINATE) {
-                sdl_pane_terminate(&pane_list_head, pane_cx);
+                pane_terminate(&pane_list_head, pane_cx);
                 redraw = true;
             } else if (ret == PANE_HANDLER_RET_DISPLAY_REDRAW) {
                 redraw = true;
@@ -422,22 +426,22 @@ void sdl_pane_manager(void *display_cx,                        // optional, cont
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + 'q') {  // ALT-q: program quit
                         sdl_program_quit = true;
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + 'x') {  // ALT-x: terminate pane
-                        sdl_pane_terminate(&pane_list_head, FG_PANE_CX);
+                        pane_terminate(&pane_list_head, FG_PANE_CX);
                         redraw = true;
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + 'p') {  // ALT-p: print screen
-                        sdl_print_screen(sdl_print_screen_filename(),true,NULL);
+                        sdl_print_screen(print_screen_filename(),true,NULL);
                         redraw = true;
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + SDL_EVENT_KEY_UP_ARROW) {  // ALT+arrow: move pane
-                        FG_PANE_CX->y_disp -= sdl_pane_move_speed();
+                        FG_PANE_CX->y_disp -= pane_move_speed();
                         redraw = true;
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + SDL_EVENT_KEY_DOWN_ARROW) {
-                        FG_PANE_CX->y_disp += sdl_pane_move_speed();
+                        FG_PANE_CX->y_disp += pane_move_speed();
                         redraw = true;
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + SDL_EVENT_KEY_LEFT_ARROW) {
-                        FG_PANE_CX->x_disp -= sdl_pane_move_speed();
+                        FG_PANE_CX->x_disp -= pane_move_speed();
                         redraw = true;
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + SDL_EVENT_KEY_RIGHT_ARROW) {
-                        FG_PANE_CX->x_disp += sdl_pane_move_speed();
+                        FG_PANE_CX->x_disp += pane_move_speed();
                         redraw = true;
                     } else {   // pass keyboard event to the pane_handler
                         call_pane_handler = true;
@@ -493,7 +497,7 @@ void sdl_pane_manager(void *display_cx,                        // optional, cont
                     FG_PANE_CX->y_disp += event->mouse_motion.delta_y;
                     redraw = true;
                 } else if (event->event_id == SDL_EVENT_PANE_TERMINATE) {
-                    sdl_pane_terminate(&pane_list_head, FG_PANE_CX);
+                    pane_terminate(&pane_list_head, FG_PANE_CX);
                     redraw = true;
                 } else {
                     call_pane_handler = true;
@@ -503,7 +507,7 @@ void sdl_pane_manager(void *display_cx,                        // optional, cont
             if (call_pane_handler) {
                 ret = FG_PANE_CX->pane_handler(FG_PANE_CX, PANE_HANDLER_REQ_EVENT, NULL, event);
                 if (ret == PANE_HANDLER_RET_PANE_TERMINATE) {
-                    sdl_pane_terminate(&pane_list_head, FG_PANE_CX);
+                    pane_terminate(&pane_list_head, FG_PANE_CX);
                     redraw = true;
                 } else if (ret == PANE_HANDLER_RET_DISPLAY_REDRAW) {
                     redraw = true;
@@ -523,7 +527,7 @@ void sdl_pane_manager(void *display_cx,                        // optional, cont
 
     // call all pane_handler terminate, and remove from pane_list
     while ((pane_cx = pane_list_head.tqh_first) != NULL) {
-        sdl_pane_terminate(&pane_list_head, pane_cx);
+        pane_terminate(&pane_list_head, pane_cx);
     }
 
     // remove entry from sdl_pane_list_head
@@ -556,7 +560,7 @@ void sdl_pane_create(struct pane_list_head_s * pane_list_head, pane_handler_t pa
     pane_handler(pane_cx, PANE_HANDLER_REQ_INITIALIZE, init_params, NULL);
 }
 
-static void sdl_pane_terminate(struct pane_list_head_s * pane_list_head, pane_cx_t * pane_cx)
+static void pane_terminate(struct pane_list_head_s * pane_list_head, pane_cx_t * pane_cx)
 {
     // remove from pane_list
     TAILQ_REMOVE(pane_list_head, pane_cx, entries);
@@ -568,7 +572,7 @@ static void sdl_pane_terminate(struct pane_list_head_s * pane_list_head, pane_cx
     free(pane_cx);
 }
 
-static int32_t sdl_pane_move_speed(void)
+static int32_t pane_move_speed(void)
 {
     int32_t  speed;
     uint64_t time_now, duration;
@@ -693,7 +697,7 @@ void sdl_display_init(int32_t * win_width, int32_t * win_height, bool * win_mini
 {
     sdl_event_max = 0;
 
-    sdl_set_color(BLACK);
+    set_color(BLACK);
     SDL_RenderClear(sdl_renderer);
 
     if (win_width) {
@@ -716,25 +720,25 @@ void sdl_display_present(void)
 
 int32_t sdl_pane_cols(rect_t * pane, int32_t font_ptsize)
 {
-    sdl_font_init(font_ptsize);
+    font_init(font_ptsize);
     return pane->w / sdl_font[font_ptsize].char_width;
 }
 
 int32_t sdl_pane_rows(rect_t * pane, int32_t font_ptsize)
 {
-    sdl_font_init(font_ptsize);
+    font_init(font_ptsize);
     return pane->h / sdl_font[font_ptsize].char_height;
 }
 
 int32_t sdl_font_char_width(int32_t font_ptsize)
 {
-    sdl_font_init(font_ptsize);
+    font_init(font_ptsize);
     return sdl_font[font_ptsize].char_width;
 }
 
 int32_t sdl_font_char_height(int32_t font_ptsize)
 {
-    sdl_font_init(font_ptsize);
+    font_init(font_ptsize);
     return sdl_font[font_ptsize].char_height;
 }
 
@@ -1211,7 +1215,7 @@ void sdl_render_rect(rect_t * pane, rect_t * loc, int32_t line_width, int32_t co
     SDL_Rect rect;
     int32_t i;
 
-    sdl_set_color(color);
+    set_color(color);
 
     rect.x = pane->x + loc->x;
     rect.y = pane->y + loc->y;
@@ -1234,7 +1238,7 @@ void sdl_render_fill_rect(rect_t * pane, rect_t * loc, int32_t color)
 {
     SDL_Rect rect;
 
-    sdl_set_color(color);
+    set_color(color);
 
     rect.x = pane->x + loc->x;
     rect.y = pane->y + loc->y;
@@ -1251,11 +1255,10 @@ void sdl_render_line(rect_t * pane, int32_t x1, int32_t y1, int32_t x2, int32_t 
 
 void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t color)
 {
-#if 0
     #define MAX_SDL_POINTS 1000
 
     SDL_Point sdl_points[MAX_SDL_POINTS];
-    int32_t   i, max=0;
+    int32_t   i, ret, max=0;
     bool      point_is_within_pane;
     bool      last_point_is_within_pane;
     point_t   last_point;
@@ -1267,19 +1270,22 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
             max++; \
     } while (0)
 
+    #define POINT_IS_WITHIN_PANE(_p, _pane) ((_p)->x >= 0 && (_p)->x < (_pane)->w && \
+                                             (_p)->y >= 0 && (_p)->y < (_pane)->h)
+
     // return if number of points supplied by caller is invalid
     if (count <= 1) {
         return;
     }
 
     // set color
-    sdl_set_color(color);
+    set_color(color);
 
     // loop over points
     for (i = 0; i < count; i++) {
         // determine if point is within the pane
-        point_is_within_pane = (points[i].x >= 0 && points[i].x < pane->w && 
-                                points[i].y >= 0 && points[i].y < pane->h);
+        point_is_within_pane = POINT_IS_WITHIN_PANE(&points[i], pane);
+        DEBUG("POINT %d = %d, %d   within=%d\n", i, points[i].x, points[i].y, point_is_within_pane);
 
         // if point is within pane
         if (point_is_within_pane) {
@@ -1302,9 +1308,11 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
             // endif
 
             if (i == 0) {
+                DEBUG("CASE i==0\n");
                 ADD_POINT_TO_ARRAY(points[i]);
             } else if (last_point_is_within_pane) {
                 // case is IN -> IN
+                DEBUG("CASE  IN-> IN\n");
                 ADD_POINT_TO_ARRAY(points[i]);
                 if (max == MAX_SDL_POINTS) {
                     SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
@@ -1314,9 +1322,13 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
             } else {
                 // case is OUT -> IN 
                 point_t intersecting_point;
+                DEBUG("CASE  OUT -> IN\n");
 
                 assert(max == 0);
-                //XXX find intersection
+                ret = find_1_intersect(&points[i], &last_point, pane, &intersecting_point);
+                DEBUG("%d %d, %d %d ANSWER %d %d\n",
+                      last_point.x, last_point.y, points[i].x, points[i].y, intersecting_point.x, intersecting_point.y);
+                assert(ret == 1);
                 ADD_POINT_TO_ARRAY(intersecting_point);
                 ADD_POINT_TO_ARRAY(points[i]);
             }
@@ -1347,20 +1359,28 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
                 // case is IN -> OUT
                 point_t intersecting_point;
 
-                // XXX find intersecintg
+                DEBUG("CASE  IN -> OUT\n");
+                ret = find_1_intersect(&last_point, &points[i], pane, &intersecting_point);
+                assert(ret == 1);
                 ADD_POINT_TO_ARRAY(intersecting_point);
                 SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
                 max = 0;
             } else {
                 // case is OUT -> OUT
-                point_t intersecting_point[4];
-                int num_intersecting_points;
+                point_t intersecting_points[4];
+                DEBUG("CASE  OUT -> OUT\n");
 
                 assert(max == 0);
-                // XXX find intersections
-                if (num_intersecting_points == 2) {
-                    ADD_POINT_TO_ARRAY(intersecting_point[0]);
-                    ADD_POINT_TO_ARRAY(intersecting_point[1]);
+                ret = find_n_intersect(&last_point, &points[i], pane, intersecting_points);
+#ifdef ENABLE_LOGGING_AT_DEBUG_LEVEL
+                if (ret != 2 && ret != 0) {
+                    DEBUG("find_n_intersect ret=%d  intersecting_point[0]=%d,%d\n",
+                          ret, intersecting_points[0].x, intersecting_points[0].y);
+                }
+#endif
+                if (ret == 2) {
+                    ADD_POINT_TO_ARRAY(intersecting_points[0]);
+                    ADD_POINT_TO_ARRAY(intersecting_points[1]);
                     SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
                     max = 0;
                 }
@@ -1377,7 +1397,9 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
         SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
     }
 
-#else
+#if 0
+    // XXX old implementation, 
+    //     delete this later after the above code is validated
     #define MAX_SDL_POINTS 1000
 
     SDL_Point sdl_points[MAX_SDL_POINTS];
@@ -1387,20 +1409,16 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
         return;
     }
 
-    sdl_set_color(color);
+    set_color(color);
 
     for (i = 0; i < count; i++) {
-#if 0
         if (points[i].x < 0 || points[i].x >= pane->w || points[i].y < 0 || points[i].y >= pane->h) {
-            // XXX sdl_render_lines should compute intersection with pane border, 
-            //     but this is too complicated for now
             if (max) {
                 SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
                 max = 0;
             }
             continue;
         }
-#endif
 
         sdl_points[max].x = points[i].x + pane->x;
         sdl_points[max].y = points[i].y + pane->y;
@@ -1418,6 +1436,94 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
         SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
     }
 #endif
+}
+
+// The following routines are used by sdl_render_lines to locate the intersection
+// of a line (connecting points p1 and p2) with the pane border, when the line enters
+// or leave the pane.
+//
+// The intersecting point returned must also lie within the pane.
+//
+// The return value from these routines is the number of intersecting points found.
+static int find_1_intersect(point_t *p1, point_t *p2, rect_t *pane, point_t *p_intersect)
+{
+    if ((find_x_intersect(p1, p2, 0, p_intersect)         && POINT_IS_WITHIN_PANE(p_intersect,pane)) ||
+        (find_x_intersect(p1, p2, pane->w-1, p_intersect) && POINT_IS_WITHIN_PANE(p_intersect,pane)) ||
+        (find_y_intersect(p1, p2, 0, p_intersect)         && POINT_IS_WITHIN_PANE(p_intersect,pane)) ||
+        (find_y_intersect(p1, p2, pane->h-1, p_intersect) && POINT_IS_WITHIN_PANE(p_intersect,pane)))
+    {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static int find_n_intersect(point_t *p1, point_t *p2, rect_t *pane, point_t *p_intersect)
+{
+    point_t p_tmp;
+    int max_found = 0;
+
+    if (find_x_intersect(p1, p2, 0, &p_tmp) && POINT_IS_WITHIN_PANE(&p_tmp,pane)) {
+        p_intersect[max_found++] = p_tmp;
+    }
+    if (find_x_intersect(p1, p2, pane->w-1, &p_tmp) && POINT_IS_WITHIN_PANE(&p_tmp,pane)) {
+        p_intersect[max_found++] = p_tmp;
+    }
+    if (find_y_intersect(p1, p2, 0, &p_tmp) && POINT_IS_WITHIN_PANE(&p_tmp,pane)) {
+        p_intersect[max_found++] = p_tmp;
+    }
+    if (find_y_intersect(p1, p2, pane->h-1, &p_tmp) && POINT_IS_WITHIN_PANE(&p_tmp,pane)) {
+        p_intersect[max_found++] = p_tmp;
+    }
+
+    return max_found;
+}
+
+// find the intersection of a line segment from p1 to p2 with the 
+// line 'x = X'; for example:
+//  Example1:  p1=1,1 p2=3,3 X=2  =>  p_intersect=2,2 ret=1
+//  Example2:  p1=1,1 p2=3,3 X=4  =>  ret=0
+static int find_x_intersect(point_t *p1, point_t *p2, double X, point_t *p_intersect)
+{
+    double T;
+
+    #define X1 (p1->x)
+    #define Y1 (p1->y)
+    #define X2 (p2->x)
+    #define Y2 (p2->y)
+
+    if (X2 - X1 == 0) {
+        return 0;
+    }
+
+    T = (X - X1) / (X2 - X1);
+    if (T < 0 || T > 1) {
+        return 0;
+    }
+
+    p_intersect->x = X;
+    p_intersect->y = nearbyint(Y1 + T * (Y2 - Y1));
+    return 1;
+}
+
+// same as above routine except that the intersection found is that between
+// the line segment and 'y = Y'
+static int find_y_intersect(point_t *p1, point_t *p2, double Y, point_t *p_intersect)
+{
+    double T;
+
+    if (Y2 - Y1 == 0) {
+        return 0;
+    }
+
+    T = (Y - Y1) / (Y2 - Y1);
+    if (T < 0 || T > 1) {
+        return 0;
+    }
+
+    p_intersect->x = nearbyint(X1 + T * (X2 - X1));
+    p_intersect->y = Y;
+    return 1;
 }
 
 void sdl_render_circle(rect_t * pane, int32_t x_center, int32_t y_center, int32_t radius,
@@ -1440,7 +1546,7 @@ void sdl_render_circle(rect_t * pane, int32_t x_center, int32_t y_center, int32_
     }
 
     // set the color
-    sdl_set_color(color);
+    set_color(color);
 
     // loop over line_width
     for (i = 0; i < line_width; i++) {
@@ -1624,7 +1730,7 @@ void sdl_render_points(rect_t * pane, point_t * points, int32_t count, int32_t c
         return;
     }
 
-    sdl_set_color(color);
+    set_color(color);
 
     for (i = 0; i < count; i++) {
         for (j = 0; j < pe->max; j++) {
@@ -1785,7 +1891,7 @@ texture_t sdl_create_text_texture(int32_t fg_color, int32_t bg_color, int32_t fo
     bg_sdl_color.a = (bg_rgba >>  0) & 0xff;
 
     // if the font has not been initialized then do so
-    sdl_font_init(font_ptsize);
+    font_init(font_ptsize);
 
     // xxx comments
     surface = TTF_RenderText_Shaded(sdl_font[font_ptsize].font, str, fg_sdl_color, bg_sdl_color);
@@ -2081,7 +2187,7 @@ void sdl_print_screen(char *file_name, bool flash_display, rect_t * rect_arg)
     // it worked, flash display if enabled;
     // the caller must redraw the screen if flash_display is enabled
     if (flash_display) {
-        sdl_set_color(BLACK);
+        set_color(BLACK);
         SDL_RenderClear(sdl_renderer);
         SDL_RenderPresent(sdl_renderer);
         usleep(250000);
@@ -2091,7 +2197,7 @@ void sdl_print_screen(char *file_name, bool flash_display, rect_t * rect_arg)
     free(pixels);
 }
 
-static char * sdl_print_screen_filename(void)
+static char *print_screen_filename(void)
 {
     struct tm tm;
     time_t t;
