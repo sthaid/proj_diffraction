@@ -13,6 +13,14 @@
 #define MAX_SIM_THREAD            1
 #define MAX_RECENT_SAMPLE_PHOTONS 1000
 
+#define ELEMENT_NAME_STR(_elem) \
+    ((_elem) == source_single_slit_hndlr ? "source_single_slit" : \
+     (_elem) == source_double_slit_hndlr ? "source_double_slit" : \
+     (_elem) == source_round_hole_hndlr  ? "source_round_hole"  : \
+     (_elem) == mirror_hndlr             ? "mirror"             : \
+     (_elem) == screen_hndlr             ? "screen"             : \
+                                           "????")
+
 //
 // typedefs
 //
@@ -38,7 +46,9 @@ static pthread_mutex_t recent_sample_photons_mutex = PTHREAD_MUTEX_INITIALIZER;
 // prototypes
 //
 
-static int read_config_file(void);
+static int read_config_file(char *config_filename);
+static bool is_comment_or_blank_line(char *s);
+static void remove_trailing_newline_char(char *s);
 
 static void *sim_thread(void *cx);
 static void *sim_monitor_thread(void *cx);
@@ -66,12 +76,12 @@ static inline int min(int a, int b)
 
 // -----------------  SIM APIS  -----------------------------------------------------
 
-int sim_init(void)
+int sim_init(char *config_filename)
 {
     pthread_t thread_id;
     long i;
 
-    if (read_config_file() < 0) {
+    if (read_config_file(config_filename) < 0) {
         return -1;
     }
 
@@ -199,57 +209,158 @@ void sim_get_recent_sample_photons(photon_t **photons_out, int *max_photons_out)
 
 // -----------------  READ CONFIG FILE  ---------------------------------------------
 
-static int read_config_file(void)
+static int read_config_file(char *config_filename)
 {
-    #define INIT_CONFIG(_config_idx, _name, _wavelength) \
-        do { \
-            sim_config_t *cfg = &config[_config_idx]; \
-            strcpy(cfg->name, _name); \
-            cfg->wavelength = _wavelength; \
-        } while (0)
+    FILE         *fp;
+    char          line[1000];
+    int           line_num;
+    bool          expecting_config_definition_line = true;
+    sim_config_t *cfg;
 
-    #define INIT_CONFIG_ELEM(_config_idx,_elem_idx,_name,_ctrx,_ctry,_ctrz,_nrmlx,_nrmly,_nrmlz,_next) \
-        do { \
-            sim_config_t *cfg = &config[_config_idx]; \
-            element_t *elem = &cfg->element[_elem_idx]; \
-            strcpy(elem->name, #_name); \
-            elem->hndlr = _name##_hndlr; \
-            POINT_INIT(&elem->plane.p, _ctrx, _ctry, _ctrz); \
-            VECT_INIT(&elem->plane.n, _nrmlx, _nrmly, _nrmlz); \
-            elem->next = _next; \
-        } while (0)
+    fp = NULL;
+    cfg = &config[0];
+    max_config = 0;
+    expecting_config_definition_line = true;
+    line_num = 0;
 
-#if 0
-    // XXX OLD 
-    INIT_ELEM(0, source_single_slit, 0,0,0,       1,0,0,     1);
-    INIT_ELEM(1, mirror,             500,0,0,     -1,1,0,    2);
-    INIT_ELEM(2, screen,             500,500,0,   0,-1,0,    -1);
-#endif
+    // open config file
+    fp = fopen(config_filename, "r");
+    if (fp == NULL) {
+        ERROR("failed to open config file '%s'\n", config_filename);
+        goto error;
+    }
 
-    INIT_CONFIG(max_config, "test_round_hole", NM2MM(532));
-    INIT_CONFIG_ELEM(max_config, 0, source_round_hole,  0,0,0,       1,0,0,     1);
-    INIT_CONFIG_ELEM(max_config, 1, screen,             2000,0,0,    -1,0,0,    -1);
-    max_config++;
+    // read lines from config file
+    while (fgets(line,sizeof(line),fp) != NULL) {
+        // keep track of line number,
+        // remove newline char at end of line, and
+        // discard comment lines or blank lines
+        line_num++;
+        remove_trailing_newline_char(line);
+        if (is_comment_or_blank_line(line)) {
+            continue;
+        }
 
-    INIT_CONFIG(max_config, "test_single_slit", NM2MM(532));
-    INIT_CONFIG_ELEM(max_config, 0, source_single_slit, 0,0,0,       1,0,0,     1);
-    INIT_CONFIG_ELEM(max_config, 1, screen,             2000,0,0,    -1,0,0,    -1);
-    max_config++;
+        // if expecting config definition line, then
+        // scanf for the config name and wavelength, and continue
+        if (expecting_config_definition_line) {
+            if (sscanf(line, "%s %lf", cfg->name, &cfg->wavelength) != 2) {
+                ERROR("scan for config name and wavelength failed, line %d\n", line_num);
+                goto error;
+            }
+            expecting_config_definition_line = false;
+            continue;
+        }
 
-    INIT_CONFIG(max_config, "test_double_slit", NM2MM(532));
-    INIT_CONFIG_ELEM(max_config, 0, source_double_slit, 0,0,0,       1,0,0,     1);
-    INIT_CONFIG_ELEM(max_config, 1, screen,             2000,0,0,    -1,0,0,    -1);
-    max_config++;
+        // --- the following code is dealing with element definition lines ---
+        int elem_id, char_count, cnt;
+        char elem_type_str[100];
+        element_t *elem;
 
-    INIT_CONFIG(max_config, "test_double_slit_and_mirror", NM2MM(532));
-    INIT_CONFIG_ELEM(max_config, 0, source_double_slit, 0,0,0,         1,0,0,     1);
-    INIT_CONFIG_ELEM(max_config, 1, mirror,             1000,0,0,      -1,1,0,    2);
-    INIT_CONFIG_ELEM(max_config, 2, screen,             1000,1000,0,   0,-1,0,   -1);
-    max_config++;
+        // check for line begining with '.' which indicates that this cfg definition 
+        // is complete
+        if (line[0] == '.') {
+            max_config++;
+            cfg = &config[max_config];
+            expecting_config_definition_line = true;
+            continue;
+        }
 
-    current_config = &config[3];
+        // scan for the element id and type-string; and ensure the element id is sequential
+        if (sscanf(line, "%d %s %n", &elem_id, elem_type_str, &char_count) != 2) {
+            ERROR("scan for element id and type failed, line %d\n", line_num);
+            goto error;
+        }
 
+        // based on element type-string:
+        // - continue scanning for the element's other parameters
+        // - set the handler
+        // - some elements have special requirements, which are validated  XXX TBD
+        elem = &cfg->element[cfg->max_element];
+        if (strcmp(elem_type_str, "source_single_slit") == 0) {
+            elem->hndlr = source_single_slit_hndlr;
+            elem->diameter = 25;  // XXX tbd does this matter to adjust thsi
+            cnt = sscanf(line+char_count,
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf w=%lf h=%lf wspread=%lf hspread=%lf next=%d",
+                   &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
+                   &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
+                   &elem->u.source_single_slit.w, 
+                   &elem->u.source_single_slit.h, 
+                   &elem->u.source_single_slit.wspread, 
+                   &elem->u.source_single_slit.hspread, 
+                   &elem->next);
+            if (cnt != 11) {
+                ERROR("scanning element single_slit, line %d\n", line_num);
+                goto error;
+            }
+            cfg->max_element++;
+        } else if (strcmp(elem_type_str, "screen") == 0) {
+            elem->hndlr = screen_hndlr;
+            elem->diameter = MAX_SCREEN / 100; // XXX
+            elem->next = -1;
+            cnt = sscanf(line+char_count,
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf",
+                   &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
+                   &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c);
+            if (cnt != 6) {
+                ERROR("scanning element screen, line %d\n", line_num);
+                goto error;
+            }
+            cfg->max_element++;
+        }
+    }
+
+    // validate the config; these are basic sanity checks and not 
+    // an extensive validation; validations include:
+    // - first element must be source
+    // - there can be just one source and one screen
+    // - all next must be valid
+    // XXX
+
+    // debug print config
+    int i,j;
+    for (i = 0; i < max_config; i++) {
+        sim_config_t *cfg = &config[i];
+        INFO("config %d - %s %f\n", i, cfg->name, cfg->wavelength);
+        for (j = 0; j < cfg->max_element; j++) {
+            element_t *elem = &cfg->element[j];
+            INFO("  %d %s diam=%g next=%d\n", 
+                 j, ELEMENT_NAME_STR(elem->hndlr), elem->diameter, elem->next);
+        }
+    }
+
+    // close config file
+    fclose(fp);
+    fp = NULL;
     return 0;
+
+error:
+    // error return
+    if (fp) {
+        fclose(fp);
+        fp = NULL;
+    }
+    return -1;
+}
+
+static bool is_comment_or_blank_line(char *s)
+{
+    while (*s) {
+        if (*s == '#') return true;
+        if (*s != ' ') return false;
+        s++;
+    }
+    return true;
+}
+
+static void remove_trailing_newline_char(char *s)
+{
+    size_t len;
+
+    len = strlen(s);
+    if (len > 0 && s[len-1] == '\n') {
+        s[len-1] = '\0';
+    }
 }
 
 // -----------------  SIMULATION THREAD  --------------------------------------------
@@ -322,10 +433,12 @@ static void simulate_a_photon(photon_t *photon)
 
         if (next != -1) {
             DEBUG("photon leaving %s %d, next %s %d - %s\n",
-                  elem->name, idx, current_config->element[next].name, next, line_str(&photon->current,s1));
+                  ELEMENT_NAME_STR(elem->hndlr), idx, 
+                  ELEMENT_NAME_STR(current_config->element[next].hndlr), next, 
+                  line_str(&photon->current,s1));
         } else {
             DEBUG("photon done at %s %d, - %s\n",
-                  elem->name, idx, point_str(&photon->current.p,s1));
+                  ELEMENT_NAME_STR(elem->hndlr), idx, point_str(&photon->current.p,s1));
         }
 
         idx = next;
@@ -343,19 +456,41 @@ static void simulate_a_photon(photon_t *photon)
 // XXX this is also constrained, must be aligned and z = 0
 static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
 {
+    struct source_single_slit_s *ss = &elem->u.source_single_slit;
+    double width_pos;
+    double height_pos;
+    double width_spread_angle;
+    double height_spread_angle;
+
+    // orientation must be in the +/-x or +/-y direction
+    assert(elem->plane.n.c == 0);
+    assert((elem->plane.n.a == 0 && fabs(elem->plane.n.b) == 1) ||
+           (elem->plane.n.b == 0 && fabs(elem->plane.n.a) == 1));
+
     // init the photon to all fields 0
     memset(photon, 0, sizeof(photon_t));
 
     // set the photons current location (current.p) and direction (current.v)
-    photon->current.p.x = 0;
-    photon->current.p.y = random_range(-.05,+.05);
-    photon->current.p.z = random_range(-1,+1);
-
-    double angle_width_spread = random_range(DEG2RAD(-1),DEG2RAD(1));
-    double angle_height_spread = random_range(DEG2RAD(-.01),DEG2RAD(.01));
-    photon->current.v.a = 1;
-    photon->current.v.b = 1 * tan(angle_width_spread);
-    photon->current.v.c = 1 * tan(angle_height_spread);
+    width_pos           = random_range(-ss->w/2, ss->w/2);
+    height_pos          = random_range(-ss->h/2, ss->h/2);
+    width_spread_angle  = random_range(DEG2RAD(-ss->wspread/2),DEG2RAD(ss->wspread/2));
+    height_spread_angle = random_range(DEG2RAD(-ss->hspread/2),DEG2RAD(ss->hspread/2));
+    // - set photon z position and vector c component
+    photon->current.p.z = height_pos;
+    photon->current.v.c = 1 * tan(height_spread_angle);
+    if (elem->plane.n.a != 0) {
+        // - photon leaving source in eihter the +x or -x direction
+        photon->current.p.x = 0;
+        photon->current.p.y = width_pos;
+        photon->current.v.a = elem->plane.n.a;
+        photon->current.v.b = 1 * tan(width_spread_angle);
+    } else {
+        // - photon leaving source in eihter the +y or -y direction
+        photon->current.p.x = width_pos;
+        photon->current.p.y = 0;
+        photon->current.v.a = 1 * tan(width_spread_angle);
+        photon->current.v.b = elem->plane.n.a;
+    }
 
     // add new current photon position to points array
     photon->points[photon->max_points++] = photon->current.p;
@@ -366,6 +501,7 @@ static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
 
 static int source_double_slit_hndlr(element_t *elem, photon_t *photon)
 {
+#if 0
     int which_slit;
 
     // init the photon to all fields 0
@@ -397,10 +533,14 @@ static int source_double_slit_hndlr(element_t *elem, photon_t *photon)
 
     // return next element
     return elem->next;
+#else
+    return -1;
+#endif
 }
 
 static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
 {
+#if 0
     double y,z;
 
     // init the photon to all fields 0
@@ -428,15 +568,19 @@ static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
 
     // return next element
     return elem->next;
+#else
+    return -1;
+#endif
 }
 
 static int mirror_hndlr(element_t *elem, photon_t *photon)
 {
+#if 0
     geo_point_t point_tmp, point_intersect, point_reflected;
     char s[100] __attribute__((unused));
 
     // intersect the photon with the mirror
-    intersect(&photon->current, &elem->plane, &point_intersect);
+    intersect(&photon->current, &elem->plane, &point_intersect);   // XXX maybe should also return T to check the direction
     DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
 
     // XXX comment
@@ -461,67 +605,61 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
 
     // return next element
     return elem->next;
+#else
+    return -1;
+#endif
 }
 
 static int screen_hndlr(element_t *elem, photon_t *photon)
 {
-    geo_point_t point_intersect;
-    double screen_x, screen_z;
-    int screen_x_idx, screen_z_idx;
-    char s[100] __attribute__((unused));
+    //struct screen_s *scr = &elem->u.screen;
+    geo_point_t      point_intersect;
+    int              screen_horizontal_idx, screen_vertical_idx;
 
     static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+    //XXX INFO("elem %p\n", elem);
+
+    // orientation must be in the +/-x or +/-y direction
+    assert(elem->plane.n.c == 0);
+    assert((elem->plane.n.a == 0 && fabs(elem->plane.n.b) == 1) ||
+           (elem->plane.n.b == 0 && fabs(elem->plane.n.a) == 1));
 
     // intersect the photon with the screen
     intersect(&photon->current, &elem->plane, &point_intersect);
     DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
 
-    // determine screen coordinates of the intersect point
-    // call screen_x horizontal and screen_y vertical
-#if 1  // XXX needs to be dynamic
-    screen_x = point_intersect.x - elem->plane.p.x;
-#else
-    screen_x = point_intersect.y - elem->plane.p.y;
-#endif
-    screen_z = point_intersect.z - elem->plane.p.z;
-
-    screen_x_idx = nearbyint(screen_x * 100 + MAX_SCREEN/2);  // XXX this makes .01 m  ??
-    screen_z_idx = nearbyint(screen_z * 100 + MAX_SCREEN/2);
-
+    // update photon total_distance
     photon->total_distance += distance(&photon->current.p, &point_intersect);
 
-    if (screen_x_idx >= 0 && screen_x_idx < MAX_SCREEN &&
-        screen_z_idx >= 0 && screen_z_idx < MAX_SCREEN)
-    {
-        double n, angle, amp1, amp2;
+    // determine screen coordinates of the intersect point
+    // XXX needs more comments
+    // XXX need define for 100
+    if (elem->plane.n.a) {
+        screen_horizontal_idx = (point_intersect.y - elem->plane.p.y) * 100 + MAX_SCREEN/2;
+    } else {
+        screen_horizontal_idx = (point_intersect.x - elem->plane.p.x) * 100 + MAX_SCREEN/2;
+    }
+    screen_vertical_idx = (point_intersect.z - elem->plane.p.z) * 100 + MAX_SCREEN/2;
 
+    // XXX comment
+    if (screen_horizontal_idx >= 0 && screen_horizontal_idx < MAX_SCREEN &&
+        screen_vertical_idx >= 0 && screen_vertical_idx < MAX_SCREEN)
+    {
+        double n, angle;
         n = photon->total_distance / current_config->wavelength;
         angle = (n - floor(n)) * (2*M_PI);
-        amp1 = sin(angle);
-        amp2 = cos(angle);
         pthread_mutex_lock(&mutex);
-        screen_amp1[screen_z_idx][screen_x_idx] += amp1;
-        screen_amp2[screen_z_idx][screen_x_idx] += amp2;
+        screen_amp1[screen_vertical_idx][screen_horizontal_idx] += sin(angle);
+        screen_amp2[screen_vertical_idx][screen_horizontal_idx] += cos(angle);
         pthread_mutex_unlock(&mutex);
-        DEBUG("screen_amp1/2 [%d] = %g %g\n",
-             screen_x_idx,
-             screen_amp1[screen_z_idx][screen_x_idx],
-             screen_amp2[screen_z_idx][screen_x_idx]);
-    } else {
-        DEBUG("SKIPPLING\n");
     }
 
-    DEBUG("screen_x = %g screen_z = %g   %d %d  - td = %g\n", 
-         screen_x, screen_z, screen_x_idx, screen_z_idx,
-         photon->total_distance);
-
-    // set new photon position
-    photon->current.p = point_intersect;
-
+    // set new photon position, and
     // add new current photon position to points array
+    photon->current.p = point_intersect;
     photon->points[photon->max_points++] = photon->current.p;
 
-    // return next element
+    // return next element, which always equals -1 in this coase
     return elem->next;
 }
-

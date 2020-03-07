@@ -127,7 +127,6 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
 
     if (request == PANE_HANDLER_REQ_RENDER) {
         int i, j;
-        struct element_s *e;
         char title_str[200];
         photon_t *photons;
         int max_photons;
@@ -139,18 +138,19 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
                         FONTSZ, title_str, WHITE, BLACK);
 
         // display optical elements: source, mirrors. beamsplitters, etc.
-        for (i = 0; (e = &current_config->element[i])->hndlr; i++) {
+        for (i = 0; i < current_config->max_element; i++) {
+            struct element_s *elem = &current_config->element[i];
             geo_vector_t v_plane, v_vertical={0,0,1}, v_line;
             geo_point_t p0, p1, p2;
 
-            v_plane = e->plane.n;
+            v_plane = elem->plane.n;
             v_plane.c = 0;
 
             cross_product(&v_plane, &v_vertical, &v_line);
-            set_vector_magnitude(&v_line, 25);  // XXX should be element diameter
+            set_vector_magnitude(&v_line, elem->diameter/2);
 
             set_vector_magnitude(&v_plane, 0.10/scale_pixel_per_mm);
-            p0 = e->plane.p;
+            p0 = elem->plane.p;
             for (j = 0; j < 50 ; j++) {
                 point_plus_vector(&p0, &v_line, &p1);
                 point_minus_vector(&p0, &v_line, &p2);
@@ -185,9 +185,9 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         switch (event->event_id) {
         case SDL_EVENT_ZOOM:
             if (event->mouse_wheel.delta_y > 0) {
-                scale_pixel_per_mm *= 1.1;
+                scale_pixel_per_mm *= 1.5;
             } else if (event->mouse_wheel.delta_y < 0) {
-                scale_pixel_per_mm /= 1.1;
+                scale_pixel_per_mm /= 1.5;
             }
             break;
         case SDL_EVENT_PAN:

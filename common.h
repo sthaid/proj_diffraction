@@ -40,11 +40,26 @@ typedef struct {
 typedef struct {
     char name[100];
     double wavelength;   // mm
+    int max_element;
     struct element_s {
-        char name[100];
+        int (*hndlr)(struct  element_s *elem, photon_t *photon);
         geo_plane_t plane;
+        double diameter;
         int next;
-        int (*hndlr)(struct element_s *elem, photon_t *photon);
+        union {
+            struct source_single_slit_s {
+                double w;
+                double h;
+                double wspread;
+                double hspread;
+            } source_single_slit;
+            struct mirror_s {
+                int nothing_here_yet;
+            } mirror;
+            struct screen_s {
+                int nothing_here_yet;
+            } screen;
+        } u;
     } element[MAX_ELEMENT];
 } sim_config_t;
 
@@ -60,7 +75,7 @@ sim_config_t * current_config;
 // prototypes
 //
 
-int sim_init(void);
+int sim_init(char *config_filename);
 void sim_select_config(int idx);
 void sim_reset(void);
 void sim_run(void);
@@ -71,6 +86,3 @@ void sim_get_recent_sample_photons(photon_t **photons, int *max_photons);
 
 int display_init(void);
 void display_hndlr(void);
-
-
-
