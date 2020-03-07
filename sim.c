@@ -3,16 +3,14 @@
 // XXX draw diagram, and add ray tracing
 // XXX pan and zoom for diagram and maybe for screen
 
-
 #include "common.h"
 
 //
 // defines
 //
 
-#define MAX_SCREEN 5000
-
-//#define MAX_RECENT_SAMPLE_PHOTONS 3
+#define MAX_SCREEN                5000
+#define MAX_SIM_THREAD            1
 #define MAX_RECENT_SAMPLE_PHOTONS 1000
 
 //
@@ -68,9 +66,6 @@ static inline int min(int a, int b)
 
 // -----------------  SIM APIS  -----------------------------------------------------
 
-// XXX move define
-#define MAX_SIM_THREAD 1
-
 int sim_init(void)
 {
     pthread_t thread_id;
@@ -104,13 +99,13 @@ void sim_reset(void)
 void sim_run(void)
 {
     run = true;
-// XXX and wait
+    // XXX and wait
 }
 
 void sim_stop(void)
 {
     run = false;
-// XXX and wait
+    // XXX and wait
 }
 
 bool sim_is_running(void)
@@ -132,9 +127,8 @@ void sim_get_screen(double **screen_ret, int *max_screen_ret, double *screen_wid
     // caller must free it when done
     max_screen = MAX_SCREEN / zoom_factor;
     screen = malloc(max_screen*max_screen*sizeof(double));
-    //INFO("screen = %p  max_screen=%d\n", screen, max_screen);
+    DEBUG("screen = %p  max_screen=%d\n", screen, max_screen);
 
-#if 1
     // using the screen_amp1, screen_amp2, and zoom_factor as input,
     // compute the return screen buffer intensity values;
     // these values will be normalized later
@@ -153,12 +147,6 @@ void sim_get_screen(double **screen_ret, int *max_screen_ret, double *screen_wid
         }
     }
     assert(k == max_screen*max_screen);
-#else
-    memset(screen,0,max_screen*max_screen*sizeof(double));
-    for (i = 100; i < 300; i++) {
-        screen[250*500+i] = 1;
-    }
-#endif
 
     // determine max_screen_value
     max_screen_value = -1;
@@ -183,20 +171,23 @@ void sim_get_screen(double **screen_ret, int *max_screen_ret, double *screen_wid
     *screen_width_and_height_ret = MAX_SCREEN * .01;
 }
 
-void sim_get_recent_sample_photons(photon_t *photons_out, int *max_photons_inout)
+void sim_get_recent_sample_photons(photon_t **photons_out, int *max_photons_out)
 {
     int max;
 
     // acquire mutex
     pthread_mutex_lock(&recent_sample_photons_mutex);
 
-    // max is the smaller of caller's array and the
+    // max is the smaller of MAX_RECENT_SAMPLE_PHOTONS or the 
     // number of recent sample photons acuumulated by the simulation
-    max = min(*max_photons_inout, max_recent_sample_photons);
+    max = min(MAX_RECENT_SAMPLE_PHOTONS, max_recent_sample_photons);
 
-    // copy the recent_sample_photons to caller's buffer
-    memcpy(photons_out, recent_sample_photons, max*sizeof(photon_t));
-    *max_photons_inout = max;
+    // allocate the return buffer
+    *photons_out = malloc(max*sizeof(photon_t));
+
+    // copy the recent_sample_photons to the allocated return buffer
+    memcpy(*photons_out, recent_sample_photons, max*sizeof(photon_t));
+    *max_photons_out = max;
 
     // reset number of recent_sample_photons to 0, so that we'll
     // start accumulating them again
@@ -272,23 +263,23 @@ static void *sim_thread(void *cx)
 
     while (true) {
         // wait for run flag to be set
-        INFO("WAITING FOR RUN\n");
+        INFO("waiting for start request\n");
         while (!run) {
             usleep(10000);
         }
 
         // while run flag is set, simulate photons
-        INFO("RUN IS SET - FOR %s\n", current_config->name);
+        INFO("starting simulation of %s\n", current_config->name);
         while (run) {
+            // simulate a photon
             simulate_a_photon(&photon);
-            __sync_fetch_and_add(&total_photon_count,1);
 
-            // XXX comment
+            // thread 0 accumulates recent sample photons, so that the
+            // display code can display photon ray traces
             if (id == 0 && max_recent_sample_photons < MAX_RECENT_SAMPLE_PHOTONS) {
                 pthread_mutex_lock(&recent_sample_photons_mutex);
                 recent_sample_photons[max_recent_sample_photons++] = photon;
                 pthread_mutex_unlock(&recent_sample_photons_mutex);
-                //INFO("max_recent_sample_photons = %d\n", max_recent_sample_photons);
             }
         }
     }
@@ -302,7 +293,6 @@ static void *sim_monitor_thread(void *cx)
     unsigned long start_photon_count, end_photon_count;
     double photons_per_sec;
 
-    // XXX monitor run flag
     while (true) {
         start_us = microsec_timer();
         start_photon_count = total_photon_count;
@@ -343,12 +333,13 @@ static void simulate_a_photon(photon_t *photon)
             break;
         }
     }
+
+    __sync_fetch_and_add(&total_photon_count,1);
 }
 
 // -----------------  OPTICAL ELEMENT HANDLERS  -----------------------------------
 
-// XXX THESE all need to use config
-
+// XXX THESE all need to use config AND cleanup
 // XXX this is also constrained, must be aligned and z = 0
 static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
 {
@@ -356,10 +347,6 @@ static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
     memset(photon, 0, sizeof(photon_t));
 
     // set the photons current location (current.p) and direction (current.v)
-#if 0 // XXX
-    photon->current.p = elem->plane.p;
-    photon->current.v = elem->plane.n;
-#else
     photon->current.p.x = 0;
     photon->current.p.y = random_range(-.05,+.05);
     photon->current.p.z = random_range(-1,+1);
@@ -369,7 +356,6 @@ static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
     photon->current.v.a = 1;
     photon->current.v.b = 1 * tan(angle_width_spread);
     photon->current.v.c = 1 * tan(angle_height_spread);
-#endif
 
     // add new current photon position to points array
     photon->points[photon->max_points++] = photon->current.p;
@@ -421,12 +407,10 @@ static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
     memset(photon, 0, sizeof(photon_t));
 
     // set the photons current location (current.p) and direction (current.v)
-    //INFO("START\n");
     do {
         y = random_range(-.05,.05);
         z = random_range(-.05,.05);
     } while (square(y) + square(z) > square(.1));
-    //INFO("GOT yz %g %g\n",y,z);
 
     photon->current.p.x = 0;
     photon->current.p.y = y;
@@ -455,7 +439,7 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
     intersect(&photon->current, &elem->plane, &point_intersect);
     DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
 
-    // xxxx
+    // XXX comment
     photon->total_distance += distance(&photon->current.p, &point_intersect);
 
     // create a point a little before the intesect point
@@ -494,14 +478,14 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
 
     // determine screen coordinates of the intersect point
     // call screen_x horizontal and screen_y vertical
-#if 1
+#if 1  // XXX needs to be dynamic
     screen_x = point_intersect.x - elem->plane.p.x;
 #else
     screen_x = point_intersect.y - elem->plane.p.y;
 #endif
     screen_z = point_intersect.z - elem->plane.p.z;
 
-    screen_x_idx = nearbyint(screen_x * 100 + MAX_SCREEN/2);  // XXX this makes .01 m
+    screen_x_idx = nearbyint(screen_x * 100 + MAX_SCREEN/2);  // XXX this makes .01 m  ??
     screen_z_idx = nearbyint(screen_z * 100 + MAX_SCREEN/2);
 
     photon->total_distance += distance(&photon->current.p, &point_intersect);

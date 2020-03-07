@@ -89,10 +89,8 @@ static double scale_pixel_per_mm;
 
 static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
-    #define MAX_RSP 1000
-
     struct {
-        photon_t photons[MAX_RSP];
+        int none;
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
@@ -131,21 +129,17 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         int i, j;
         struct element_s *e;
         char title_str[200];
+        photon_t *photons;
         int max_photons;
 
+        // display title
         sprintf(title_str, "%s - %g nm", current_config->name, MM2NM(current_config->wavelength));
         sdl_render_text(pane, 
                         pane->w/2 - COL2X(strlen(title_str),FONTSZ)/2, 0, 
                         FONTSZ, title_str, WHITE, BLACK);
 
+        // display optical elements: source, mirrors. beamsplitters, etc.
         for (i = 0; (e = &current_config->element[i])->hndlr; i++) {
-#if 0
-            cross_product(&e->plane.n, &vertical, &result);
-            set_vector_magnitude(&result, 25);  // XXX should be element diameter
-            point_plus_vector(&e->plane.p, &result, &p1);
-            point_minus_vector(&e->plane.p, &result, &p2);
-            draw_line(pane, &p1, &p2, WHITE);
-#else
             geo_vector_t v_plane, v_vertical={0,0,1}, v_line;
             geo_point_t p0, p1, p2;
 
@@ -155,25 +149,24 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             cross_product(&v_plane, &v_vertical, &v_line);
             set_vector_magnitude(&v_line, 25);  // XXX should be element diameter
 
-            set_vector_magnitude(&v_plane, 0.5/scale_pixel_per_mm);
+            set_vector_magnitude(&v_plane, 0.10/scale_pixel_per_mm);
             p0 = e->plane.p;
-            for (j = 0; j < 15; j++) {
+            for (j = 0; j < 50 ; j++) {
                 point_plus_vector(&p0, &v_line, &p1);
                 point_minus_vector(&p0, &v_line, &p2);
                 draw_line(pane, &p1, &p2, WHITE);
                 point_minus_vector(&p0, &v_plane, &p0);
             }
-#endif
         }
 
-        max_photons = MAX_RSP;  // XXX may be better if the sim just returned a malloced buffer that we free here, and tell 
-                                //     this routine what the size is
-        sim_get_recent_sample_photons(vars->photons, &max_photons);
-        //INFO("max_photon = %d\n", max_photons);
+        // get and display the ray trace for the recent sample photons
+        sim_get_recent_sample_photons(&photons, &max_photons);
         for (i = 0; i < max_photons; i++) {
-            draw_lines(pane, vars->photons[i].points, vars->photons[i].max_points, GREEN);
+            draw_lines(pane, photons[i].points, photons[i].max_points, GREEN);
         }
+        free(photons);
 
+        // register for events, for example pane pan/zoom control events
         sdl_register_event(pane, pane, SDL_EVENT_ZOOM, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
         sdl_register_event(pane, pane, SDL_EVENT_PAN, SDL_EVENT_TYPE_MOUSE_MOTION, pane_cx);
         sdl_render_text_and_register_event(
@@ -234,8 +227,7 @@ void draw_lines(rect_t *pane, geo_point_t *geo_points, int max_points, int color
     int i;
     point_t sdl_points[100];
 
-    // XXX error if more than 100, LATER,   or loop instead of error
-
+    assert(max_points <= 100);
     for (i = 0; i < max_points; i++) {
         transform(&geo_points[i], &sdl_points[i]);
     }
@@ -296,7 +288,7 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
 
         // XXX put a scale on the graph 
         //     empahsize lower intensities
-        //     pan and zoom
+        //     pan and zoom - MAYBE NOT NEEDED
 
         // get the screen data
         sim_get_screen(&screen, &max_screen, &screen_width_and_height);
@@ -322,6 +314,7 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
         sdl_update_texture(vars->texture, (unsigned char*)vars->pixels, max_screen*sizeof(int));
 
         // render
+        // XXX work needed here to handle cases where the texture size and pane size differ
 #if 1
         sdl_render_texture(pane, 0, 0, vars->texture);
 #else
