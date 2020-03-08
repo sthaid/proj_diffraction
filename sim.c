@@ -277,9 +277,9 @@ static int read_config_file(char *config_filename)
         // - set the handler
         // - some elements have special requirements, which are validated  XXX TBD
         elem = &cfg->element[cfg->max_element];
+
         if (strcmp(elem_type_str, "source_single_slit") == 0) {
             elem->hndlr = source_single_slit_hndlr;
-            elem->diameter = 25;  // XXX tbd does this matter to adjust thsi
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf w=%lf h=%lf wspread=%lf hspread=%lf next=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
@@ -290,13 +290,46 @@ static int read_config_file(char *config_filename)
                    &elem->u.source_single_slit.hspread, 
                    &elem->next);
             if (cnt != 11) {
-                ERROR("scanning element single_slit, line %d\n", line_num);
+                ERROR("scanning element source_single_slit, line %d\n", line_num);
                 goto error;
             }
             cfg->max_element++;
+
+        } else if (strcmp(elem_type_str, "source_double_slit") == 0) {
+            elem->hndlr = source_double_slit_hndlr;
+            cnt = sscanf(line+char_count,
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf w=%lf h=%lf wspread=%lf hspread=%lf ctrsep=%lf next=%d",
+                   &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
+                   &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
+                   &elem->u.source_double_slit.w, 
+                   &elem->u.source_double_slit.h, 
+                   &elem->u.source_double_slit.wspread, 
+                   &elem->u.source_double_slit.hspread, 
+                   &elem->u.source_double_slit.ctrsep,
+                   &elem->next);
+            if (cnt != 12) {
+                ERROR("scanning element source_double_slit, line %d\n", line_num);
+                goto error;
+            }
+            cfg->max_element++;
+
+        } else if (strcmp(elem_type_str, "source_round_hole") == 0) {
+            elem->hndlr = source_round_hole_hndlr;
+            cnt = sscanf(line+char_count,
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf diam=%lf spread=%lf next=%d",
+                   &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
+                   &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
+                   &elem->u.source_round_hole.diam, 
+                   &elem->u.source_round_hole.spread, 
+                   &elem->next);
+            if (cnt != 9) {
+                ERROR("scanning element source_round_hole, line %d\n", line_num);
+                goto error;
+            }
+            cfg->max_element++;
+
         } else if (strcmp(elem_type_str, "screen") == 0) {
             elem->hndlr = screen_hndlr;
-            elem->diameter = MAX_SCREEN / 100; // XXX
             elem->next = -1;
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf",
@@ -324,8 +357,8 @@ static int read_config_file(char *config_filename)
         INFO("config %d - %s %f\n", i, cfg->name, cfg->wavelength);
         for (j = 0; j < cfg->max_element; j++) {
             element_t *elem = &cfg->element[j];
-            INFO("  %d %s diam=%g next=%d\n", 
-                 j, ELEMENT_NAME_STR(elem->hndlr), elem->diameter, elem->next);
+            INFO("  %d %s next=%d\n", 
+                 j, ELEMENT_NAME_STR(elem->hndlr), elem->next);
         }
     }
 
@@ -501,76 +534,101 @@ static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
 
 static int source_double_slit_hndlr(element_t *elem, photon_t *photon)
 {
-#if 0
-    int which_slit;
+    struct source_double_slit_s *ds = &elem->u.source_double_slit;
+    double slit_center;
+    double width_pos;
+    double height_pos;
+    double width_spread_angle;
+    double height_spread_angle;
+
+    // orientation must be in the +/-x or +/-y direction
+    assert(elem->plane.n.c == 0);
+    assert((elem->plane.n.a == 0 && fabs(elem->plane.n.b) == 1) ||
+           (elem->plane.n.b == 0 && fabs(elem->plane.n.a) == 1));
 
     // init the photon to all fields 0
     memset(photon, 0, sizeof(photon_t));
 
-    // first choose the slit
-    which_slit = (random_range(0,1) < 0.5) ? 0 : 1;
+    // choose the slit
+    slit_center = (random_range(0,1) < 0.5) ? -ds->ctrsep/2 : +ds->ctrsep/2;
 
-    // next choose the position within the slit
-    photon->current.p.x = 0;
-    photon->current.p.z = random_range(-1,+1);
-    if (which_slit == 0) {
-        //photon->current.p.y = random_range(-.15, -.05);
-        photon->current.p.y = random_range(-.225, -.125);
+    // set the photons current location (current.p) and direction (current.v)
+    width_pos           = random_range(-ds->w/2, ds->w/2) + slit_center;
+    height_pos          = random_range(-ds->h/2, ds->h/2);
+    width_spread_angle  = random_range(DEG2RAD(-ds->wspread/2),DEG2RAD(ds->wspread/2));
+    height_spread_angle = random_range(DEG2RAD(-ds->hspread/2),DEG2RAD(ds->hspread/2));
+    // - set photon z position and vector c component
+    photon->current.p.z = height_pos;
+    photon->current.v.c = 1 * tan(height_spread_angle);
+    if (elem->plane.n.a != 0) {
+        // - photon leaving source in eihter the +x or -x direction
+        photon->current.p.x = 0;
+        photon->current.p.y = width_pos;
+        photon->current.v.a = elem->plane.n.a;
+        photon->current.v.b = 1 * tan(width_spread_angle);
     } else {
-        //photon->current.p.y = random_range(+.05, +.15);
-        photon->current.p.y = random_range(+.125, +.225);
+        // - photon leaving source in eihter the +y or -y direction
+        photon->current.p.x = width_pos;
+        photon->current.p.y = 0;
+        photon->current.v.a = 1 * tan(width_spread_angle);
+        photon->current.v.b = elem->plane.n.a;
     }
-
-    // finally choose the direction
-    double angle_width_spread = random_range(DEG2RAD(-1),DEG2RAD(1));
-    double angle_height_spread = random_range(DEG2RAD(-.01),DEG2RAD(.01));
-    photon->current.v.a = 1;
-    photon->current.v.b = 1 * tan(angle_width_spread);
-    photon->current.v.c = 1 * tan(angle_height_spread);
 
     // add new current photon position to points array
     photon->points[photon->max_points++] = photon->current.p;
 
     // return next element
     return elem->next;
-#else
-    return -1;
-#endif
 }
 
 static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
 {
-#if 0
-    double y,z;
+    struct source_round_hole_s *rh = &elem->u.source_round_hole;
+    double width_pos;
+    double height_pos;
+    double width_spread_angle;
+    double height_spread_angle;
+    double radius;
+
+    // orientation must be in the +/-x or +/-y direction
+    assert(elem->plane.n.c == 0);
+    assert((elem->plane.n.a == 0 && fabs(elem->plane.n.b) == 1) ||
+           (elem->plane.n.b == 0 && fabs(elem->plane.n.a) == 1));
 
     // init the photon to all fields 0
     memset(photon, 0, sizeof(photon_t));
 
     // set the photons current location (current.p) and direction (current.v)
+    radius = rh->diam/2;
     do {
-        y = random_range(-.05,.05);
-        z = random_range(-.05,.05);
-    } while (square(y) + square(z) > square(.1));
-
-    photon->current.p.x = 0;
-    photon->current.p.y = y;
-    photon->current.p.z = z;
-
-    double angle_width_spread = random_range(DEG2RAD(-1),DEG2RAD(1));
-    double angle_height_spread = random_range(DEG2RAD(-1),DEG2RAD(1));
-
-    photon->current.v.a = 1;
-    photon->current.v.b = 1 * tan(angle_width_spread);
-    photon->current.v.c = 1 * tan(angle_height_spread);
+        width_pos  = random_range(-radius, +radius);
+        height_pos = random_range(-radius, +radius);
+    } while (square(width_pos) + square(height_pos) > square(radius));
+    // XXX this looks wrong vvv
+    width_spread_angle  = random_range(DEG2RAD(-rh->spread/2),DEG2RAD(rh->spread/2));
+    height_spread_angle = random_range(DEG2RAD(-rh->spread/2),DEG2RAD(rh->spread/2));
+    // - set photon z position and vector c component
+    photon->current.p.z = height_pos;
+    photon->current.v.c = 1 * tan(height_spread_angle);
+    if (elem->plane.n.a != 0) {
+        // - photon leaving source in eihter the +x or -x direction
+        photon->current.p.x = 0;
+        photon->current.p.y = width_pos;
+        photon->current.v.a = elem->plane.n.a;
+        photon->current.v.b = 1 * tan(width_spread_angle);
+    } else {
+        // - photon leaving source in eihter the +y or -y direction
+        photon->current.p.x = width_pos;
+        photon->current.p.y = 0;
+        photon->current.v.a = 1 * tan(width_spread_angle);
+        photon->current.v.b = elem->plane.n.a;
+    }
 
     // add new current photon position to points array
     photon->points[photon->max_points++] = photon->current.p;
-
+    
     // return next element
     return elem->next;
-#else
-    return -1;
-#endif
 }
 
 static int mirror_hndlr(element_t *elem, photon_t *photon)

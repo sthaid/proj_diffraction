@@ -44,7 +44,6 @@ typedef struct {
     struct element_s {
         int (*hndlr)(struct  element_s *elem, photon_t *photon);
         geo_plane_t plane;
-        double diameter;
         int next;
         union {
             struct source_single_slit_s {
@@ -53,11 +52,22 @@ typedef struct {
                 double wspread;
                 double hspread;
             } source_single_slit;
+            struct source_double_slit_s {
+                double w;
+                double h;
+                double wspread;
+                double hspread;
+                double ctrsep;
+            } source_double_slit;
+            struct source_round_hole_s {
+                double diam;  // XXX this is hole diam
+                double spread;
+            } source_round_hole;
             struct mirror_s {
-                int nothing_here_yet;
+                double diam;   // XXX mirror diam
             } mirror;
             struct screen_s {
-                int nothing_here_yet;
+                double diam;   // XXX screen diam, not sure if this is used
             } screen;
         } u;
     } element[MAX_ELEMENT];
