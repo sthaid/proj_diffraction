@@ -153,7 +153,7 @@ void sim_get_screen(double **screen_ret, int *max_screen_ret, double *screen_wid
                     sum += square(screen_amp1[ii][jj]) + square(screen_amp2[ii][jj]);
                 }
             }
-            screen[k++] = sum;
+            screen[k++] = sqrt(sum);
         }
     }
     assert(k == max_screen*max_screen);
@@ -324,6 +324,20 @@ static int read_config_file(char *config_filename)
                    &elem->next);
             if (cnt != 9) {
                 ERROR("scanning element source_round_hole, line %d\n", line_num);
+                goto error;
+            }
+            cfg->max_element++;
+
+        } else if (strcmp(elem_type_str, "mirror") == 0) {
+            elem->hndlr = mirror_hndlr;
+            cnt = sscanf(line+char_count,
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf diam=%lf next=%d",
+                   &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
+                   &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
+                   &elem->u.mirror.diam, 
+                   &elem->next);
+            if (cnt != 8) {
+                ERROR("scanning element mirror, line %d\n", line_num);
                 goto error;
             }
             cfg->max_element++;
@@ -633,7 +647,6 @@ static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
 
 static int mirror_hndlr(element_t *elem, photon_t *photon)
 {
-#if 0
     geo_point_t point_tmp, point_intersect, point_reflected;
     char s[100] __attribute__((unused));
 
@@ -663,9 +676,6 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
 
     // return next element
     return elem->next;
-#else
-    return -1;
-#endif
 }
 
 static int screen_hndlr(element_t *elem, photon_t *photon)

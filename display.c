@@ -310,7 +310,12 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
         // initialize pixels from screen data,
         // and update the texture with the new pixel values
         for (i = 0; i < max_screen*max_screen; i++) {
-            vars->pixels[i] = ((int)(screen[i] * 255.99) << 8) | (0xff << 24);
+            int green = 255.99 * screen[i];
+            if (green < 0 || green > 255) {
+                ERROR("green %d\n", green);
+                green = 0;
+            }
+            vars->pixels[i] = (green << 8) | (0xff << 24);
         }
         sdl_update_texture(vars->texture, (unsigned char*)vars->pixels, max_screen*sizeof(int));
 

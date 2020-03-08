@@ -64,7 +64,7 @@ typedef struct {
                 double spread;
             } source_round_hole;
             struct mirror_s {
-                double diam;   // XXX mirror diam
+                double diam;   // XXX mirror diam, needs to beused
             } mirror;
             struct screen_s {
                 double diam;   // XXX screen diam, not sure if this is used
