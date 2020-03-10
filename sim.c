@@ -1,5 +1,5 @@
 // XXX add constraint checks on source and screen
-// XXX experiment with less than 5000 for MAX_SCREEN, to improve performance
+// XXX experiment with less than 5000 for MAX_SCREEN_AMP, to improve performance
 // XXX draw diagram, and add ray tracing
 // XXX pan and zoom for diagram and maybe for screen
 
@@ -9,7 +9,7 @@
 // defines
 //
 
-#define MAX_SCREEN                5000
+#define MAX_SCREEN_AMP            5000
 #define MAX_SIM_THREAD            1
 #define MAX_RECENT_SAMPLE_PHOTONS 1000
 
@@ -20,6 +20,8 @@
      (_elem) == mirror_hndlr             ? "mirror"             : \
      (_elem) == screen_hndlr             ? "screen"             : \
                                            "????")
+
+#define SCREEN_AMP_ELEMENT_SIZE .01
 
 //
 // typedefs
@@ -33,8 +35,8 @@ typedef struct element_s element_t;
 
 static volatile bool run;
 
-static double screen_amp1[MAX_SCREEN][MAX_SCREEN];
-static double screen_amp2[MAX_SCREEN][MAX_SCREEN];
+static double screen_amp1[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
+static double screen_amp2[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
 
 static unsigned long total_photon_count;
 
@@ -123,46 +125,33 @@ bool sim_is_running(void)
     return run;
 }
 
-void sim_get_screen(double **screen_ret, int *max_screen_ret, double *screen_width_and_height_ret)
+void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN])
 {
-    int i,j,k,ii,jj,max_screen;
-    double max_screen_value;
-    double *screen;
+    int       i,j,ii,jj;
+    double    max_screen_value;
+    const int scale_factor = MAX_SCREEN_AMP / MAX_SCREEN;
 
-    int zoom_factor = 10; // XXX
-
-    // XXX don't like MAX_SCREEN and max_screen, they are differnet
-
-    // allocate memory for screen return buffer;
-    // caller must free it when done
-    max_screen = MAX_SCREEN / zoom_factor;
-    screen = malloc(max_screen*max_screen*sizeof(double));
-    DEBUG("screen = %p  max_screen=%d\n", screen, max_screen);
-
-    // using the screen_amp1, screen_amp2, and zoom_factor as input,
+    // using the screen_amp1, screen_amp2, and scale_factor as input,
     // compute the return screen buffer intensity values;
-    // these values will be normalized later
-    k = 0;
-    for (i = 0; i < max_screen; i++) {
-        for (j = 0; j < max_screen; j++) {
-            //INFO("i,j %d %d\n", i,j);
+    for (i = 0; i < MAX_SCREEN; i++) {
+        for (j = 0; j < MAX_SCREEN; j++) {
             double sum = 0;
-            for (ii = i*zoom_factor; ii < (i+1)*zoom_factor; ii++) {
-                for (jj = j*zoom_factor; jj < (j+1)*zoom_factor; jj++) {
-                    //if (i==456 && j==1) printf("ii jj %d %d\n", ii,jj);
+            for (ii = i*scale_factor; ii < (i+1)*scale_factor; ii++) {
+                for (jj = j*scale_factor; jj < (j+1)*scale_factor; jj++) {
                     sum += square(screen_amp1[ii][jj]) + square(screen_amp2[ii][jj]);
                 }
             }
-            screen[k++] = sqrt(sum);
+            screen[i][j] = sqrt(sum);
         }
     }
-    assert(k == max_screen*max_screen);
 
     // determine max_screen_value
     max_screen_value = -1;
-    for (i = 0; i < max_screen*max_screen; i++) {
-        if (screen[i] > max_screen_value) {
-            max_screen_value = screen[i];
+    for (i = 0; i < MAX_SCREEN; i++) {
+        for (j = 0; j < MAX_SCREEN; j++) {
+            if (screen[i][j] > max_screen_value) {
+                max_screen_value = screen[i][j];
+            }
         }
     }
     DEBUG("max_screen_value %g\n", max_screen_value);
@@ -170,15 +159,12 @@ void sim_get_screen(double **screen_ret, int *max_screen_ret, double *screen_wid
     // normalize screen values to range 0..1
     if (max_screen_value) {
         double max_screen_value_recipricol = 1 / max_screen_value;
-        for (i = 0; i < max_screen*max_screen; i++) {
-            screen[i] *= max_screen_value_recipricol;
+        for (i = 0; i < MAX_SCREEN; i++) {
+            for (j = 0; j < MAX_SCREEN; j++) {
+                screen[i][j] *= max_screen_value_recipricol;
+            }
         }
     }
-
-    // return values to caller
-    *screen_ret = screen;
-    *max_screen_ret = max_screen;
-    *screen_width_and_height_ret = MAX_SCREEN * .01;
 }
 
 void sim_get_recent_sample_photons(photon_t **photons_out, int *max_photons_out)
@@ -680,13 +666,10 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
 
 static int screen_hndlr(element_t *elem, photon_t *photon)
 {
-    //struct screen_s *scr = &elem->u.screen;
-    geo_point_t      point_intersect;
-    int              screen_horizontal_idx, screen_vertical_idx;
+    geo_point_t point_intersect;
+    int         scramp_hidx, scramp_vidx;
 
     static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
-    //XXX INFO("elem %p\n", elem);
 
     // orientation must be in the +/-x or +/-y direction
     assert(elem->plane.n.c == 0);
@@ -702,24 +685,23 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
 
     // determine screen coordinates of the intersect point
     // XXX needs more comments
-    // XXX need define for 100
     if (elem->plane.n.a) {
-        screen_horizontal_idx = (point_intersect.y - elem->plane.p.y) * 100 + MAX_SCREEN/2;
+        scramp_hidx = (point_intersect.y - elem->plane.p.y) / SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
     } else {
-        screen_horizontal_idx = (point_intersect.x - elem->plane.p.x) * 100 + MAX_SCREEN/2;
+        scramp_hidx = (point_intersect.x - elem->plane.p.x) / SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
     }
-    screen_vertical_idx = (point_intersect.z - elem->plane.p.z) * 100 + MAX_SCREEN/2;
+    scramp_vidx = (point_intersect.z - elem->plane.p.z) / SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
 
     // XXX comment
-    if (screen_horizontal_idx >= 0 && screen_horizontal_idx < MAX_SCREEN &&
-        screen_vertical_idx >= 0 && screen_vertical_idx < MAX_SCREEN)
+    if (scramp_hidx >= 0 && scramp_hidx < MAX_SCREEN_AMP &&
+        scramp_vidx >= 0 && scramp_vidx < MAX_SCREEN_AMP)
     {
         double n, angle;
         n = photon->total_distance / current_config->wavelength;
         angle = (n - floor(n)) * (2*M_PI);
         pthread_mutex_lock(&mutex);
-        screen_amp1[screen_vertical_idx][screen_horizontal_idx] += sin(angle);
-        screen_amp2[screen_vertical_idx][screen_horizontal_idx] += cos(angle);
+        screen_amp1[scramp_vidx][scramp_hidx] += sin(angle);
+        screen_amp2[scramp_vidx][scramp_hidx] += cos(angle);
         pthread_mutex_unlock(&mutex);
     }
 

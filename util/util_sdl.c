@@ -1260,7 +1260,7 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
     SDL_Point sdl_points[MAX_SDL_POINTS];
     int32_t   i, ret, max=0;
     bool      point_is_within_pane;
-    bool      last_point_is_within_pane;
+    bool      last_point_is_within_pane = true;
     point_t   last_point;
 
     #define ADD_POINT_TO_ARRAY(_point) \
@@ -1326,10 +1326,9 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
 
                 assert(max == 0);
                 ret = find_1_intersect(&points[i], &last_point, pane, &intersecting_point);
-                DEBUG("%d %d, %d %d ANSWER %d %d\n",
-                      last_point.x, last_point.y, points[i].x, points[i].y, intersecting_point.x, intersecting_point.y);
-                assert(ret == 1);
-                ADD_POINT_TO_ARRAY(intersecting_point);
+                if (ret == 1) {
+                    ADD_POINT_TO_ARRAY(intersecting_point);
+                }
                 ADD_POINT_TO_ARRAY(points[i]);
             }
 
@@ -1361,8 +1360,9 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
 
                 DEBUG("CASE  IN -> OUT\n");
                 ret = find_1_intersect(&last_point, &points[i], pane, &intersecting_point);
-                assert(ret == 1);
-                ADD_POINT_TO_ARRAY(intersecting_point);
+                if (ret == 1) {
+                    ADD_POINT_TO_ARRAY(intersecting_point);
+                }
                 SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
                 max = 0;
             } else {
@@ -1372,12 +1372,10 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
 
                 assert(max == 0);
                 ret = find_n_intersect(&last_point, &points[i], pane, intersecting_points);
-#ifdef ENABLE_LOGGING_AT_DEBUG_LEVEL
                 if (ret != 2 && ret != 0) {
                     DEBUG("find_n_intersect ret=%d  intersecting_point[0]=%d,%d\n",
                           ret, intersecting_points[0].x, intersecting_points[0].y);
                 }
-#endif
                 if (ret == 2) {
                     ADD_POINT_TO_ARRAY(intersecting_points[0]);
                     ADD_POINT_TO_ARRAY(intersecting_points[1]);
@@ -1497,7 +1495,7 @@ static int find_x_intersect(point_t *p1, point_t *p2, double X, point_t *p_inter
     }
 
     T = (X - X1) / (X2 - X1);
-    if (T < 0 || T > 1) {
+    if (T <= 0 || T >= 1) {
         return 0;
     }
 
@@ -1517,7 +1515,7 @@ static int find_y_intersect(point_t *p1, point_t *p2, double Y, point_t *p_inter
     }
 
     T = (Y - Y1) / (Y2 - Y1);
-    if (T < 0 || T > 1) {
+    if (T <= 0 || T >= 1) {
         return 0;
     }
 

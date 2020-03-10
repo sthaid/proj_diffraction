@@ -7,7 +7,12 @@
 #define DEFAULT_WIN_WIDTH  1920
 #define DEFAULT_WIN_HEIGHT 1080
 
-#define FONTSZ 24
+
+#define NM2MM(x) ((x) * 1e-6)
+#define MM2NM(x) ((x) * 1e6)
+
+#define LARGE_FONT 24
+#define SMALL_FONT 16 
 
 //
 // typedefs
@@ -38,7 +43,8 @@ void display_hndlr(void)
 {
     int win_width, win_height;
     int interferometer_diagram_pane_width;
-    int interference_pattern_pane_width_height;
+    int interference_pattern_pane_width;
+    int interference_pattern_pane_height;
 
     // init sdl, and get actual window width and height
     win_width  = DEFAULT_WIN_WIDTH;
@@ -49,8 +55,9 @@ void display_hndlr(void)
     INFO("REQUESTED win_width=%d win_height=%d\n", DEFAULT_WIN_WIDTH, DEFAULT_WIN_HEIGHT);
     INFO("ACTUAL    win_width=%d win_height=%d\n", win_width, win_height);
 
-    interference_pattern_pane_width_height = 500 + 4;
-    interferometer_diagram_pane_width = win_width - interference_pattern_pane_width_height;
+    interference_pattern_pane_width = MAX_SCREEN + 4;
+    interference_pattern_pane_height = (MAX_SCREEN+121) + 4;
+    interferometer_diagram_pane_width = win_width - interference_pattern_pane_width;
 
     // call the pane manger; 
     // this will not return except when it is time to terminate the program
@@ -66,11 +73,11 @@ void display_hndlr(void)
             PANE_BORDER_STYLE_MINIMAL,
         interference_pattern_pane_hndlr, NULL, 
             interferometer_diagram_pane_width, 0, 
-            interference_pattern_pane_width_height, interference_pattern_pane_width_height,
+            interference_pattern_pane_width, interference_pattern_pane_height,
             PANE_BORDER_STYLE_MINIMAL,
         control_pane_hndlr, NULL, 
-            interferometer_diagram_pane_width, interference_pattern_pane_width_height,
-            interference_pattern_pane_width_height, win_height-interference_pattern_pane_width_height,
+            interferometer_diagram_pane_width, interference_pattern_pane_height,
+            interference_pattern_pane_width, win_height-interference_pattern_pane_height,
             PANE_BORDER_STYLE_MINIMAL
         );
 }
@@ -134,8 +141,8 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         // display title
         sprintf(title_str, "%s - %g nm", current_config->name, MM2NM(current_config->wavelength));
         sdl_render_text(pane, 
-                        pane->w/2 - COL2X(strlen(title_str),FONTSZ)/2, 0, 
-                        FONTSZ, title_str, WHITE, BLACK);
+                        pane->w/2 - COL2X(strlen(title_str),LARGE_FONT)/2, 0, 
+                        LARGE_FONT, title_str, WHITE, BLACK);
 
         // display optical elements: source, mirrors. beamsplitters, etc.
         for (i = 0; i < current_config->max_element; i++) {
@@ -171,7 +178,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         sdl_register_event(pane, pane, SDL_EVENT_ZOOM, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
         sdl_register_event(pane, pane, SDL_EVENT_PAN, SDL_EVENT_TYPE_MOUSE_MOTION, pane_cx);
         sdl_render_text_and_register_event(
-                pane, pane->w-COL2X(14,FONTSZ), ROW2Y(1,FONTSZ), FONTSZ,
+                pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(1,LARGE_FONT), LARGE_FONT,
                 "RESET_PAN_ZOOM", LIGHT_BLUE, BLACK,
                 SDL_EVENT_RESET_PAN_ZOOM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
 
@@ -254,16 +261,27 @@ void transform(geo_point_t *geo_p, point_t *pixel_p)
 
 // -----------------  INTERFEROMETER PATTERN PANE HANDLER  ----------------------
 
+static void render_interference_screen(
+                int y_top, int y_span, double screen[MAX_SCREEN][MAX_SCREEN], 
+                texture_t texture, unsigned int pixels[MAX_SCREEN][MAX_SCREEN], rect_t *pane);
+static void render_intensity_graph(
+                int y_top, int y_span, double screen[MAX_SCREEN][MAX_SCREEN],
+                double sensor_width, double sensor_height, rect_t *pane);
+static void render_scale(
+                int y_top, int y_span, rect_t *pane);
+
 static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
     struct {
-        int none;
         texture_t texture;
-        unsigned int *pixels;
+        unsigned int pixels[MAX_SCREEN][MAX_SCREEN];
+        double sensor_width;
+        double sensor_height;
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
-   #define SDL_EVENT_XXX    (SDL_EVENT_USER_DEFINED + 0)
+   #define SDL_EVENT_SENSOR_WIDTH    (SDL_EVENT_USER_DEFINED + 0)
+   #define SDL_EVENT_SENSOR_HEIGHT   (SDL_EVENT_USER_DEFINED + 1)
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -271,6 +289,9 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
 
     if (request == PANE_HANDLER_REQ_INITIALIZE) {
         vars = pane_cx->vars = calloc(1,sizeof(*vars));
+        vars->texture = sdl_create_texture(MAX_SCREEN, MAX_SCREEN);
+        vars->sensor_width = 1.0;  // mm
+        vars->sensor_height = 1.0;  // mm
         INFO("PANE x,y,w,h  %d %d %d %d\n",
             pane->x, pane->y, pane->w, pane->h);
         return PANE_HANDLER_RET_NO_ACTION;
@@ -281,57 +302,39 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        double *screen;
-        int     max_screen;
-        double  screen_width_and_height;
-        int     texture_w, texture_h;
-        int     i;
+        double screen[MAX_SCREEN][MAX_SCREEN];
+        char   sensor_width_str[20], sensor_height_str[20];
 
-        // XXX put a scale on the graph 
-        //     empahsize lower intensities
-        //     pan and zoom - MAYBE NOT NEEDED
+        // this pane is vertically arranged as follows
+        // y-range  y-span  description 
+        // 0-499    500     interference screen
+        // 500-500  1       horizontal line
+        // 501-600  100     intensity graph
+        // 601-620  20      scale in mm
+        //          ----
+        //          621
 
         // get the screen data
-        sim_get_screen(&screen, &max_screen, &screen_width_and_height);
-        DEBUG("screen=%p  max_screen=%d  screen_width_and_height=%g mm\n",
-            screen, max_screen, screen_width_and_height);
+        sim_get_screen(screen);
 
-        // if texture is not allocated then 
-        // allocate the texture and pixels
-        if (vars->texture == NULL) {
-            vars->texture = sdl_create_texture(max_screen, max_screen);
-            vars->pixels = calloc(max_screen*max_screen, sizeof(int));
-        }
+        // render the sections that make up this pane, as described above
+        render_interference_screen(0, MAX_SCREEN, screen, vars->texture, vars->pixels, pane);
+        sdl_render_line(pane, 0,MAX_SCREEN, MAX_SCREEN-1,MAX_SCREEN, WHITE);
+        render_intensity_graph(MAX_SCREEN+1, 100, screen, vars->sensor_width, vars->sensor_height, pane);
+        render_scale(MAX_SCREEN+101, 20, pane);
 
-        // ensure max_screen hasn't changed
-        sdl_query_texture(vars->texture, &texture_w, &texture_h);
-        assert(texture_w == max_screen && texture_h == max_screen);
+        // register for events to adjust the simulated sensor's width and height
+        sprintf(sensor_width_str, "W=%3.1f", vars->sensor_width);
+        sdl_render_text_and_register_event(
+                pane, 0, MAX_SCREEN+1, LARGE_FONT,
+                sensor_width_str, LIGHT_BLUE, BLACK,
+                SDL_EVENT_SENSOR_WIDTH, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
 
-        // initialize pixels from screen data,
-        // and update the texture with the new pixel values
-        for (i = 0; i < max_screen*max_screen; i++) {
-            int green = 255.99 * screen[i];
-            if (green < 0 || green > 255) {
-                ERROR("green %d\n", green);
-                green = 0;
-            }
-            vars->pixels[i] = (green << 8) | (0xff << 24);
-        }
-        sdl_update_texture(vars->texture, (unsigned char*)vars->pixels, max_screen*sizeof(int));
-
-        // render
-        // XXX work needed here to handle cases where the texture size and pane size differ
-#if 1
-        sdl_render_texture(pane, 0, 0, vars->texture);
-#else
-        rect_t loc;
-        loc.x = loc.y = 0;
-        loc.w = loc.h = 500;
-        sdl_render_scaled_texture(pane, &loc, vars->texture);
-#endif
-
-        // free screen
-        free(screen);
+        sprintf(sensor_height_str, "H=%3.1f", vars->sensor_height);
+        sdl_render_text_and_register_event(
+                pane, COL2X(6,LARGE_FONT), MAX_SCREEN+1, LARGE_FONT,
+                sensor_height_str, LIGHT_BLUE, BLACK,
+                SDL_EVENT_SENSOR_HEIGHT, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -342,7 +345,17 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
 
     if (request == PANE_HANDLER_REQ_EVENT) {
         switch (event->event_id) {
-        case SDL_EVENT_XXX:
+        case SDL_EVENT_SENSOR_WIDTH:
+            if (event->mouse_wheel.delta_y > 0) vars->sensor_width += .1;
+            if (event->mouse_wheel.delta_y < 0) vars->sensor_width -= .1;
+            if (vars->sensor_width < 0.1) vars->sensor_width = 0.1;
+            if (vars->sensor_width > 5.0) vars->sensor_width = 5.0;
+            break;
+        case SDL_EVENT_SENSOR_HEIGHT:
+            if (event->mouse_wheel.delta_y > 0) vars->sensor_height += .1;
+            if (event->mouse_wheel.delta_y < 0) vars->sensor_height -= .1;
+            if (vars->sensor_height < 0.1) vars->sensor_height = 0.1;
+            if (vars->sensor_height > 5.0) vars->sensor_height = 5.0;
             break;
         }
         return PANE_HANDLER_RET_DISPLAY_REDRAW;
@@ -360,6 +373,128 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
     // not reached
     assert(0);
     return PANE_HANDLER_RET_NO_ACTION;
+}
+
+static void render_interference_screen(
+                int y_top, int y_span, double screen[MAX_SCREEN][MAX_SCREEN], 
+                texture_t texture, unsigned int pixels[MAX_SCREEN][MAX_SCREEN], rect_t *pane)
+{
+    int i,j;
+    int texture_width, texture_height;
+
+    // initialize pixels from screen data,
+    // and update the texture with the new pixel values
+    for (i = 0; i < MAX_SCREEN; i++) {
+        for (j = 0; j < MAX_SCREEN; j++) {
+            int green = 255.99 * screen[i][j];
+            if (green < 0 || green > 255) {
+                ERROR("green %d\n", green);
+                green = (green < 0 ? 0 : 255);
+            }
+            pixels[i][j] = (green << 8) | (0xff << 24);
+        }
+    }
+    sdl_update_texture(texture, (unsigned char*)pixels, MAX_SCREEN*sizeof(int));
+
+    // render
+    sdl_query_texture(texture, &texture_width, &texture_height);
+    assert(y_span == texture_height);
+    sdl_render_texture(pane, 0, y_top, texture);
+}
+
+static void render_intensity_graph(
+                int y_top, int y_span, double screen[MAX_SCREEN][MAX_SCREEN],
+                double sensor_width, double sensor_height, rect_t *pane)
+{
+    int i,j,k;
+    int sensor_width_pixels, sensor_height_pixels;
+    point_t graph[MAX_SCREEN];
+    int y_bottom = y_top + y_span - 1;
+
+    // convert caller's sensor dimensions (in mm) to pixels
+    sensor_width_pixels = sensor_width / SCREEN_ELEMENT_SIZE;
+    sensor_height_pixels = sensor_height / SCREEN_ELEMENT_SIZE;
+
+    // loop across the center of screen
+    for (k = 0; k < MAX_SCREEN; k++) {
+        int sensor_min_x, sensor_max_x, sensor_min_y, sensor_max_y;
+        double sum, sensor_value;
+        int cnt;
+
+        // determine sensor location for indexing into the screen array;
+        // these min/max values are used to compute an average sensor_value
+        // for different size sensors
+        sensor_min_x = k - sensor_width_pixels/2;
+        sensor_max_x = sensor_min_x + sensor_width_pixels - 1;
+        sensor_min_y = MAX_SCREEN/2 - sensor_height_pixels/2;
+        sensor_max_y = sensor_min_y + sensor_height_pixels - 1;
+
+        // if the sensor min_x or max_x is off the screen then 
+        // limit the min_x or max_x value to the screen boundary
+        if (sensor_min_x < 0) sensor_min_x = 0;
+        if (sensor_max_x > MAX_SCREEN-1) sensor_max_x = MAX_SCREEN-1;
+
+        // compute the average sensor value
+        sum = 0;
+        cnt = 0;
+        for (j = sensor_min_y; j <= sensor_max_y; j++) {
+            for (i = sensor_min_x; i <= sensor_max_x; i++) {
+                sum += screen[j][i];
+                cnt++;
+            }
+        }
+        sensor_value = cnt > 0 ? sum/cnt : 0;
+
+        // add the sensor value to the array of points that this 
+        // routine will render below
+        graph[k].x = k;
+        graph[k].y = y_bottom - sensor_value * y_span;
+    }
+
+    // render the graph
+    sdl_render_lines(pane, graph, MAX_SCREEN, WHITE);
+}
+
+static void render_scale(int y_top, int y_span, rect_t *pane)
+{
+    double tick_intvl, tick_loc;
+    char tick_value_str[20];
+    int tick_value, tick_value_loc, slen;
+
+    // convert 5mm to tick_intvl in pixel units
+    tick_intvl = 5 / SCREEN_ELEMENT_SIZE;
+
+    // starting at the center, adjust tick_loc to the left to 
+    // find the first tick location
+    tick_loc = MAX_SCREEN / 2;
+    while (tick_loc >= tick_intvl) {
+        tick_loc -= tick_intvl;
+    }
+
+    // render the ticks and the tick value strings
+    for (; tick_loc < MAX_SCREEN; tick_loc += tick_intvl) {
+        // if tick location is too close to either side then skip it
+        if (tick_loc < 5 || tick_loc >= MAX_SCREEN-5) continue;
+
+        // render the tick
+        sdl_render_line(pane, nearbyint(tick_loc), y_top, nearbyint(tick_loc), y_top+5, WHITE);
+
+        // determine the tick value (in mm), and display it centered below the tick
+        // - determine the tick_value based on the difference between tick_loc and the center
+        tick_value = nearbyint((tick_loc - MAX_SCREEN/2) * SCREEN_ELEMENT_SIZE);
+        sprintf(tick_value_str, "%d", tick_value);
+        // - determine the tick_value_loc, accounting for the string length of the tick_value_str
+        slen = strlen(tick_value_str);
+        if (tick_value < 0) slen++;
+        tick_value_loc = nearbyint(tick_loc - COL2X(slen,SMALL_FONT) / 2.);
+        // - render the tick value
+        sdl_render_text(pane, 
+                        tick_value_loc, y_top+5,
+                        SMALL_FONT, tick_value_str, WHITE, BLACK);
+    }
+
+    // render the axis line
+    sdl_render_line(pane, 0,y_top, MAX_SCREEN-1,y_top, WHITE);
 }
 
 // -----------------  CONTROL PANE HANDLER  --------------------------------------

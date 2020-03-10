@@ -21,10 +21,10 @@
 //
 
 #define MAX_CONFIG 100
-#define MAX_ELEMENT 10
+#define MAX_CONFIG_ELEMENT 10
 
-#define NM2MM(x) ((x) * 1e-6)
-#define MM2NM(x) ((x) * 1e6)
+#define MAX_SCREEN 500
+#define SCREEN_ELEMENT_SIZE  0.1   // mm
 
 //
 // typedefs
@@ -70,7 +70,7 @@ typedef struct {
                 double diam;   // XXX screen diam, not sure if this is used
             } screen;
         } u;
-    } element[MAX_ELEMENT];
+    } element[MAX_CONFIG_ELEMENT];
 } sim_config_t;
 
 //
@@ -91,7 +91,7 @@ void sim_reset(void);
 void sim_run(void);
 void sim_stop(void);
 bool sim_is_running(void);
-void sim_get_screen(double **screen, int *max_screen, double *screen_width_and_height);
+void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN]);
 void sim_get_recent_sample_photons(photon_t **photons, int *max_photons);
 
 int display_init(void);
