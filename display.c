@@ -505,11 +505,14 @@ static void render_scale(int y_top, int y_span, rect_t *pane)
 static int control_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
     struct {
-        int none;
+        int cfgsel_start;
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
-   #define SDL_EVENT_XXX    (SDL_EVENT_USER_DEFINED + 0)
+   #define SDL_EVENT_SIM_RUN          (SDL_EVENT_USER_DEFINED + 0)
+   #define SDL_EVENT_SIM_STOP         (SDL_EVENT_USER_DEFINED + 1)
+   #define SDL_EVENT_SIM_MOUSE_WHEEL  (SDL_EVENT_USER_DEFINED + 2)
+   #define SDL_EVENT_SIM_CFGSEL       (SDL_EVENT_USER_DEFINED + 10)
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -527,6 +530,52 @@ static int control_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_para
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
+        double rate;
+        bool running;
+        int row, i;
+
+        // XXX try to display last photon ray trace when stopped
+
+        // get sim state
+        sim_get_state(&running, &rate);
+
+        // display state
+        if (running) {
+            sdl_render_printf(pane, 0, 0, LARGE_FONT, WHITE, BLACK, 
+                              "RUNNING %0.1f M /s", rate/1e6);
+        } else {
+            sdl_render_printf(pane, 0, 0, LARGE_FONT, WHITE, BLACK, 
+                              "STOPPED");
+        }
+
+        // register events
+        // - run/stop
+        if (running) {
+            sdl_render_text_and_register_event(
+                    pane, pane->w-COL2X(5,LARGE_FONT), 0, LARGE_FONT,
+                    "STOP", LIGHT_BLUE, BLACK,
+                    SDL_EVENT_SIM_STOP, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        } else {
+            sdl_render_text_and_register_event(
+                    pane, pane->w-COL2X(5,LARGE_FONT), 0, LARGE_FONT,
+                    "RUN", LIGHT_BLUE, BLACK,
+                    SDL_EVENT_SIM_RUN, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        }
+        // - config select
+        for (row = 2, i = vars->cfgsel_start; i < max_config; i++, row++) {
+            if (ROW2Y(row,LARGE_FONT) > pane->h-sdl_font_char_height(LARGE_FONT)) {
+                break;
+            }
+            sdl_render_text_and_register_event(
+                    pane, 0, ROW2Y(row,LARGE_FONT), LARGE_FONT,
+                    config[i].name, 
+                    current_config == &config[i] ? GREEN : LIGHT_BLUE, BLACK,
+                    SDL_EVENT_SIM_CFGSEL+i, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        }
+        // - config select scrooling
+        rect_t loc = {0,0,pane->w,pane->h};
+        sdl_register_event(pane, &loc, SDL_EVENT_SIM_MOUSE_WHEEL, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
+
         return PANE_HANDLER_RET_NO_ACTION;
     }
 
@@ -536,8 +585,36 @@ static int control_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_para
 
     if (request == PANE_HANDLER_REQ_EVENT) {
         switch (event->event_id) {
-        case SDL_EVENT_XXX:
+        case SDL_EVENT_SIM_RUN:
+            sim_run();
             break;
+        case SDL_EVENT_SIM_STOP:
+            sim_stop();
+            break;
+        case SDL_EVENT_SIM_CFGSEL ... SDL_EVENT_SIM_CFGSEL+100: {
+            int cfgidx = event->event_id - SDL_EVENT_SIM_CFGSEL;
+            bool running;
+            sim_get_state(&running, NULL);
+            sim_select_config(cfgidx);
+            if (running) {
+                sim_run();
+            }
+            break; }
+        case SDL_EVENT_KEY_UP_ARROW:
+        case SDL_EVENT_KEY_DOWN_ARROW:
+        case SDL_EVENT_SIM_MOUSE_WHEEL:
+            if ((event->event_id == SDL_EVENT_KEY_UP_ARROW) ||
+                (event->event_id == SDL_EVENT_SIM_MOUSE_WHEEL && event->mouse_wheel.delta_y > 0))
+            {
+                vars->cfgsel_start--;
+            }
+            if ((event->event_id == SDL_EVENT_KEY_DOWN_ARROW) ||
+                (event->event_id == SDL_EVENT_SIM_MOUSE_WHEEL && event->mouse_wheel.delta_y < 0))
+            {
+                vars->cfgsel_start++;
+            }
+            if (vars->cfgsel_start > max_config-2) vars->cfgsel_start = max_config-2;
+            if (vars->cfgsel_start < 0) vars->cfgsel_start = 0;
         }
         return PANE_HANDLER_RET_DISPLAY_REDRAW;
     }

@@ -39,6 +39,7 @@ static double screen_amp1[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
 static double screen_amp2[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
 
 static unsigned long total_photon_count;
+static double        photons_per_sec;
 
 static photon_t        recent_sample_photons[MAX_RECENT_SAMPLE_PHOTONS];
 static int             max_recent_sample_photons;
@@ -97,32 +98,42 @@ int sim_init(char *config_filename)
 
 void sim_select_config(int idx)
 {
-    sim_stop();
+    sim_reset();
     current_config = &config[idx];
 }
 
 void sim_reset(void)
 {
     sim_stop();
-
-    // XXX tbd
+    memset(screen_amp1,0,sizeof(screen_amp1));
+    memset(screen_amp2,0,sizeof(screen_amp2));
+    max_recent_sample_photons = 0;
 }
 
 void sim_run(void)
 {
     run = true;
-    // XXX and wait
+    while (run == false) {
+        usleep(1000);
+    }
 }
 
 void sim_stop(void)
 {
     run = false;
-    // XXX and wait
+    while (run == true) {
+        usleep(1000);
+    }
 }
 
-bool sim_is_running(void)
+void sim_get_state(bool *running, double *rate)
 {
-    return run;
+    if (running) {
+        *running = run;
+    }
+    if (rate) {
+        *rate = photons_per_sec;
+    }
 }
 
 void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN])
@@ -435,7 +446,6 @@ static void *sim_monitor_thread(void *cx)
 {
     unsigned long start_us, end_us;
     unsigned long start_photon_count, end_photon_count;
-    double photons_per_sec;
 
     while (true) {
         start_us = microsec_timer();

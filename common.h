@@ -90,7 +90,7 @@ void sim_select_config(int idx);
 void sim_reset(void);
 void sim_run(void);
 void sim_stop(void);
-bool sim_is_running(void);
+void sim_get_state(bool *running, double *rate);
 void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN]);
 void sim_get_recent_sample_photons(photon_t **photons, int *max_photons);
 
