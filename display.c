@@ -84,6 +84,7 @@ void display_hndlr(void)
 
 // -----------------  INTERFEROMETER DIAGRAM PANE HANDLER  --------------------------------
 
+static void reset_pan_and_zoom(void);
 static void draw_lines(rect_t *pane, geo_point_t *geo_point, int max_points, int color);
 static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color);
 static void transform(geo_point_t *geo_p, point_t *pixel_p);
@@ -105,10 +106,6 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     #define SDL_EVENT_PAN             (SDL_EVENT_USER_DEFINED + 1)
     #define SDL_EVENT_RESET_PAN_ZOOM  (SDL_EVENT_USER_DEFINED + 2)
 
-    #define DEFAULT_X_MM_CTR             (pane->w / 2 - 10)
-    #define DEFAULT_Y_MM_CTR             0
-    #define DEFAULT_SCALE_PIXEL_PER_MM   1.0
-
     // ----------------------------
     // -------- INITIALIZE --------
     // ----------------------------
@@ -116,15 +113,8 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     if (request == PANE_HANDLER_REQ_INITIALIZE) {
         INFO("PANE x,y,w,h  %d %d %d %d\n",
             pane->x, pane->y, pane->w, pane->h);
-
         vars = pane_cx->vars = calloc(1,sizeof(*vars));
-
-        x_pixel_ctr = pane->w / 2;
-        y_pixel_ctr = pane->h / 2;
-        x_mm_ctr = DEFAULT_X_MM_CTR;
-        y_mm_ctr = DEFAULT_Y_MM_CTR;
-        scale_pixel_per_mm = DEFAULT_SCALE_PIXEL_PER_MM;
-
+        reset_pan_and_zoom();
         return PANE_HANDLER_RET_NO_ACTION;
     }
 
@@ -137,6 +127,15 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         char title_str[200];
         photon_t *photons;
         int max_photons;
+
+#if 0
+        // used to capture these values for the reset_pan_and_zoom routine
+        INFO("x_pixel_ctr        = %d\n", x_pixel_ctr);
+        INFO("y_pixel_ctr        = %d\n", y_pixel_ctr);
+        INFO("x_mm_ctr           = %g\n", x_mm_ctr);
+        INFO("y_mm_ctr           = %g\n", y_mm_ctr);
+        INFO("scale_pixel_per_mm = %g\n", scale_pixel_per_mm);
+#endif
 
         // display title
         sprintf(title_str, "%s - %g nm", current_config->name, MM2NM(current_config->wavelength));
@@ -193,9 +192,9 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         switch (event->event_id) {
         case SDL_EVENT_ZOOM:
             if (event->mouse_wheel.delta_y > 0) {
-                scale_pixel_per_mm *= 1.5;
+                scale_pixel_per_mm *= 1.2;
             } else if (event->mouse_wheel.delta_y < 0) {
-                scale_pixel_per_mm /= 1.5;
+                scale_pixel_per_mm /= 1.2;
             }
             break;
         case SDL_EVENT_PAN:
@@ -203,11 +202,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             y_mm_ctr += (event->mouse_motion.delta_y / scale_pixel_per_mm);
             break;
         case SDL_EVENT_RESET_PAN_ZOOM:
-            x_pixel_ctr = pane->w / 2;
-            y_pixel_ctr = pane->h / 2;
-            x_mm_ctr = DEFAULT_X_MM_CTR;
-            y_mm_ctr = DEFAULT_Y_MM_CTR;
-            scale_pixel_per_mm = DEFAULT_SCALE_PIXEL_PER_MM;
+            reset_pan_and_zoom();
             break;
         }
 
@@ -228,9 +223,17 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     return PANE_HANDLER_RET_NO_ACTION;
 }
 
-// XXX comment about 'z' being ignored
+static void reset_pan_and_zoom(void)
+{
+    x_pixel_ctr        = 706;
+    y_pixel_ctr        = 486;
+    x_mm_ctr           = 1114.18;
+    y_mm_ctr           = 589.248;
+    scale_pixel_per_mm = 0.578704;
+}
 
-void draw_lines(rect_t *pane, geo_point_t *geo_points, int max_points, int color)
+// XXX comment about 'z' being ignored
+static void draw_lines(rect_t *pane, geo_point_t *geo_points, int max_points, int color)
 {
     int i;
     point_t sdl_points[100];
@@ -243,7 +246,7 @@ void draw_lines(rect_t *pane, geo_point_t *geo_points, int max_points, int color
     sdl_render_lines(pane, sdl_points, max_points, color);
 }
 
-void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color)
+static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color)
 {
     point_t pixel_p1, pixel_p2;
 
@@ -253,7 +256,7 @@ void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color
     sdl_render_line(pane, pixel_p1.x, pixel_p1.y, pixel_p2.x, pixel_p2.y, color);
 }
 
-void transform(geo_point_t *geo_p, point_t *pixel_p)
+static void transform(geo_point_t *geo_p, point_t *pixel_p)
 {
     pixel_p->x = nearbyint(x_pixel_ctr + (geo_p->x - x_mm_ctr) * scale_pixel_per_mm);
     pixel_p->y = nearbyint(y_pixel_ctr - (geo_p->y - y_mm_ctr) * scale_pixel_per_mm);
