@@ -674,17 +674,26 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
+// XXX more section dividers
+// - - - - - - - - -  SCREEN HANDLER   - - - - - - - - - - - - - - - - - - - - - - - - 
+
+static void determine_screen_coords(geo_plane_t *plane, geo_point_t *point_intersect, double *screen_hpos, double *screen_vpos);
+
 static int screen_hndlr(element_t *elem, photon_t *photon)
 {
     geo_point_t point_intersect;
     int         scramp_hidx, scramp_vidx;
+    double      scramp_hpos, scramp_vpos;
+    char        s[100] __attribute__((unused));
 
     static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+#if 0
     // orientation must be in the +/-x or +/-y direction
     assert(elem->plane.n.c == 0);
     assert((elem->plane.n.a == 0 && fabs(elem->plane.n.b) == 1) ||
            (elem->plane.n.b == 0 && fabs(elem->plane.n.a) == 1));
+#endif
 
     // intersect the photon with the screen
     intersect(&photon->current, &elem->plane, &point_intersect);
@@ -694,13 +703,18 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
     photon->total_distance += distance(&photon->current.p, &point_intersect);
 
     // determine screen coordinates of the intersect point
-    // XXX needs more comments
+#if 1
+    determine_screen_coords(&elem->plane, &point_intersect, &scramp_hpos, &scramp_vpos);
+    scramp_hidx = scramp_hpos /  SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
+    scramp_vidx = scramp_vpos /  SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
+#else
     if (elem->plane.n.a) {
         scramp_hidx = (point_intersect.y - elem->plane.p.y) / SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
     } else {
         scramp_hidx = (point_intersect.x - elem->plane.p.x) / SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
     }
     scramp_vidx = (point_intersect.z - elem->plane.p.z) / SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
+#endif
 
     // XXX comment
     if (scramp_hidx >= 0 && scramp_hidx < MAX_SCREEN_AMP &&
@@ -722,4 +736,83 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
 
     // return next element, which always equals -1 in this coase
     return elem->next;
+}
+
+static void determine_screen_coords(geo_plane_t *plane, geo_point_t *point_intersect, double *screen_hpos, double *screen_vpos)
+{
+    geo_vector_t vect_intersect;
+    geo_vector_t vect_horizontal;
+    double magnitude_vect_intersect;
+    double magnitude_vect_horizontal;
+    double cos_theta;
+
+    #define TEST_ENABLE
+
+    // make vector from screen ctr point to point_intersect
+    VECT_INIT(&vect_intersect,
+              point_intersect->x - plane->p.x,
+              point_intersect->y - plane->p.y,
+              point_intersect->z - plane->p.z);
+
+#ifdef TEST_ENABLE
+    // verify vect_intersect is orthogonal to plane nrml
+    double dotp;
+    dotp = dot_product(&vect_intersect, &plane->n);
+    if (fabs(dotp) > 1e-6) {
+        ERROR("point_intersect is not on the screen - dotp = %g\n", dotp);
+        *screen_hpos = 0;
+        *screen_vpos = 0;
+        return;
+    }
+#endif
+
+    // determine the magnitude of vect_intersect, and 
+    // if the magnitude is 0 then return screen coords 0,0
+    magnitude_vect_intersect = magnitude(&vect_intersect);
+    DEBUG("magnitude_vect_intersect = %g\n", magnitude_vect_intersect);
+    if (magnitude_vect_intersect == 0) {
+        *screen_hpos = 0;
+        *screen_vpos = 0;
+        return;
+    }
+
+    // find horizontal vector on the screen plane, 
+    // this vector will // have c component equal 0
+    //   Vhorizonatl DOT PlaneNrml = 0
+    //   Vhorizontal.c = 0
+    if (plane->n.a) {
+        vect_horizontal.a = -plane->n.b / plane->n.a;
+        vect_horizontal.b = 1;
+        vect_horizontal.c = 0;
+    } else {
+        vect_horizontal.a = 1;
+        vect_horizontal.b = -plane->n.a / plane->n.b;
+        vect_horizontal.c = 0;
+    }
+    magnitude_vect_horizontal = magnitude(&vect_horizontal);
+
+#ifdef TEST_ENABLE
+    // verify vect_horizontal is orthoganl to plane nrml
+    dotp = dot_product(&vect_horizontal, &plane->n);
+    if (fabs(dotp) > 1e-6) {
+        ERROR("vect_horizontal is not on the plane, dotp = %g\n", dotp);
+        *screen_hpos = 0;
+        *screen_vpos = 0;
+        return;
+    }
+#endif
+
+    // the dot produce of vect_horizontal and vect_intersect
+    // is used to determine the angle between these two vectors
+    cos_theta = dot_product(&vect_horizontal, &vect_intersect) /
+                (magnitude_vect_horizontal * magnitude_vect_intersect);
+    DEBUG("cos_theta = %g  theta = %g\n", cos_theta, RAD2DEG(acos(cos_theta)));
+
+    // determine screen coords based on the cosine of the angle
+    // between vect_horizontal and vect_intersect
+    *screen_hpos = cos_theta * magnitude_vect_intersect;
+    *screen_vpos = sqrt(square(magnitude_vect_intersect) - square(*screen_hpos));
+    if (vect_intersect.c < 0) {
+        *screen_vpos = -*screen_vpos;
+    }
 }
