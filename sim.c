@@ -69,6 +69,7 @@ static void determine_photon_line(
                 geo_line_t *photon_line);
 
 static int mirror_hndlr(element_t *elem, photon_t *photon);
+static void mirror_reflect(geo_line_t *line, geo_plane_t *plane);
 
 static int screen_hndlr(element_t *elem, photon_t *photon);
 static void determine_screen_coords(
@@ -654,38 +655,47 @@ static void determine_photon_line(
 
 // -----------------  MIRROR HANDLER  ------------------------------------------------ 
 
+//DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
+//char s[100] __attribute__((unused));
+
 static int mirror_hndlr(element_t *elem, photon_t *photon)
 {
-    geo_point_t point_tmp, point_intersect, point_reflected;
-    char s[100] __attribute__((unused));
+    geo_point_t point_intersect;
 
-    // intersect the photon with the mirror
-    // XXX maybe should also return T to check the direction
-    intersect(&photon->current, &elem->plane, &point_intersect);   
-    DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
-
-    // update photon total_distance
-    photon->total_distance += distance(&photon->current.p, &point_intersect);
-
-    // create a point a little before the intesect point
-    point_tmp.x = point_intersect.x - photon->current.v.a;
-    point_tmp.y = point_intersect.y - photon->current.v.b;
-    point_tmp.z = point_intersect.z - photon->current.v.c;
-
-    // reflect this point over the mirror plane
-    reflect(&point_tmp, &elem->plane, &point_reflected);
-
-    // construct new path for the photon using the reflected and intersect points
-    photon->current.p = point_intersect;
-    photon->current.v.a = point_intersect.x - point_reflected.x;
-    photon->current.v.b = point_intersect.y - point_reflected.y;
-    photon->current.v.c = point_intersect.z - point_reflected.z;
-
+    // intersect the photon with the mirror,
+    // update photon total_distance,
+    // update the photon's position, and
     // add new current photon position to points array
+    intersect(&photon->current, &elem->plane, &point_intersect);   
+    photon->total_distance += distance(&photon->current.p, &point_intersect);
+    photon->current.p = point_intersect;
     photon->points[photon->max_points++] = photon->current.p;
+
+    // update the photon's direction for it's reflection by the mirror
+    mirror_reflect(&photon->current, &elem->plane);
 
     // return next element
     return elem->next;
+}
+
+static void mirror_reflect(geo_line_t *line, geo_plane_t *plane)
+{
+    geo_point_t point_before;
+    geo_point_t point_reflected;
+
+    // create a point a little before the intesect point
+    point_before.x = line->p.x - line->v.a;
+    point_before.y = line->p.y - line->v.b;
+    point_before.z = line->p.z - line->v.c;
+
+    // reflect the point_before  over the mirror plane
+    reflect(&point_before, plane, &point_reflected);
+
+    // construct new path for the photon using the reflected point and 
+    // the photons current position
+    line->v.a = line->p.x - point_reflected.x;
+    line->v.b = line->p.y - point_reflected.y;
+    line->v.c = line->p.z - point_reflected.z;
 }
 
 // -----------------  SCREEN HANDLER  ------------------------------------------------ 
