@@ -45,6 +45,7 @@ typedef struct {
         int (*hndlr)(struct  element_s *elem, photon_t *photon);
         geo_plane_t plane;
         int next;
+        int next2;  // only for beamsplitter
         union {
             struct source_single_slit_s {
                 double w;
@@ -64,11 +65,17 @@ typedef struct {
                 double spread;
             } source_round_hole;
             struct mirror_s {
-                double diam;   // XXX mirror diam, needs to beused
+                double diam;   // XXX mirror diam, needs to be used
             } mirror;
+            struct beam_splitter_s {
+                double diam;   // XXX mirror diam, needs to be used
+            } beam_splitter;
             struct screen_s {
                 double diam;   // XXX screen diam, not sure if this is used
             } screen;
+            struct discard_s {
+                double diam;   // XXX discard diam, needs to be used
+            } discard;
         } u;
     } element[MAX_CONFIG_ELEMENT];
 } sim_config_t;

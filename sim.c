@@ -16,7 +16,9 @@
      (_elem) == source_double_slit_hndlr ? "source_double_slit" : \
      (_elem) == source_round_hole_hndlr  ? "source_round_hole"  : \
      (_elem) == mirror_hndlr             ? "mirror"             : \
+     (_elem) == beam_splitter_hndlr      ? "beam_splitter"      : \
      (_elem) == screen_hndlr             ? "screen"             : \
+     (_elem) == discard_hndlr            ? "discard"            : \
                                            "????")
 
 #define SCREEN_AMP_ELEMENT_SIZE .01
@@ -69,12 +71,15 @@ static void determine_photon_line(
                 geo_line_t *photon_line);
 
 static int mirror_hndlr(element_t *elem, photon_t *photon);
+static int beam_splitter_hndlr(element_t *elem, photon_t *photon);
 static void mirror_reflect(geo_line_t *line, geo_plane_t *plane);
 
 static int screen_hndlr(element_t *elem, photon_t *photon);
 static void determine_screen_coords(
                 geo_plane_t *plane, geo_point_t *point_intersect, 
                 double *screen_hpos, double *screen_vpos);
+
+static int discard_hndlr(element_t *elem, photon_t *photon);
 
 //
 // inline procedures
@@ -352,6 +357,20 @@ static int read_config_file(char *config_filename)
             }
             cfg->max_element++;
 
+        } else if (strcmp(elem_type_str, "beam_splitter") == 0) {
+            elem->hndlr = beam_splitter_hndlr;
+            cnt = sscanf(line+char_count,
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf diam=%lf next=%d next2=%d",
+                   &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
+                   &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
+                   &elem->u.beam_splitter.diam, 
+                   &elem->next, &elem->next2);
+            if (cnt != 9) {
+                ERROR("scanning element beam_splitter, line %d\n", line_num);
+                goto error;
+            }
+            cfg->max_element++;
+
         } else if (strcmp(elem_type_str, "screen") == 0) {
             elem->hndlr = screen_hndlr;
             elem->next = -1;
@@ -364,6 +383,24 @@ static int read_config_file(char *config_filename)
                 goto error;
             }
             cfg->max_element++;
+
+        } else if (strcmp(elem_type_str, "discard") == 0) {
+            elem->hndlr = discard_hndlr;
+            elem->next = -1;
+            cnt = sscanf(line+char_count,
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf diam=%lf",
+                   &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
+                   &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
+                   &elem->u.discard.diam);
+            if (cnt != 7) {
+                ERROR("scanning element discard, line %d\n", line_num);
+                goto error;
+            }
+            cfg->max_element++;
+
+        } else {
+            ERROR("invalid element '%s', line %d\n", elem_type_str, line_num);
+            goto error;
         }
     }
 
@@ -678,6 +715,31 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
+static int beam_splitter_hndlr(element_t *elem, photon_t *photon)
+{
+    geo_point_t point_intersect;
+    double dotp;
+
+    // intersect the photon with the mirror,
+    // update photon total_distance,
+    // update the photon's position, and
+    // add new current photon position to points array
+    intersect(&photon->current, &elem->plane, &point_intersect);   
+    photon->total_distance += distance(&photon->current.p, &point_intersect);
+    photon->current.p = point_intersect;
+    photon->points[photon->max_points++] = photon->current.p;
+
+    // update the photon's direction for it's reflection by the mirror
+    if (random_range(0,1) < 0.5) {
+        mirror_reflect(&photon->current, &elem->plane);
+    }
+
+    // if the current direction of the photon is within 90 degrees
+    // of the beam splitter plane normal vector then return next, else next2
+    dotp = dot_product(&photon->current.v, &elem->plane.n);
+    return (dotp > 0) ? elem->next : elem->next2;
+}
+
 static void mirror_reflect(geo_line_t *line, geo_plane_t *plane)
 {
     geo_point_t point_before;
@@ -823,4 +885,23 @@ static void determine_screen_coords(
     if (vect_intersect.c < 0) {
         *screen_vpos = -*screen_vpos;
     }
+}
+
+// -----------------  DISCARD HANDLER  ------------------------------------------------ 
+
+static int discard_hndlr(element_t *elem, photon_t *photon)
+{
+    geo_point_t point_intersect;
+
+    // intersect the photon with the discarder,
+    // update photon total_distance,
+    // update the photon's position, and
+    // add new current photon position to points array
+    intersect(&photon->current, &elem->plane, &point_intersect);   
+    photon->total_distance += distance(&photon->current.p, &point_intersect);
+    photon->current.p = point_intersect;
+    photon->points[photon->max_points++] = photon->current.p;
+
+    // return next element, which always equals -1 in this coase
+    return elem->next;
 }
