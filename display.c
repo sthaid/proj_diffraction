@@ -143,6 +143,13 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
                         pane->w/2 - COL2X(strlen(title_str),LARGE_FONT)/2, 0, 
                         LARGE_FONT, title_str, WHITE, BLACK);
 
+        // get and display the ray trace for the recent sample photons
+        sim_get_recent_sample_photons(&photons, &max_photons);
+        for (i = 0; i < max_photons; i++) {
+            draw_lines(pane, photons[i].points, photons[i].max_points, GREEN);
+        }
+        free(photons);
+
         // display optical elements: source, mirrors. beamsplitters, etc.
         for (i = 0; i < current_config->max_element; i++) {
             struct element_s *elem = &current_config->element[i];
@@ -165,13 +172,6 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
                 point_minus_vector(&p0, &v_plane, &p0);
             }
         }
-
-        // get and display the ray trace for the recent sample photons
-        sim_get_recent_sample_photons(&photons, &max_photons);
-        for (i = 0; i < max_photons; i++) {
-            draw_lines(pane, photons[i].points, photons[i].max_points, GREEN);
-        }
-        free(photons);
 
         // register for events, for example pane pan/zoom control events
         sdl_register_event(pane, pane, SDL_EVENT_ZOOM, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);

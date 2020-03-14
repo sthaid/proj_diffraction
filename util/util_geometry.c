@@ -183,6 +183,13 @@ void point_minus_vector(geo_point_t *p, geo_vector_t *v, geo_point_t *p_result)
     p_result->z = p->z - v->c;
 }
 
+void vector_plus_vector(geo_vector_t *v1, geo_vector_t *v2, geo_vector_t *v_result)
+{
+    v_result->a = v1->a + v2->a;
+    v_result->b = v1->b + v2->b;
+    v_result->c = v1->c + v2->c;
+}
+
 // -----------------  DEBUG SUPPORT  ----------------------------------------
 
 char *vector_str(geo_vector_t *v, char *s)

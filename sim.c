@@ -354,6 +354,15 @@ static int read_config_file(char *config_filename)
         }
     }
 
+    // XXX comment
+    int i,j;
+    for (i = 0; i < max_config; i++) {
+        sim_config_t *cfg = &config[i];
+        for (j = 0; j < cfg->max_element; j++) {
+            set_vector_magnitude(&cfg->element[j].plane.n, 1);
+        }
+    }
+
     // validate the config; these are basic sanity checks and not 
     // an extensive validation; validations include:
     // - first element must be source
@@ -362,7 +371,6 @@ static int read_config_file(char *config_filename)
     // XXX
 
     // debug print config
-    int i,j;
     for (i = 0; i < max_config; i++) {
         sim_config_t *cfg = &config[i];
         INFO("config %d - %s %f\n", i, cfg->name, cfg->wavelength);
@@ -493,7 +501,7 @@ static void simulate_a_photon(photon_t *photon)
     __sync_fetch_and_add(&total_photon_count,1);
 }
 
-// -----------------  OPTICAL ELEMENT HANDLERS  -----------------------------------
+// -----------------  PHOTON SOURCE HANDLERS  ---------------------------------------- 
 
 // XXX THESE all need to use config AND cleanup
 // XXX this is also constrained, must be aligned and z = 0
@@ -591,55 +599,85 @@ static int source_double_slit_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
+
+#define SOURCE_TYPE_ROUND_HOLE 1
+
+// XXX put scale on diagram so size of hole can be checked
+
+static void determine_photon_line(
+                int source_type, 
+                geo_plane_t *plane,
+                double diam, double spread,  // for SOURCE_TYPE_ROUND_HOLE
+                geo_line_t *photon_line)
+{
+    geo_vector_t vect_horizontal, vect_vertical;
+    double pos_horizontal, pos_vertical, spread_horizontal, spread_vertical;
+
+    // XXX temp, move this
+    //set_vector_magnitude(&plane->n, 1);
+    
+    // based on source_type determine the position and direction offsets
+    if (source_type == SOURCE_TYPE_ROUND_HOLE) {
+        double radius = diam / 2;
+        do {
+            pos_horizontal = random_range(-radius, +radius);
+            pos_vertical = random_range(-radius, +radius);
+        } while (square(pos_horizontal) + square(pos_vertical) > square(radius));
+        spread_horizontal = random_range(-DEG2RAD(spread/2),DEG2RAD(spread/2));
+        spread_vertical = random_range(-DEG2RAD(spread/2),DEG2RAD(spread/2));
+    } else {
+        assert(0);
+    }
+
+    // determine horizontal and vertical vectors, these vectors
+    // are in the source's plane
+    if (plane->n.a) {
+        vect_horizontal.a = -plane->n.b / plane->n.a;
+        vect_horizontal.b = 1;
+        vect_horizontal.c = 0;
+    } else {
+        vect_horizontal.a = 1;
+        vect_horizontal.b = -plane->n.a / plane->n.b;
+        vect_horizontal.c = 0;
+    }
+    cross_product(&vect_horizontal, &plane->n, &vect_vertical);
+
+    // determine photon_line->p
+    set_vector_magnitude(&vect_horizontal, pos_horizontal);
+    set_vector_magnitude(&vect_vertical, pos_vertical);
+    photon_line->p = plane->p;
+    point_plus_vector(&photon_line->p, &vect_horizontal, &photon_line->p);
+    point_plus_vector(&photon_line->p, &vect_vertical, &photon_line->p);
+
+    // determine photon_line->v
+    set_vector_magnitude(&vect_horizontal, spread_horizontal);
+    set_vector_magnitude(&vect_vertical, spread_vertical);
+    photon_line->v = plane->n;
+    vector_plus_vector(&photon_line->v, &vect_horizontal, &photon_line->v);
+    vector_plus_vector(&photon_line->v, &vect_vertical, &photon_line->v);
+}
+
 static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
 {
     struct source_round_hole_s *rh = &elem->u.source_round_hole;
-    double width_pos;
-    double height_pos;
-    double width_spread_angle;
-    double height_spread_angle;
-    double radius;
+    geo_line_t photon_line;
 
-    // orientation must be in the +/-x or +/-y direction
-    assert(elem->plane.n.c == 0);
-    assert((elem->plane.n.a == 0 && fabs(elem->plane.n.b) == 1) ||
-           (elem->plane.n.b == 0 && fabs(elem->plane.n.a) == 1));
-
-    // init the photon to all fields 0
+    // determine the path of the photon leaving this source
+    determine_photon_line(SOURCE_TYPE_ROUND_HOLE,
+                          &elem->plane,
+                          rh->diam, rh->spread,
+                          &photon_line);
+      
+    // init the photon fields
     memset(photon, 0, sizeof(photon_t));
-
-    // set the photons current location (current.p) and direction (current.v)
-    radius = rh->diam/2;
-    do {
-        width_pos  = random_range(-radius, +radius);
-        height_pos = random_range(-radius, +radius);
-    } while (square(width_pos) + square(height_pos) > square(radius));
-    // XXX this looks wrong vvv
-    width_spread_angle  = random_range(DEG2RAD(-rh->spread/2),DEG2RAD(rh->spread/2));
-    height_spread_angle = random_range(DEG2RAD(-rh->spread/2),DEG2RAD(rh->spread/2));
-    // - set photon z position and vector c component
-    photon->current.p.z = height_pos;
-    photon->current.v.c = 1 * tan(height_spread_angle);
-    if (elem->plane.n.a != 0) {
-        // - photon leaving source in eihter the +x or -x direction
-        photon->current.p.x = 0;
-        photon->current.p.y = width_pos;
-        photon->current.v.a = elem->plane.n.a;
-        photon->current.v.b = 1 * tan(width_spread_angle);
-    } else {
-        // - photon leaving source in eihter the +y or -y direction
-        photon->current.p.x = width_pos;
-        photon->current.p.y = 0;
-        photon->current.v.a = 1 * tan(width_spread_angle);
-        photon->current.v.b = elem->plane.n.a;
-    }
-
-    // add new current photon position to points array
+    photon->current = photon_line;
     photon->points[photon->max_points++] = photon->current.p;
     
     // return next element
     return elem->next;
 }
+
+// -----------------  MIRROR HANDLER  ------------------------------------------------ 
 
 static int mirror_hndlr(element_t *elem, photon_t *photon)
 {
@@ -674,8 +712,7 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
-// XXX more section dividers
-// - - - - - - - - -  SCREEN HANDLER   - - - - - - - - - - - - - - - - - - - - - - - - 
+// -----------------  SCREEN HANDLER  ------------------------------------------------ 
 
 static void determine_screen_coords(geo_plane_t *plane, geo_point_t *point_intersect, double *screen_hpos, double *screen_vpos);
 

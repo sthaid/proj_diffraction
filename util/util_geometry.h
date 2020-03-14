@@ -98,6 +98,7 @@ double dot_product(geo_vector_t *v1, geo_vector_t *v2);
 double distance(geo_point_t *p1, geo_point_t *p2);
 void point_plus_vector(geo_point_t *p, geo_vector_t *v, geo_point_t *p_result);
 void point_minus_vector(geo_point_t *p, geo_vector_t *v, geo_point_t *p_result);
+void vector_plus_vector(geo_vector_t *v1, geo_vector_t *v2, geo_vector_t *v_result);
 
 char *vector_str(geo_vector_t *v, char *s);
 char *point_str(geo_point_t *p, char *s);
