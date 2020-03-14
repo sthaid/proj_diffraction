@@ -1,7 +1,5 @@
-// XXX add constraint checks on source and screen
+// XXX put scale on diagram so size of hole can be checked
 // XXX experiment with less than 5000 for MAX_SCREEN_AMP, to improve performance
-// XXX draw diagram, and add ray tracing
-// XXX pan and zoom for diagram and maybe for screen
 
 #include "common.h"
 
@@ -22,6 +20,10 @@
                                            "????")
 
 #define SCREEN_AMP_ELEMENT_SIZE .01
+
+#define SOURCE_ROUND_HOLE  1
+#define SOURCE_SINGLE_SLIT 2
+#define SOURCE_DOUBLE_SLIT 3
 
 //
 // typedefs
@@ -60,8 +62,18 @@ static void simulate_a_photon(photon_t *photon);
 static int source_single_slit_hndlr(element_t *elem, photon_t *photon);
 static int source_double_slit_hndlr(element_t *elem, photon_t *photon);
 static int source_round_hole_hndlr(element_t *elem, photon_t *photon);
+static void determine_photon_line(
+                int source_type, 
+                geo_plane_t *plane,
+                double arg1, double arg2, double arg3, double arg4, double arg5,
+                geo_line_t *photon_line);
+
 static int mirror_hndlr(element_t *elem, photon_t *photon);
+
 static int screen_hndlr(element_t *elem, photon_t *photon);
+static void determine_screen_coords(
+                geo_plane_t *plane, geo_point_t *point_intersect, 
+                double *screen_hpos, double *screen_vpos);
 
 //
 // inline procedures
@@ -213,6 +225,7 @@ static int read_config_file(char *config_filename)
     int           line_num;
     bool          expecting_config_definition_line = true;
     sim_config_t *cfg;
+    int           i,j;
 
     fp = NULL;
     cfg = &config[0];
@@ -270,9 +283,8 @@ static int read_config_file(char *config_filename)
         }
 
         // based on element type-string:
-        // - continue scanning for the element's other parameters
+        // - continue scanning for the element's other parameters, and
         // - set the handler
-        // - some elements have special requirements, which are validated  XXX TBD
         elem = &cfg->element[cfg->max_element];
 
         if (strcmp(elem_type_str, "source_single_slit") == 0) {
@@ -354,8 +366,7 @@ static int read_config_file(char *config_filename)
         }
     }
 
-    // XXX comment
-    int i,j;
+    // set the magnitude of all config element plane normal vectors to 1
     for (i = 0; i < max_config; i++) {
         sim_config_t *cfg = &config[i];
         for (j = 0; j < cfg->max_element; j++) {
@@ -370,6 +381,7 @@ static int read_config_file(char *config_filename)
     // - all next must be valid
     // XXX
 
+#if 0
     // debug print config
     for (i = 0; i < max_config; i++) {
         sim_config_t *cfg = &config[i];
@@ -380,6 +392,7 @@ static int read_config_file(char *config_filename)
                  j, ELEMENT_NAME_STR(elem->hndlr), elem->next);
         }
     }
+#endif
 
     // close config file
     fclose(fp);
@@ -503,47 +516,20 @@ static void simulate_a_photon(photon_t *photon)
 
 // -----------------  PHOTON SOURCE HANDLERS  ---------------------------------------- 
 
-// XXX THESE all need to use config AND cleanup
-// XXX this is also constrained, must be aligned and z = 0
 static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
 {
     struct source_single_slit_s *ss = &elem->u.source_single_slit;
-    double width_pos;
-    double height_pos;
-    double width_spread_angle;
-    double height_spread_angle;
+    geo_line_t photon_line;
 
-    // orientation must be in the +/-x or +/-y direction
-    assert(elem->plane.n.c == 0);
-    assert((elem->plane.n.a == 0 && fabs(elem->plane.n.b) == 1) ||
-           (elem->plane.n.b == 0 && fabs(elem->plane.n.a) == 1));
-
-    // init the photon to all fields 0
+    // determine the path of the photon leaving this source
+    determine_photon_line(SOURCE_SINGLE_SLIT,
+                          &elem->plane,
+                          ss->w, ss->h, ss->wspread, ss->hspread, 0,
+                          &photon_line);
+      
+    // init the photon fields
     memset(photon, 0, sizeof(photon_t));
-
-    // set the photons current location (current.p) and direction (current.v)
-    width_pos           = random_range(-ss->w/2, ss->w/2);
-    height_pos          = random_range(-ss->h/2, ss->h/2);
-    width_spread_angle  = random_range(DEG2RAD(-ss->wspread/2),DEG2RAD(ss->wspread/2));
-    height_spread_angle = random_range(DEG2RAD(-ss->hspread/2),DEG2RAD(ss->hspread/2));
-    // - set photon z position and vector c component
-    photon->current.p.z = height_pos;
-    photon->current.v.c = 1 * tan(height_spread_angle);
-    if (elem->plane.n.a != 0) {
-        // - photon leaving source in eihter the +x or -x direction
-        photon->current.p.x = 0;
-        photon->current.p.y = width_pos;
-        photon->current.v.a = elem->plane.n.a;
-        photon->current.v.b = 1 * tan(width_spread_angle);
-    } else {
-        // - photon leaving source in eihter the +y or -y direction
-        photon->current.p.x = width_pos;
-        photon->current.p.y = 0;
-        photon->current.v.a = 1 * tan(width_spread_angle);
-        photon->current.v.b = elem->plane.n.a;
-    }
-
-    // add new current photon position to points array
+    photon->current = photon_line;
     photon->points[photon->max_points++] = photon->current.p;
     
     // return next element
@@ -553,78 +539,87 @@ static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
 static int source_double_slit_hndlr(element_t *elem, photon_t *photon)
 {
     struct source_double_slit_s *ds = &elem->u.source_double_slit;
-    double slit_center;
-    double width_pos;
-    double height_pos;
-    double width_spread_angle;
-    double height_spread_angle;
+    geo_line_t photon_line;
 
-    // orientation must be in the +/-x or +/-y direction
-    assert(elem->plane.n.c == 0);
-    assert((elem->plane.n.a == 0 && fabs(elem->plane.n.b) == 1) ||
-           (elem->plane.n.b == 0 && fabs(elem->plane.n.a) == 1));
-
-    // init the photon to all fields 0
+    // determine the path of the photon leaving this source
+    determine_photon_line(SOURCE_DOUBLE_SLIT,
+                          &elem->plane,
+                          ds->w, ds->h, ds->wspread, ds->hspread, ds->ctrsep,
+                          &photon_line);
+      
+    // init the photon fields
     memset(photon, 0, sizeof(photon_t));
-
-    // choose the slit
-    slit_center = (random_range(0,1) < 0.5) ? -ds->ctrsep/2 : +ds->ctrsep/2;
-
-    // set the photons current location (current.p) and direction (current.v)
-    width_pos           = random_range(-ds->w/2, ds->w/2) + slit_center;
-    height_pos          = random_range(-ds->h/2, ds->h/2);
-    width_spread_angle  = random_range(DEG2RAD(-ds->wspread/2),DEG2RAD(ds->wspread/2));
-    height_spread_angle = random_range(DEG2RAD(-ds->hspread/2),DEG2RAD(ds->hspread/2));
-    // - set photon z position and vector c component
-    photon->current.p.z = height_pos;
-    photon->current.v.c = 1 * tan(height_spread_angle);
-    if (elem->plane.n.a != 0) {
-        // - photon leaving source in eihter the +x or -x direction
-        photon->current.p.x = 0;
-        photon->current.p.y = width_pos;
-        photon->current.v.a = elem->plane.n.a;
-        photon->current.v.b = 1 * tan(width_spread_angle);
-    } else {
-        // - photon leaving source in eihter the +y or -y direction
-        photon->current.p.x = width_pos;
-        photon->current.p.y = 0;
-        photon->current.v.a = 1 * tan(width_spread_angle);
-        photon->current.v.b = elem->plane.n.a;
-    }
-
-    // add new current photon position to points array
+    photon->current = photon_line;
     photon->points[photon->max_points++] = photon->current.p;
-
+    
     // return next element
     return elem->next;
 }
 
+static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
+{
+    struct source_round_hole_s *rh = &elem->u.source_round_hole;
+    geo_line_t photon_line;
 
-#define SOURCE_TYPE_ROUND_HOLE 1
+    // determine the path of the photon leaving this source
+    determine_photon_line(SOURCE_ROUND_HOLE,
+                          &elem->plane,
+                          rh->diam, rh->spread, 0, 0, 0,
+                          &photon_line);
+      
+    // init the photon fields
+    memset(photon, 0, sizeof(photon_t));
+    photon->current = photon_line;
+    photon->points[photon->max_points++] = photon->current.p;
+    
+    // return next element
+    return elem->next;
+}
 
-// XXX put scale on diagram so size of hole can be checked
-
+// note: argN values depend on source_type, see code for detailes
 static void determine_photon_line(
                 int source_type, 
                 geo_plane_t *plane,
-                double diam, double spread,  // for SOURCE_TYPE_ROUND_HOLE
+                double arg1, double arg2, double arg3, double arg4, double arg5,
                 geo_line_t *photon_line)
 {
     geo_vector_t vect_horizontal, vect_vertical;
     double pos_horizontal, pos_vertical, spread_horizontal, spread_vertical;
 
-    // XXX temp, move this
-    //set_vector_magnitude(&plane->n, 1);
-    
     // based on source_type determine the position and direction offsets
-    if (source_type == SOURCE_TYPE_ROUND_HOLE) {
-        double radius = diam / 2;
+    if (source_type == SOURCE_ROUND_HOLE) {
+        double diameter = arg1;
+        double spread   = arg2;
+        double radius = diameter / 2;
         do {
             pos_horizontal = random_range(-radius, +radius);
             pos_vertical = random_range(-radius, +radius);
         } while (square(pos_horizontal) + square(pos_vertical) > square(radius));
         spread_horizontal = random_range(-DEG2RAD(spread/2),DEG2RAD(spread/2));
         spread_vertical = random_range(-DEG2RAD(spread/2),DEG2RAD(spread/2));
+    } else if (source_type == SOURCE_SINGLE_SLIT) {
+        double slit_horizontal         = arg1;
+        double slit_vertical           = arg2;
+        double slit_horizontal_spread  = arg3;
+        double slit_vertical_spread    = arg4;
+        double slit_center;
+        slit_center = 0;
+        pos_horizontal    = random_range(-slit_horizontal/2,slit_horizontal/2) + slit_center;
+        pos_vertical      = random_range(-slit_vertical/2,slit_vertical/2);
+        spread_horizontal = random_range(DEG2RAD(-slit_horizontal_spread/2),DEG2RAD(slit_horizontal_spread/2));
+        spread_vertical   = random_range(DEG2RAD(-slit_vertical_spread/2),DEG2RAD(slit_vertical_spread/2));
+    } else if (source_type == SOURCE_DOUBLE_SLIT) {
+        double slit_horizontal         = arg1;
+        double slit_vertical           = arg2;
+        double slit_horizontal_spread  = arg3;
+        double slit_vertical_spread    = arg4;
+        double slit_center_seperation  = arg5;
+        double slit_center;
+        slit_center = (random_range(0,1) < 0.5) ? -slit_center_seperation/2 : +slit_center_seperation/2;
+        pos_horizontal    = random_range(-slit_horizontal/2,slit_horizontal/2) + slit_center;
+        pos_vertical      = random_range(-slit_vertical/2,slit_vertical/2);
+        spread_horizontal = random_range(DEG2RAD(-slit_horizontal_spread/2),DEG2RAD(slit_horizontal_spread/2));
+        spread_vertical   = random_range(DEG2RAD(-slit_vertical_spread/2),DEG2RAD(slit_vertical_spread/2));
     } else {
         assert(0);
     }
@@ -657,26 +652,6 @@ static void determine_photon_line(
     vector_plus_vector(&photon_line->v, &vect_vertical, &photon_line->v);
 }
 
-static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
-{
-    struct source_round_hole_s *rh = &elem->u.source_round_hole;
-    geo_line_t photon_line;
-
-    // determine the path of the photon leaving this source
-    determine_photon_line(SOURCE_TYPE_ROUND_HOLE,
-                          &elem->plane,
-                          rh->diam, rh->spread,
-                          &photon_line);
-      
-    // init the photon fields
-    memset(photon, 0, sizeof(photon_t));
-    photon->current = photon_line;
-    photon->points[photon->max_points++] = photon->current.p;
-    
-    // return next element
-    return elem->next;
-}
-
 // -----------------  MIRROR HANDLER  ------------------------------------------------ 
 
 static int mirror_hndlr(element_t *elem, photon_t *photon)
@@ -685,10 +660,11 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
     char s[100] __attribute__((unused));
 
     // intersect the photon with the mirror
-    intersect(&photon->current, &elem->plane, &point_intersect);   // XXX maybe should also return T to check the direction
+    // XXX maybe should also return T to check the direction
+    intersect(&photon->current, &elem->plane, &point_intersect);   
     DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
 
-    // XXX comment
+    // update photon total_distance
     photon->total_distance += distance(&photon->current.p, &point_intersect);
 
     // create a point a little before the intesect point
@@ -714,8 +690,6 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
 
 // -----------------  SCREEN HANDLER  ------------------------------------------------ 
 
-static void determine_screen_coords(geo_plane_t *plane, geo_point_t *point_intersect, double *screen_hpos, double *screen_vpos);
-
 static int screen_hndlr(element_t *elem, photon_t *photon)
 {
     geo_point_t point_intersect;
@@ -725,13 +699,6 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
 
     static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#if 0
-    // orientation must be in the +/-x or +/-y direction
-    assert(elem->plane.n.c == 0);
-    assert((elem->plane.n.a == 0 && fabs(elem->plane.n.b) == 1) ||
-           (elem->plane.n.b == 0 && fabs(elem->plane.n.a) == 1));
-#endif
-
     // intersect the photon with the screen
     intersect(&photon->current, &elem->plane, &point_intersect);
     DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
@@ -740,18 +707,9 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
     photon->total_distance += distance(&photon->current.p, &point_intersect);
 
     // determine screen coordinates of the intersect point
-#if 1
     determine_screen_coords(&elem->plane, &point_intersect, &scramp_hpos, &scramp_vpos);
     scramp_hidx = scramp_hpos /  SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
     scramp_vidx = scramp_vpos /  SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
-#else
-    if (elem->plane.n.a) {
-        scramp_hidx = (point_intersect.y - elem->plane.p.y) / SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
-    } else {
-        scramp_hidx = (point_intersect.x - elem->plane.p.x) / SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
-    }
-    scramp_vidx = (point_intersect.z - elem->plane.p.z) / SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
-#endif
 
     // XXX comment
     if (scramp_hidx >= 0 && scramp_hidx < MAX_SCREEN_AMP &&
@@ -775,7 +733,9 @@ static int screen_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
-static void determine_screen_coords(geo_plane_t *plane, geo_point_t *point_intersect, double *screen_hpos, double *screen_vpos)
+static void determine_screen_coords(
+                geo_plane_t *plane, geo_point_t *point_intersect, 
+                double *screen_hpos, double *screen_vpos)
 {
     geo_vector_t vect_intersect;
     geo_vector_t vect_horizontal;
@@ -783,6 +743,7 @@ static void determine_screen_coords(geo_plane_t *plane, geo_point_t *point_inter
     double magnitude_vect_horizontal;
     double cos_theta;
 
+    // XXX disable this later
     #define TEST_ENABLE
 
     // make vector from screen ctr point to point_intersect
