@@ -7,7 +7,6 @@
 #define DEFAULT_WIN_WIDTH  1920
 #define DEFAULT_WIN_HEIGHT 1080
 
-
 #define NM2MM(x) ((x) * 1e-6)
 #define MM2NM(x) ((x) * 1e6)
 
@@ -463,6 +462,7 @@ static void render_scale(int y_top, int y_span, rect_t *pane)
     double tick_intvl, tick_loc;
     char tick_value_str[20];
     int tick_value, tick_value_loc, slen;
+    char screen_diam_str[50];
 
     // convert 5mm to tick_intvl in pixel units
     tick_intvl = 5 / SCREEN_ELEMENT_SIZE;
@@ -498,6 +498,12 @@ static void render_scale(int y_top, int y_span, rect_t *pane)
 
     // render the axis line
     sdl_render_line(pane, 0,y_top, MAX_SCREEN-1,y_top, WHITE);
+
+    // display the screen diameter at the top of the pane
+    sprintf(screen_diam_str, "SCREEN DIAMETER %g mm", MAX_SCREEN*SCREEN_ELEMENT_SIZE);
+    sdl_render_text(pane, 
+                    (pane->w-COL2X(strlen(screen_diam_str),LARGE_FONT))/2, 0, 
+                    LARGE_FONT, screen_diam_str, WHITE, BLACK);
 }
 
 // -----------------  CONTROL PANE HANDLER  --------------------------------------
