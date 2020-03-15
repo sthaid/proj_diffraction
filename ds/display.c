@@ -14,6 +14,11 @@
 #define SCREEN_ELEMENTS_PER_GRAPH_ELEMENT (GRAPH_ELEMENT_SIZE / SCREEN_ELEMENT_SIZE)
 #define SOURCE_ELEMENT_SIZE               (GRAPH_ELEMENT_SIZE)
 
+#define GRAPH_SIZE_MIN      .010
+#define GRAPH_SIZE_MAX      SCREEN_SIZE
+#define GRAPH_SIZE_DEFAULT  .050
+#define GRAPH_SIZE_STEP     .010
+
 //
 // typedefs
 //
@@ -24,7 +29,7 @@
 
 static int param_select_idx;
 
-static double graph_size = SCREEN_SIZE;
+static double graph_size = GRAPH_SIZE_DEFAULT;
 
 static bool   graph_is_avail;
 static double graph[MAX_GRAPH];
@@ -113,6 +118,10 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         int ytop, ybottom, xbase, first_graph_idx, last_graph_idx, i, y;
         double ycenter;
 
+        // sanitize graph_size
+        if (graph_size < GRAPH_SIZE_MIN) graph_size = GRAPH_SIZE_MIN;
+        if (graph_size > GRAPH_SIZE_MAX) graph_size = GRAPH_SIZE_MAX;
+
         // process screen_inten and set the following global vars:
         // - graph_is_avail,graph - the intensity graph to be plotted
         // - graph_fringe_idx1    - location of the highest intensity fringe
@@ -169,7 +178,7 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
             static point_t points[10000];
 
             for (y = ytop; y <= ybottom; y++) {
-                points[max_points].x = xbase-10 - graph[graph_idx] * 700;
+                points[max_points].x = xbase - graph[graph_idx] * 700;
                 points[max_points].y = y;
                 graph_idx++;
                 max_points++;
@@ -185,9 +194,9 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
         // if graph fringe indexes have been located by the diffraction.c code 
         // then display horizontal red lines at the location of these 2 fringes
         if (graph_fringe_idx1 != 0 && graph_fringe_idx2 != 0) {
-            y = graph_fringe_idx1 - first_graph_idx;
+            y = graph_fringe_idx1 - first_graph_idx + ytop;
             sdl_render_line(pane, xbase, y, xbase-800, y, RED);
-            y = graph_fringe_idx2 - first_graph_idx;
+            y = graph_fringe_idx2 - first_graph_idx + ytop;
             sdl_render_line(pane, xbase, y, xbase-800, y, RED);
         }
 
@@ -239,6 +248,12 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
                     "EQUATION FRINGE SEP %4.2f mm   ", equation_fringe_sep * 1e3);
         }
 
+        // print the graph_size
+        sdl_render_printf(
+                pane, pane->w/2-COL2X(18,FONTSZ)/2, ROW2Y(0,FONTSZ), FONTSZ,
+                WHITE, BLACK,
+                "GRAPH_SIZE = %g mm", graph_size*1000);
+
         // register for zoom events
         sdl_register_event(pane, pane, SDL_EVENT_ZOOM, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
             
@@ -250,19 +265,12 @@ static int screen_image_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
     // -----------------------
 
     if (request == PANE_HANDLER_REQ_EVENT) {
-        #define EPSILON (SCREEN_SIZE/100)
-        #define ZOOM_STEP (SCREEN_SIZE * .1)
-
         switch (event->event_id) {
         case SDL_EVENT_ZOOM:
             if (event->mouse_wheel.delta_y > 0) {
-                if (graph_size > ZOOM_STEP+EPSILON) {
-                    graph_size -= ZOOM_STEP;
-                }
+                graph_size -= GRAPH_SIZE_STEP;
             } else if (event->mouse_wheel.delta_y < 0) {
-                if (graph_size < SCREEN_SIZE-EPSILON) {
-                    graph_size += ZOOM_STEP;
-                }
+                graph_size += GRAPH_SIZE_STEP;
             }
             break;
         }
@@ -290,7 +298,7 @@ static void convert_screen_inten_to_graph(param_t *p)
     double *screen_inten = p->screen_inten;
 
     // sanity check graph_size
-    if (graph_size > SCREEN_SIZE || graph_size <= 0) {
+    if (graph_size > GRAPH_SIZE_MAX || graph_size < GRAPH_SIZE_MIN) {
         FATAL("graph_size=%f SCREEN_SIZE=%f\n", graph_size, SCREEN_SIZE);
     }
 
@@ -480,7 +488,7 @@ static int param_select_pane_hndlr(pane_cx_t * pane_cx, int request, void * init
             sdl_render_text_and_register_event(
                 pane, COL2X(0,FONTSZ), ROW2Y(i+2,FONTSZ), FONTSZ,
                 param[i].name,
-                (i != param_select_idx ? LIGHT_BLUE : WHITE), BLACK,
+                (i != param_select_idx ? LIGHT_BLUE : GREEN), BLACK,
                 SDL_EVENT_PARAM_SELECT+i,
                 SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
         }

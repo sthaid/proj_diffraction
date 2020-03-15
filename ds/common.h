@@ -21,7 +21,7 @@
 #define MAX_PARAM                         20
 #define MAX_SLIT                          4
 
-#define SCREEN_SIZE                       0.200    // 20 cm
+#define SCREEN_SIZE                       0.100    // 100 cm
 #define SCREEN_ELEMENT_SIZE               1000e-9  // 1000 nm
 #define MAX_SCREEN                        ((int)(SCREEN_SIZE / SCREEN_ELEMENT_SIZE))
 

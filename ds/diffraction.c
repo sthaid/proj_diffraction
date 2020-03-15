@@ -21,6 +21,15 @@ static void amplitude_init(param_t *p);
 static void amplitude_cleanup(param_t *p);
 static void amplitude(param_t *p, double delta_y, double *amp1, double *amp2);
 
+//
+// inline procedures
+//
+
+static inline double square(double x)
+{
+    return x * x;
+}
+
 // -----------------  CALCULATE_SCREEN_IMAGE  -----------------------------------
 
 void calculate_screen_image(param_t *p)
@@ -83,10 +92,9 @@ static void * calculate_screen_image_thread(void *cx)
         }
     }
 
-    // create screen_inten by summing the squared screen1/2_amp
+    // create screen_inten by summing the squared screen1/2_amp and then taking sqrt
     for (screen_idx = 0; screen_idx < MAX_SCREEN; screen_idx++) {
-        screen_inten[screen_idx] = screen1_amp[screen_idx] * screen1_amp[screen_idx] + 
-                                   screen2_amp[screen_idx] * screen2_amp[screen_idx];
+        screen_inten[screen_idx] = sqrt( square(screen1_amp[screen_idx]) + square(screen2_amp[screen_idx]) );
     }
 
     // set status_str to indicate the calculations are complete
