@@ -61,20 +61,20 @@ typedef struct {
                 double ctrsep;
             } source_double_slit;
             struct source_round_hole_s {
-                double diam;  // XXX this is hole diam
+                double diam;
                 double spread;
             } source_round_hole;
             struct mirror_s {
-                double diam;   // XXX mirror diam, needs to be used
+                int nothing_here;
             } mirror;
             struct beam_splitter_s {
-                double diam;   // XXX mirror diam, needs to be used
+                int nothing_here;
             } beam_splitter;
             struct screen_s {
-                double diam;   // XXX screen diam, not sure if this is used
+                int nothing_here;
             } screen;
             struct discard_s {
-                double diam;   // XXX discard diam, needs to be used
+                int nothing_here;
             } discard;
         } u;
     } element[MAX_CONFIG_ELEMENT];

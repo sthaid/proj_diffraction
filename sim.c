@@ -346,12 +346,11 @@ static int read_config_file(char *config_filename)
         } else if (strcmp(elem_type_str, "mirror") == 0) {
             elem->hndlr = mirror_hndlr;
             cnt = sscanf(line+char_count,
-                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf diam=%lf next=%d",
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf next=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
                    &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
-                   &elem->u.mirror.diam, 
                    &elem->next);
-            if (cnt != 8) {
+            if (cnt != 7) {
                 ERROR("scanning element mirror, line %d\n", line_num);
                 goto error;
             }
@@ -360,12 +359,11 @@ static int read_config_file(char *config_filename)
         } else if (strcmp(elem_type_str, "beam_splitter") == 0) {
             elem->hndlr = beam_splitter_hndlr;
             cnt = sscanf(line+char_count,
-                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf diam=%lf next=%d next2=%d",
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf next=%d next2=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
                    &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
-                   &elem->u.beam_splitter.diam, 
                    &elem->next, &elem->next2);
-            if (cnt != 9) {
+            if (cnt != 8) {
                 ERROR("scanning element beam_splitter, line %d\n", line_num);
                 goto error;
             }
@@ -388,11 +386,10 @@ static int read_config_file(char *config_filename)
             elem->hndlr = discard_hndlr;
             elem->next = -1;
             cnt = sscanf(line+char_count,
-                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf diam=%lf",
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
-                   &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
-                   &elem->u.discard.diam);
-            if (cnt != 7) {
+                   &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c);
+            if (cnt != 6) {
                 ERROR("scanning element discard, line %d\n", line_num);
                 goto error;
             }

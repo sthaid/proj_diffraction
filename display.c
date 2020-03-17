@@ -159,8 +159,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             v_plane.c = 0;
 
             cross_product(&v_plane, &v_vertical, &v_line);
-            set_vector_magnitude(&v_line, 25);  // XXX  try to incorporate real diameter of elements that matter, 
-                                                //      such as screen and mirror
+            set_vector_magnitude(&v_line, 25);
 
             set_vector_magnitude(&v_plane, 0.10/scale_pixel_per_mm);
             p0 = elem->plane.p;
