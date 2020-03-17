@@ -516,7 +516,9 @@ static void *sim_monitor_thread(void *cx)
         end_photon_count = total_photon_count;
 
         photons_per_sec = (end_photon_count - start_photon_count) / ((end_us - start_us) / 1000000.);
-        INFO("RATE = %g million photons/sec\n", photons_per_sec/1000000);
+        if (run) {
+            INFO("RATE = %g million photons/sec\n", photons_per_sec/1000000);
+        }
     }
 
     return NULL;
