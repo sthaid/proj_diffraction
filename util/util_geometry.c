@@ -21,9 +21,11 @@ SOFTWARE.
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 #include "util_geometry.h"
+#include "util_misc.h"
 
 // XXX todo - check for error conditions, such as denominator==0
 
@@ -160,6 +162,83 @@ double dot_product(geo_vector_t *v1, geo_vector_t *v2)
     return v1->a*v2->a + v1->b*v2->b + v1->c*v2->c;
 }
 
+// -----------------  VECTOR HORIZONTAL AND VERTICAL ANGLE  -----------------
+
+void vector_to_angle(geo_vector_t *v, double *h_angle, double *v_angle)
+{
+    double a = v->a;  // x component
+    double b = v->b;  // y component
+    double c = v->c;  // z component
+
+    *h_angle = atan2(b,a);
+    *v_angle = asin(c / sqrt(square(a) + square(b) + square(c)));
+}
+
+// XXX clean this stuff up ...,   and UNIT TEST too
+void angle_to_vector(double h_angle, double v_angle, geo_vector_t *v)
+{
+    // a = x component
+    // b = y component
+    // c = z component
+
+// XXX what if h_angle is x + 2pi
+// XXX should consider checking if it is close
+    if (h_angle == M_PI_2) {
+        printf("XXXXXXXXXXXX h_angle == M_PI_2\n");
+        v->a = 0;
+        v->b = 1;
+        v->c = tan(v_angle);
+        return;
+    }
+
+    if (h_angle == -M_PI_2) {
+        printf("XXXXXXXXXXXX h_angle == -M_PI_2\n");
+        v->a = 0;
+        v->b = -1;
+        v->c = tan(v_angle);
+        return;
+    }
+
+
+    double tan_h_angle = tan(h_angle);
+    double sin_v_angle = sin(v_angle);
+    int h_angle_quadrant = get_quadrant(h_angle);
+
+    printf("quadrant(%g) = %d\n", h_angle, h_angle_quadrant);
+
+    v->c = sin(v_angle);
+    if (h_angle_quadrant == 1 || h_angle_quadrant == 4) {
+        v->a = sqrt( (1 - square(sin_v_angle)) / (1 + square(tan_h_angle)) );
+    } else {
+        v->a = -sqrt( (1 - square(sin_v_angle)) / (1 + square(tan_h_angle)) );
+    }
+    v->b = v->a * tan_h_angle;
+}
+
+// returns quadrant 1 = first, 2 = second , etc.
+int get_quadrant(double angle)
+{
+    #define TWO_PI (2*M_PI)
+
+    double tmp;
+    int quadrant;
+
+    tmp = (angle / TWO_PI) - floor(angle / TWO_PI);
+    printf("tmp %e  %e  %e\n", tmp, angle/TWO_PI, floor(angle/TWO_PI));
+
+    if (tmp == 1) {
+        quadrant = 4;
+    } else {
+        quadrant = tmp * 4 + 1;
+    }
+
+    if (quadrant < 1 || quadrant > 4) {
+        FATAL("incorrect quadrant %d, angle = %g\n", quadrant, angle);
+    }
+
+    return quadrant;
+}
+
 // -----------------  MISCELLANEOUS OPERATIONS  -----------------------------
 
 double distance(geo_point_t *p1, geo_point_t *p2)
@@ -215,12 +294,40 @@ char *line_str(geo_line_t *l, char *s)
 
 // to build unit test program:
 //    gcc -Wall -DUNIT_TEST -o t1 util_geometry.c -lm
-
-//#define UNIT_TEST
+//    gcc -Wall -DUNIT_TEST -o t1 util_geometry.c util_misc.c -lm
 
 #ifdef UNIT_TEST
 int main(int argc, char **argv)
 {
+    geo_vector_t v, v1;
+    char s[100], s1[100];
+    double ha, va, m;
+
+    int q = get_quadrant(-5.42101e-20);
+    printf("q = %d\n", q);
+
+    while (printf("vect? "), fgets(s,sizeof(s),stdin) != NULL) {
+        if (sscanf(s, "%lf %lf %lf", &v.a, &v.b, &v.c) != 3) {
+            ERROR("invalid input\n");
+            printf("\n\n");
+            continue;
+        }
+        printf("input vect  %s\n", vector_str(&v ,s1));
+        m = magnitude(&v);
+
+        vector_to_angle(&v, &ha, &va);
+        printf("ha = %g va = %g\n", RAD2DEG(ha), RAD2DEG(va));
+
+        angle_to_vector(ha, va, &v1);
+        set_vector_magnitude(&v1, m);
+        printf("back to vector %s\n", vector_str(&v1,s1));
+
+        printf("\n\n");
+    }
+
+    return 0;
+
+#if 0
     char s1[100], s2[100], s3[100];
     double cosine;
     geo_vector_t v, v1, v2, v_cross;
@@ -261,5 +368,6 @@ int main(int argc, char **argv)
     cross_product(&v1, &v2, &v_cross);
     printf("  %s CROSS %s = %s\n", vector_str(&v1,s1), vector_str(&v2,s2), vector_str(&v_cross,s3));
     return 0;
+#endif
 }
 #endif

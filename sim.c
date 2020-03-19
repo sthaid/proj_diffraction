@@ -31,13 +31,12 @@
 // typedefs
 //
 
-typedef struct element_s element_t;
-
 //
 // variables
 //
 
-static volatile bool run;
+static volatile bool run_state;
+static volatile bool run_request;
 
 static double screen_amp1[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
 static double screen_amp2[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
@@ -53,6 +52,8 @@ static pthread_mutex_t recent_sample_photons_mutex = PTHREAD_MUTEX_INITIALIZER;
 // prototypes
 //
 
+static void recompute_element_plane(struct element_s *e);
+
 static int read_config_file(char *config_filename);
 static bool is_comment_or_blank_line(char *s);
 static void remove_trailing_newline_char(char *s);
@@ -61,25 +62,25 @@ static void *sim_thread(void *cx);
 static void *sim_monitor_thread(void *cx);
 static void simulate_a_photon(photon_t *photon);
 
-static int source_single_slit_hndlr(element_t *elem, photon_t *photon);
-static int source_double_slit_hndlr(element_t *elem, photon_t *photon);
-static int source_round_hole_hndlr(element_t *elem, photon_t *photon);
+static int source_single_slit_hndlr(struct element_s *elem, photon_t *photon);
+static int source_double_slit_hndlr(struct element_s *elem, photon_t *photon);
+static int source_round_hole_hndlr(struct element_s *elem, photon_t *photon);
 static void determine_photon_line(
                 int source_type, 
                 geo_plane_t *plane,
                 double arg1, double arg2, double arg3, double arg4, double arg5,
                 geo_line_t *photon_line);
 
-static int mirror_hndlr(element_t *elem, photon_t *photon);
-static int beam_splitter_hndlr(element_t *elem, photon_t *photon);
+static int mirror_hndlr(struct element_s *elem, photon_t *photon);
+static int beam_splitter_hndlr(struct element_s *elem, photon_t *photon);
 static void mirror_reflect(geo_line_t *line, geo_plane_t *plane);
 
-static int screen_hndlr(element_t *elem, photon_t *photon);
+static int screen_hndlr(struct element_s *elem, photon_t *photon);
 static void determine_screen_coords(
                 geo_plane_t *plane, geo_point_t *point_intersect, 
                 double *screen_hpos, double *screen_vpos);
 
-static int discard_hndlr(element_t *elem, photon_t *photon);
+static int discard_hndlr(struct element_s *elem, photon_t *photon);
 
 //
 // inline procedures
@@ -116,38 +117,51 @@ int sim_init(char *config_filename)
 
 void sim_select_config(int idx)
 {
-    sim_reset();
+    bool was_running = run_state;
+
+    sim_reset(false);
     current_config = &config[idx];
+
+    if (was_running) {
+        sim_run();
+    }
 }
 
-void sim_reset(void)
+void sim_reset(bool start_running)
 {
     sim_stop();
+
     memset(screen_amp1,0,sizeof(screen_amp1));
     memset(screen_amp2,0,sizeof(screen_amp2));
     max_recent_sample_photons = 0;
+
+    if (start_running) {
+        sim_run();
+    }
 }
 
 void sim_run(void)
 {
-    run = true;
-    while (run == false) {
+    run_request = true;
+    while (run_state == false) {
         usleep(1000);
     }
 }
 
 void sim_stop(void)
 {
-    run = false;
-    while (run == true) {
+    run_request = false;
+    while (run_state == true) {
         usleep(1000);
     }
 }
 
+// -----------------  SIM XXX APIS  -------------------------------------------------
+
 void sim_get_state(bool *running, double *rate)
 {
     if (running) {
-        *running = run;
+        *running = run_state;
     }
     if (rate) {
         *rate = photons_per_sec;
@@ -222,6 +236,114 @@ void sim_get_recent_sample_photons(photon_t **photons_out, int *max_photons_out)
     pthread_mutex_unlock(&recent_sample_photons_mutex);
 }
 
+// -----------------  SIM XXX APIS  -------------------------------------------------
+
+void sim_randomize_element(struct element_s *elem)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    // XXX tbd
+}
+
+void sim_reset_element(struct element_s *elem)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->plane       = elem->initial_plane;
+    elem->x_offset    = 0;
+    elem->y_offset    = 0;
+    elem->pan_offset  = 0;
+    elem->tilt_offset = 0;
+
+    sim_reset(run_state);
+}
+
+void sim_reset_all_elements(sim_config_t *cfg)
+{
+    int i;
+
+    for (i = 0; i < cfg->max_element; i++) {
+        struct element_s * elem = &cfg->element[i];
+
+        elem->plane       = elem->initial_plane;
+        elem->x_offset    = 0;
+        elem->y_offset    = 0;
+        elem->pan_offset  = 0;
+        elem->tilt_offset = 0;
+    }    
+
+    sim_reset(run_state);
+}
+
+void sim_adjust_element_x(struct element_s *elem, double delta_x)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->x_offset += delta_x;
+    recompute_element_plane(elem);
+
+    sim_reset(run_state);
+}
+
+void sim_adjust_element_y(struct element_s *elem, double delta_y)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->y_offset += delta_y;
+    recompute_element_plane(elem);
+
+    sim_reset(run_state);
+}
+
+void sim_adjust_element_pan(struct element_s *elem, double delta_pan)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->pan_offset += delta_pan;
+    recompute_element_plane(elem);
+
+    sim_reset(run_state);
+}
+
+void sim_adjust_element_tilt(struct element_s *elem, double delta_tilt)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->tilt_offset += delta_tilt;
+    recompute_element_plane(elem);
+
+    sim_reset(run_state);
+}
+
+static void recompute_element_plane(struct element_s *elem)
+{
+    double h_angle, v_angle;
+
+    // recompute elem->plane.p
+    elem->plane.p.x = elem->initial_plane.p.x + elem->x_offset;
+    elem->plane.p.y = elem->initial_plane.p.y + elem->y_offset;
+    elem->plane.p.z = elem->initial_plane.p.z;
+
+    // recompute elem->plane.n
+    vector_to_angle(&elem->initial_plane.n, &h_angle, &v_angle);
+    h_angle += elem->pan_offset;
+    v_angle -= elem->tilt_offset;
+    angle_to_vector(h_angle, v_angle, &elem->plane.n);
+}
+
+// XXX run_state
 // -----------------  READ CONFIG FILE  ---------------------------------------------
 
 static int read_config_file(char *config_filename)
@@ -271,7 +393,7 @@ static int read_config_file(char *config_filename)
         // --- the following code is dealing with element definition lines ---
         int elem_id, char_count, cnt;
         char elem_type_str[100];
-        element_t *elem;
+        struct element_s *elem;
 
         // check for line begining with '.' which indicates that this cfg definition 
         // is complete
@@ -401,11 +523,13 @@ static int read_config_file(char *config_filename)
         }
     }
 
-    // set the magnitude of all config element plane normal vectors to 1
+    // set the magnitude of all config element plane normal vectors to 1, and
+    // set the initial_plane equal to plane
     for (i = 0; i < max_config; i++) {
         sim_config_t *cfg = &config[i];
         for (j = 0; j < cfg->max_element; j++) {
             set_vector_magnitude(&cfg->element[j].plane.n, 1);
+            cfg->element[j].initial_plane = cfg->element[j].plane;
         }
     }
 
@@ -422,7 +546,7 @@ static int read_config_file(char *config_filename)
         sim_config_t *cfg = &config[i];
         INFO("config %d - %s %f\n", i, cfg->name, cfg->wavelength);
         for (j = 0; j < cfg->max_element; j++) {
-            element_t *elem = &cfg->element[j];
+            struct element_s *elem = &cfg->element[j];
             INFO("  %d %s next=%d\n", 
                  j, ELEMENT_NAME_STR(elem->hndlr), elem->next);
         }
@@ -472,16 +596,17 @@ static void *sim_thread(void *cx)
 
     INFO("STARTING id %ld\n", id);
 
+// XXX all threads need to coorinate
     while (true) {
         // wait for run flag to be set
-        INFO("waiting for start request\n");
-        while (!run) {
+        run_state = false;
+        while (run_request == false) {
             usleep(10000);
         }
 
         // while run flag is set, simulate photons
-        INFO("starting simulation of %s\n", current_config->name);
-        while (run) {
+        run_state = true;
+        while (run_request == true) {
             // simulate a photon
             simulate_a_photon(&photon);
 
@@ -513,7 +638,7 @@ static void *sim_monitor_thread(void *cx)
         end_photon_count = total_photon_count;
 
         photons_per_sec = (end_photon_count - start_photon_count) / ((end_us - start_us) / 1000000.);
-        if (run) {
+        if (run_state) {
             INFO("RATE = %g million photons/sec\n", photons_per_sec/1000000);
         }
     }
@@ -524,7 +649,7 @@ static void *sim_monitor_thread(void *cx)
 static void simulate_a_photon(photon_t *photon)
 {
     int idx=0, next;
-    element_t *elem;
+    struct element_s *elem;
     char s1[100] __attribute__((unused));
 
     while (true) {
@@ -553,7 +678,7 @@ static void simulate_a_photon(photon_t *photon)
 
 // -----------------  PHOTON SOURCE HANDLERS  ---------------------------------------- 
 
-static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
+static int source_single_slit_hndlr(struct element_s *elem, photon_t *photon)
 {
     struct source_single_slit_s *ss = &elem->u.source_single_slit;
     geo_line_t photon_line;
@@ -573,7 +698,7 @@ static int source_single_slit_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
-static int source_double_slit_hndlr(element_t *elem, photon_t *photon)
+static int source_double_slit_hndlr(struct element_s *elem, photon_t *photon)
 {
     struct source_double_slit_s *ds = &elem->u.source_double_slit;
     geo_line_t photon_line;
@@ -593,7 +718,7 @@ static int source_double_slit_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
-static int source_round_hole_hndlr(element_t *elem, photon_t *photon)
+static int source_round_hole_hndlr(struct element_s *elem, photon_t *photon)
 {
     struct source_round_hole_s *rh = &elem->u.source_round_hole;
     geo_line_t photon_line;
@@ -694,7 +819,7 @@ static void determine_photon_line(
 //DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
 //char s[100] __attribute__((unused));
 
-static int mirror_hndlr(element_t *elem, photon_t *photon)
+static int mirror_hndlr(struct element_s *elem, photon_t *photon)
 {
     geo_point_t point_intersect;
 
@@ -714,7 +839,7 @@ static int mirror_hndlr(element_t *elem, photon_t *photon)
     return elem->next;
 }
 
-static int beam_splitter_hndlr(element_t *elem, photon_t *photon)
+static int beam_splitter_hndlr(struct element_s *elem, photon_t *photon)
 {
     geo_point_t point_intersect;
     double dotp;
@@ -761,7 +886,7 @@ static void mirror_reflect(geo_line_t *line, geo_plane_t *plane)
 
 // -----------------  SCREEN HANDLER  ------------------------------------------------ 
 
-static int screen_hndlr(element_t *elem, photon_t *photon)
+static int screen_hndlr(struct element_s *elem, photon_t *photon)
 {
     geo_point_t point_intersect;
     int         scramp_hidx, scramp_vidx;
@@ -888,7 +1013,7 @@ static void determine_screen_coords(
 
 // -----------------  DISCARD HANDLER  ------------------------------------------------ 
 
-static int discard_hndlr(element_t *elem, photon_t *photon)
+static int discard_hndlr(struct element_s *elem, photon_t *photon)
 {
     geo_point_t point_intersect;
 

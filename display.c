@@ -1,3 +1,5 @@
+// XXX try to display last photon ray trace when stopped
+
 #include "common.h"
 
 //
@@ -20,6 +22,8 @@
 //
 // variables
 //
+
+static struct element_s *selected_elem;
 
 //
 // prototypes
@@ -87,6 +91,7 @@ static void reset_pan_and_zoom(void);
 static void draw_lines(rect_t *pane, geo_point_t *geo_point, int max_points, int color);
 static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color);
 static void transform(geo_point_t *geo_p, point_t *pixel_p);
+static void draw_optical_element(rect_t *pane, struct element_s *elem, int color);
 
 static int x_pixel_ctr;
 static int y_pixel_ctr;
@@ -101,9 +106,12 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
-    #define SDL_EVENT_ZOOM            (SDL_EVENT_USER_DEFINED + 0)
-    #define SDL_EVENT_PAN             (SDL_EVENT_USER_DEFINED + 1)
-    #define SDL_EVENT_RESET_PAN_ZOOM  (SDL_EVENT_USER_DEFINED + 2)
+    #define SDL_EVENT_ZOOM          (SDL_EVENT_USER_DEFINED + 0)
+    #define SDL_EVENT_PAN           (SDL_EVENT_USER_DEFINED + 1)
+    #define SDL_EVENT_SIM_RUN       (SDL_EVENT_USER_DEFINED + 2)
+    #define SDL_EVENT_SIM_STOP      (SDL_EVENT_USER_DEFINED + 3)
+    #define SDL_EVENT_RESET         (SDL_EVENT_USER_DEFINED + 4)
+    #define SDL_EVENT_SELECT_ELEM   (SDL_EVENT_USER_DEFINED + 10)
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -122,22 +130,24 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        int i, j;
-        char title_str[200];
+        int i;
+        char title_str[500], state_str[100];
         photon_t *photons;
         int max_photons;
-
-#if 0
-        // used to capture these values for the reset_pan_and_zoom routine
-        INFO("x_pixel_ctr        = %d\n", x_pixel_ctr);
-        INFO("y_pixel_ctr        = %d\n", y_pixel_ctr);
-        INFO("x_mm_ctr           = %g\n", x_mm_ctr);
-        INFO("y_mm_ctr           = %g\n", y_mm_ctr);
-        INFO("scale_pixel_per_mm = %g\n", scale_pixel_per_mm);
-#endif
+        bool running;
+        double rate;
 
         // display title
-        sprintf(title_str, "%s - %g nm", current_config->name, MM2NM(current_config->wavelength));
+        sim_get_state(&running, &rate);
+        if (running) {
+            sprintf(state_str, "RUNNING %0.1f M /s", rate/1e6);
+        } else {
+            sprintf(state_str, "STOPPED");
+        }
+        sprintf(title_str, "%s - %g nm - %s", 
+                current_config->name, 
+                MM2NM(current_config->wavelength),
+                state_str);
         sdl_render_text(pane, 
                         pane->w/2 - COL2X(strlen(title_str),LARGE_FONT)/2, 0, 
                         LARGE_FONT, title_str, WHITE, BLACK);
@@ -152,32 +162,63 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         // display optical elements: source, mirrors. beamsplitters, etc.
         for (i = 0; i < current_config->max_element; i++) {
             struct element_s *elem = &current_config->element[i];
-            geo_vector_t v_plane, v_vertical={0,0,1}, v_line;
-            geo_point_t p0, p1, p2;
-
-            v_plane = elem->plane.n;
-            v_plane.c = 0;
-
-            cross_product(&v_plane, &v_vertical, &v_line);
-            set_vector_magnitude(&v_line, 25);
-
-            set_vector_magnitude(&v_plane, 0.10/scale_pixel_per_mm);
-            p0 = elem->plane.p;
-            for (j = 0; j < 50 ; j++) {
-                point_plus_vector(&p0, &v_line, &p1);
-                point_minus_vector(&p0, &v_line, &p2);
-                draw_line(pane, &p1, &p2, WHITE);
-                point_minus_vector(&p0, &v_plane, &p0);
-            }
+            draw_optical_element(pane,
+                                 &current_config->element[i], 
+                                 elem == selected_elem ? ORANGE : WHITE);
         }
 
-        // register for events, for example pane pan/zoom control events
+        // display element offsets
+        for (i = 0; i < current_config->max_element; i++) {
+            struct element_s *elem = &current_config->element[i];
+// XXX print and register, use LIGHT BLUE and ORANGE
+            sdl_render_printf(pane, 0, ROW2Y(3+i,LARGE_FONT), LARGE_FONT, 
+                              (elem == selected_elem ? ORANGE : WHITE), BLACK, 
+                              "%2d - %7.3f %7.3f %7.3f %7.3f",
+                              i, 
+                              elem->x_offset, elem->y_offset, 
+                              RAD2DEG(elem->pan_offset), RAD2DEG(elem->tilt_offset));
+        }
+
+        // register for events ...
+        // - pan and zoom the optical element and ray trace diagram
         sdl_register_event(pane, pane, SDL_EVENT_ZOOM, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
         sdl_register_event(pane, pane, SDL_EVENT_PAN, SDL_EVENT_TYPE_MOUSE_MOTION, pane_cx);
+        // - sim run/stop events
+        if (running) {
+            sdl_render_text_and_register_event(
+                    pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(1,LARGE_FONT), LARGE_FONT,
+                    "STOP", LIGHT_BLUE, BLACK,
+                    SDL_EVENT_SIM_STOP, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        } else {
+            sdl_render_text_and_register_event(
+                    pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(1,LARGE_FONT), LARGE_FONT,
+                    "RUN", LIGHT_BLUE, BLACK,
+                    SDL_EVENT_SIM_RUN, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        }
+        // - reset event: resets element offsets and diagram pan/zoom
         sdl_render_text_and_register_event(
-                pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(1,LARGE_FONT), LARGE_FONT,
-                "RESET_PAN_ZOOM", LIGHT_BLUE, BLACK,
-                SDL_EVENT_RESET_PAN_ZOOM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+                pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(2,LARGE_FONT), LARGE_FONT,
+                "RESET", LIGHT_BLUE, BLACK,
+                SDL_EVENT_RESET, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        // - element select events; both click on the element or click on the offset display line
+        for (i = 0; i < current_config->max_element; i++) {
+            struct element_s *elem = &current_config->element[i];
+            point_t p;
+            rect_t loc;
+
+            transform(&elem->plane.p, &p);
+            loc.x = p.x-20;
+            loc.y = p.y-20;
+            loc.w = 40;
+            loc.h = 40;
+            sdl_register_event(pane, &loc, SDL_EVENT_SELECT_ELEM+i, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+            loc.x = 0;
+            loc.y = ROW2Y(3+i,LARGE_FONT) + sdl_font_char_height(LARGE_FONT)/3;  //xxx why the "+ ..."
+            loc.w = ROW2Y(37,LARGE_FONT);
+            loc.h = COL2X(1,LARGE_FONT);
+            sdl_register_event(pane, &loc, SDL_EVENT_SELECT_ELEM+i, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        }
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -199,12 +240,58 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             x_mm_ctr -= (event->mouse_motion.delta_x / scale_pixel_per_mm);
             y_mm_ctr += (event->mouse_motion.delta_y / scale_pixel_per_mm);
             break;
-        case SDL_EVENT_RESET_PAN_ZOOM:
+        case SDL_EVENT_SIM_RUN:
+            sim_run();
+            break;
+        case SDL_EVENT_SIM_STOP:
+            sim_stop();
+            break;
+        case SDL_EVENT_RESET:
             reset_pan_and_zoom();
+            sim_reset_all_elements(current_config);
+            break;
+        case SDL_EVENT_SELECT_ELEM ... SDL_EVENT_SELECT_ELEM+MAX_CONFIG_ELEMENT-1: {
+            int idx = event->event_id - SDL_EVENT_SELECT_ELEM;
+            if (idx >= current_config->max_element) {
+                selected_elem = NULL;
+                break;
+            }
+            selected_elem = &current_config->element[idx];
+            INFO("XXX SEL %d\n", idx);
+            break; }
+        case SDL_EVENT_KEY_ESC:
+            selected_elem = NULL;
+            break;
+        case SDL_EVENT_KEY_INSERT:
+        case SDL_EVENT_KEY_HOME:
+            sim_adjust_element_pan(
+                selected_elem, 
+                event->event_id == SDL_EVENT_KEY_HOME ? DEG2RAD(.005) : DEG2RAD(-.005));
+            break;
+        case SDL_EVENT_KEY_PGUP:
+        case SDL_EVENT_KEY_PGDN:
+            sim_adjust_element_tilt(
+                selected_elem, 
+                event->event_id == SDL_EVENT_KEY_PGUP ? DEG2RAD(.005) : DEG2RAD(-.005));
+            break;
+        case SDL_EVENT_KEY_UP_ARROW:
+        case SDL_EVENT_KEY_DOWN_ARROW:
+            sim_adjust_element_y(
+                selected_elem, 
+                event->event_id == SDL_EVENT_KEY_DOWN_ARROW ? .1 : -.1);
+            break;
+        case SDL_EVENT_KEY_LEFT_ARROW:
+        case SDL_EVENT_KEY_RIGHT_ARROW:
+            sim_adjust_element_x(
+                selected_elem, 
+                event->event_id == SDL_EVENT_KEY_RIGHT_ARROW ? .1 : -.1);
+            break;
+        case 'r':
+            sim_reset_element(selected_elem);
             break;
         }
 
-        return PANE_HANDLER_RET_DISPLAY_REDRAW;
+        return PANE_HANDLER_RET_NO_ACTION;
     }
 
     // ---------------------------
@@ -257,7 +344,35 @@ static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, in
 static void transform(geo_point_t *geo_p, point_t *pixel_p)
 {
     pixel_p->x = nearbyint(x_pixel_ctr + (geo_p->x - x_mm_ctr) * scale_pixel_per_mm);
+#ifndef TEST  //XXX delete / cleanup
     pixel_p->y = nearbyint(y_pixel_ctr - (geo_p->y - y_mm_ctr) * scale_pixel_per_mm);
+#else
+    int z_pixel_ctr = 500;
+    double z_mm_ctr = 0;    
+    pixel_p->y = nearbyint(z_pixel_ctr + (geo_p->z - z_mm_ctr) * scale_pixel_per_mm);
+#endif
+}
+
+static void draw_optical_element(rect_t *pane, struct element_s *elem, int color)
+{
+    geo_vector_t v_plane, v_vertical={0,0,1}, v_line;
+    geo_point_t p0, p1, p2;
+    int i;
+
+    v_plane = elem->plane.n;
+    v_plane.c = 0;
+
+    cross_product(&v_plane, &v_vertical, &v_line);
+    set_vector_magnitude(&v_line, 25);
+
+    set_vector_magnitude(&v_plane, 0.10/scale_pixel_per_mm);
+    p0 = elem->plane.p;
+    for (i = 0; i < 50 ; i++) {
+        point_plus_vector(&p0, &v_line, &p1);
+        point_minus_vector(&p0, &v_line, &p2);
+        draw_line(pane, &p1, &p2, color);
+        point_minus_vector(&p0, &v_plane, &p0);
+    }
 }
 
 // -----------------  INTERFEROMETER PATTERN PANE HANDLER  ----------------------
@@ -514,9 +629,7 @@ static int control_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_para
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
-   #define SDL_EVENT_SIM_RUN          (SDL_EVENT_USER_DEFINED + 0)
-   #define SDL_EVENT_SIM_STOP         (SDL_EVENT_USER_DEFINED + 1)
-   #define SDL_EVENT_SIM_MOUSE_WHEEL  (SDL_EVENT_USER_DEFINED + 2)
+   #define SDL_EVENT_SIM_MOUSE_WHEEL  (SDL_EVENT_USER_DEFINED + 0)
    #define SDL_EVENT_SIM_CFGSEL       (SDL_EVENT_USER_DEFINED + 10)
 
     // ----------------------------
@@ -535,39 +648,12 @@ static int control_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_para
     // ------------------------
 
     if (request == PANE_HANDLER_REQ_RENDER) {
-        double rate;
-        bool running;
         int row, i;
 
-        // XXX try to display last photon ray trace when stopped
+        // register for events ...
 
-        // get sim state
-        sim_get_state(&running, &rate);
-
-        // display state
-        if (running) {
-            sdl_render_printf(pane, 0, 0, LARGE_FONT, WHITE, BLACK, 
-                              "RUNNING %0.1f M /s", rate/1e6);
-        } else {
-            sdl_render_printf(pane, 0, 0, LARGE_FONT, WHITE, BLACK, 
-                              "STOPPED");
-        }
-
-        // register events
-        // - run/stop
-        if (running) {
-            sdl_render_text_and_register_event(
-                    pane, pane->w-COL2X(5,LARGE_FONT), 0, LARGE_FONT,
-                    "STOP", LIGHT_BLUE, BLACK,
-                    SDL_EVENT_SIM_STOP, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-        } else {
-            sdl_render_text_and_register_event(
-                    pane, pane->w-COL2X(5,LARGE_FONT), 0, LARGE_FONT,
-                    "RUN", LIGHT_BLUE, BLACK,
-                    SDL_EVENT_SIM_RUN, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-        }
         // - config select
-        for (row = 2, i = vars->cfgsel_start; i < max_config; i++, row++) {
+        for (row = 0, i = vars->cfgsel_start; i < max_config; i++, row++) {
             if (ROW2Y(row,LARGE_FONT) > pane->h-sdl_font_char_height(LARGE_FONT)) {
                 break;
             }
@@ -577,6 +663,7 @@ static int control_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_para
                     current_config == &config[i] ? GREEN : LIGHT_BLUE, BLACK,
                     SDL_EVENT_SIM_CFGSEL+i, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
         }
+
         // - config select scrooling
         rect_t loc = {0,0,pane->w,pane->h};
         sdl_register_event(pane, &loc, SDL_EVENT_SIM_MOUSE_WHEEL, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
@@ -590,20 +677,9 @@ static int control_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_para
 
     if (request == PANE_HANDLER_REQ_EVENT) {
         switch (event->event_id) {
-        case SDL_EVENT_SIM_RUN:
-            sim_run();
-            break;
-        case SDL_EVENT_SIM_STOP:
-            sim_stop();
-            break;
-        case SDL_EVENT_SIM_CFGSEL ... SDL_EVENT_SIM_CFGSEL+100: {
-            int cfgidx = event->event_id - SDL_EVENT_SIM_CFGSEL;
-            bool running;
-            sim_get_state(&running, NULL);
-            sim_select_config(cfgidx);
-            if (running) {
-                sim_run();
-            }
+        case SDL_EVENT_SIM_CFGSEL ... SDL_EVENT_SIM_CFGSEL+MAX_CONFIG-1: {
+            selected_elem = NULL;
+            sim_select_config(event->event_id - SDL_EVENT_SIM_CFGSEL);
             break; }
         case SDL_EVENT_KEY_UP_ARROW:
         case SDL_EVENT_KEY_DOWN_ARROW:

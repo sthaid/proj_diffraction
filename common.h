@@ -44,6 +44,11 @@ typedef struct {
     struct element_s {
         int (*hndlr)(struct  element_s *elem, photon_t *photon);
         geo_plane_t plane;
+        geo_plane_t initial_plane;
+        double x_offset;
+        double y_offset;
+        double pan_offset;
+        double tilt_offset;
         int next;
         int next2;  // only for beamsplitter
         union {
@@ -94,12 +99,21 @@ sim_config_t * current_config;
 
 int sim_init(char *config_filename);
 void sim_select_config(int idx);
-void sim_reset(void);
+void sim_reset(bool start_running);
 void sim_run(void);
 void sim_stop(void);
+
 void sim_get_state(bool *running, double *rate);
 void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN]);
 void sim_get_recent_sample_photons(photon_t **photons, int *max_photons);
+
+void sim_randomize_element(struct element_s *elem);
+void sim_reset_element(struct element_s *elem);
+void sim_reset_all_elements(sim_config_t *cfg);
+void sim_adjust_element_x(struct element_s *elem, double delta_x);
+void sim_adjust_element_y(struct element_s *elem, double delta_y);
+void sim_adjust_element_pan(struct element_s *elem, double delta_pan);
+void sim_adjust_element_tilt(struct element_s *elem, double delta_tilt);
 
 int display_init(void);
 void display_hndlr(void);

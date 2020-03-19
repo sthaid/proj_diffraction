@@ -95,6 +95,10 @@ int normalize(geo_vector_t *v);
 void cross_product(geo_vector_t *v1, geo_vector_t *v2, geo_vector_t *v_result);
 double dot_product(geo_vector_t *v1, geo_vector_t *v2);
 
+void vector_to_angle(geo_vector_t *v, double *h_angle, double *v_angle);
+void angle_to_vector(double h_angle, double v_angle, geo_vector_t *v);
+int get_quadrant(double angle);
+
 double distance(geo_point_t *p1, geo_point_t *p2);
 void point_plus_vector(geo_point_t *p, geo_vector_t *v, geo_point_t *p_result);
 void point_minus_vector(geo_point_t *p, geo_vector_t *v, geo_point_t *p_result);
