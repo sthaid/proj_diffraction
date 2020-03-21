@@ -281,28 +281,40 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             break;
         case SDL_EVENT_KEY_INSERT:
         case SDL_EVENT_KEY_HOME:
-            sim_adjust_element_pan(
-                selected_elem, 
-                event->event_id == SDL_EVENT_KEY_HOME ? DEG2RAD(.005) : DEG2RAD(-.005));
-            break;
+        case SDL_EVENT_KEY_INSERT + SDL_EVENT_KEY_CTRL:
+        case SDL_EVENT_KEY_HOME + SDL_EVENT_KEY_CTRL: {
+            bool   is_insert = (event->event_id & ~SDL_EVENT_KEY_CTRL) == SDL_EVENT_KEY_INSERT;
+            bool   is_ctrl   = (event->event_id & SDL_EVENT_KEY_CTRL);
+            double amount    = (is_insert ? -1 : 1) * (!is_ctrl ? .01 : .001);
+            sim_adjust_element_pan(selected_elem, DEG2RAD(amount));
+            break; }
         case SDL_EVENT_KEY_PGUP:
         case SDL_EVENT_KEY_PGDN:
-            sim_adjust_element_tilt(
-                selected_elem, 
-                event->event_id == SDL_EVENT_KEY_PGUP ? DEG2RAD(.005) : DEG2RAD(-.005));
-            break;
+        case SDL_EVENT_KEY_PGUP + SDL_EVENT_KEY_CTRL:
+        case SDL_EVENT_KEY_PGDN + SDL_EVENT_KEY_CTRL: {
+            bool   is_pgdn   = (event->event_id & ~SDL_EVENT_KEY_CTRL) == SDL_EVENT_KEY_PGDN;
+            bool   is_ctrl   = (event->event_id & SDL_EVENT_KEY_CTRL);
+            double amount    = (is_pgdn ? -1 : 1) * (!is_ctrl ? .01 : .001);
+            sim_adjust_element_tilt( selected_elem, DEG2RAD(amount));
+            break; }
         case SDL_EVENT_KEY_UP_ARROW:
         case SDL_EVENT_KEY_DOWN_ARROW:
-            sim_adjust_element_y(
-                selected_elem, 
-                event->event_id == SDL_EVENT_KEY_DOWN_ARROW ? .1 : -.1);
-            break;
+        case SDL_EVENT_KEY_UP_ARROW + SDL_EVENT_KEY_CTRL:
+        case SDL_EVENT_KEY_DOWN_ARROW + SDL_EVENT_KEY_CTRL: {
+            bool   is_downarrow = (event->event_id & ~SDL_EVENT_KEY_CTRL) == SDL_EVENT_KEY_DOWN_ARROW;
+            bool   is_ctrl      = (event->event_id & SDL_EVENT_KEY_CTRL);
+            double amount       = (is_downarrow ? -1 : 1) * (!is_ctrl ? .1 : .01);
+            sim_adjust_element_y(selected_elem, amount);
+            break; }
         case SDL_EVENT_KEY_LEFT_ARROW:
         case SDL_EVENT_KEY_RIGHT_ARROW:
-            sim_adjust_element_x(
-                selected_elem, 
-                event->event_id == SDL_EVENT_KEY_RIGHT_ARROW ? .1 : -.1);
-            break;
+        case SDL_EVENT_KEY_LEFT_ARROW + SDL_EVENT_KEY_CTRL:
+        case SDL_EVENT_KEY_RIGHT_ARROW + SDL_EVENT_KEY_CTRL: {
+            bool   is_leftarrow = (event->event_id & ~SDL_EVENT_KEY_CTRL) == SDL_EVENT_KEY_LEFT_ARROW;
+            bool   is_ctrl      = (event->event_id & SDL_EVENT_KEY_CTRL);
+            double amount       = (is_leftarrow ? -1 : 1) * (!is_ctrl ? .1 : .01);
+            sim_adjust_element_x(selected_elem, amount);
+            break; }
         case 'r':
             sim_reset_element(selected_elem);
             break;
