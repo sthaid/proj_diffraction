@@ -238,13 +238,38 @@ void sim_get_recent_sample_photons(photon_t **photons_out, int *max_photons_out)
 
 // -----------------  SIM XXX APIS  -------------------------------------------------
 
-void sim_randomize_element(struct element_s *elem)
+void sim_randomize_element(struct element_s *elem, double xy_span, double pan_tilt_span)
 {
     if (elem == NULL) {
         return;
     }
 
-    // XXX tbd
+    elem->x_offset = random_range(-xy_span/2, xy_span/2);
+    elem->y_offset = random_range(-xy_span/2, xy_span/2);
+    elem->pan_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
+    elem->tilt_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
+
+    recompute_element_plane(elem);
+
+    sim_reset(run_state);
+}
+
+void sim_randomize_all_elements(sim_config_t *cfg, double xy_span, double pan_tilt_span)
+{
+    int i;
+
+    for (i = 0; i < cfg->max_element; i++) {
+        struct element_s * elem = &cfg->element[i];
+
+        elem->x_offset = random_range(-xy_span/2, xy_span/2);
+        elem->y_offset = random_range(-xy_span/2, xy_span/2);
+        elem->pan_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
+        elem->tilt_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
+
+        recompute_element_plane(elem);
+    }    
+
+    sim_reset(run_state);
 }
 
 void sim_reset_element(struct element_s *elem)
@@ -286,6 +311,7 @@ void sim_adjust_element_x(struct element_s *elem, double delta_x)
     }
 
     elem->x_offset += delta_x;
+
     recompute_element_plane(elem);
 
     sim_reset(run_state);
@@ -298,6 +324,7 @@ void sim_adjust_element_y(struct element_s *elem, double delta_y)
     }
 
     elem->y_offset += delta_y;
+
     recompute_element_plane(elem);
 
     sim_reset(run_state);
@@ -310,6 +337,7 @@ void sim_adjust_element_pan(struct element_s *elem, double delta_pan)
     }
 
     elem->pan_offset += delta_pan;
+
     recompute_element_plane(elem);
 
     sim_reset(run_state);
@@ -322,6 +350,7 @@ void sim_adjust_element_tilt(struct element_s *elem, double delta_tilt)
     }
 
     elem->tilt_offset += delta_tilt;
+
     recompute_element_plane(elem);
 
     sim_reset(run_state);

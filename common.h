@@ -107,7 +107,8 @@ void sim_get_state(bool *running, double *rate);
 void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN]);
 void sim_get_recent_sample_photons(photon_t **photons, int *max_photons);
 
-void sim_randomize_element(struct element_s *elem);
+void sim_randomize_element(struct element_s *elem, double xy_span, double pan_tilt_span);
+void sim_randomize_all_elements(sim_config_t *cfg, double xy_span, double pan_tilt_span);
 void sim_reset_element(struct element_s *elem);
 void sim_reset_all_elements(sim_config_t *cfg);
 void sim_adjust_element_x(struct element_s *elem, double delta_x);

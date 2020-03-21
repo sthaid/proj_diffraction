@@ -111,6 +111,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     #define SDL_EVENT_SIM_RUN       (SDL_EVENT_USER_DEFINED + 2)
     #define SDL_EVENT_SIM_STOP      (SDL_EVENT_USER_DEFINED + 3)
     #define SDL_EVENT_RESET         (SDL_EVENT_USER_DEFINED + 4)
+    #define SDL_EVENT_RANDOMIZE     (SDL_EVENT_USER_DEFINED + 5)
     #define SDL_EVENT_SELECT_ELEM   (SDL_EVENT_USER_DEFINED + 10)
 
     // ----------------------------
@@ -200,6 +201,11 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
                 pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(2,LARGE_FONT), LARGE_FONT,
                 "RESET", LIGHT_BLUE, BLACK,
                 SDL_EVENT_RESET, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        // - randomize event: randomize element position and angle offsets
+        sdl_render_text_and_register_event(
+                pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(3,LARGE_FONT), LARGE_FONT,
+                "RANDOMIZE", LIGHT_BLUE, BLACK,
+                SDL_EVENT_RANDOMIZE, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
         // - element select events; both click on the element or click on the offset display line
         for (i = 0; i < current_config->max_element; i++) {
             struct element_s *elem = &current_config->element[i];
@@ -249,6 +255,9 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         case SDL_EVENT_RESET:
             reset_pan_and_zoom();
             sim_reset_all_elements(current_config);
+            break;
+        case SDL_EVENT_RANDOMIZE:
+            sim_randomize_all_elements(current_config, 2, DEG2RAD(.5729578));
             break;
         case SDL_EVENT_SELECT_ELEM ... SDL_EVENT_SELECT_ELEM+MAX_CONFIG_ELEMENT-1: {
             int idx = event->event_id - SDL_EVENT_SELECT_ELEM;
@@ -524,6 +533,7 @@ static void render_intensity_graph(
 {
     int i,j,k;
     int sensor_width_pixels, sensor_height_pixels;
+    int sensor_min_x, sensor_max_x, sensor_min_y, sensor_max_y;
     point_t graph[MAX_SCREEN];
     int y_bottom = y_top + y_span - 1;
 
@@ -533,7 +543,6 @@ static void render_intensity_graph(
 
     // loop across the center of screen
     for (k = 0; k < MAX_SCREEN; k++) {
-        int sensor_min_x, sensor_max_x, sensor_min_y, sensor_max_y;
         double sum, sensor_value;
         int cnt;
 
@@ -569,6 +578,22 @@ static void render_intensity_graph(
 
     // render the graph
     sdl_render_lines(pane, graph, MAX_SCREEN, WHITE);
+
+    // draw horizontal lines accross middle to represent the top and bottom of the sensor
+    sensor_min_y = MAX_SCREEN/2 - sensor_height_pixels/2;
+    sensor_max_y = sensor_min_y + sensor_height_pixels - 1;
+    sdl_render_line(pane, 0, sensor_min_y, MAX_SCREEN-1, sensor_min_y, WHITE);
+    sdl_render_line(pane, 0, sensor_max_y, MAX_SCREEN-1, sensor_max_y, WHITE);
+
+#if 0
+    // draw vertical lines accross middle to represent the left and right of the 
+    // sensor, when the sensor is positioned in the center
+    k = MAX_SCREEN/2;
+    sensor_min_x = k - sensor_width_pixels/2;
+    sensor_max_x = sensor_min_x + sensor_width_pixels - 1;
+    sdl_render_line(pane, sensor_min_x, sensor_min_y-10, sensor_min_x, sensor_max_y+10, WHITE);
+    sdl_render_line(pane, sensor_max_x, sensor_min_y-10, sensor_max_x, sensor_max_y+10, WHITE);
+#endif
 }
 
 static void render_scale(int y_top, int y_span, rect_t *pane)
