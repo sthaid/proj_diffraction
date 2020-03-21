@@ -12,20 +12,23 @@
 #define MAX_RECENT_SAMPLE_PHOTONS 1000
 
 #define ELEMENT_NAME_STR(_elem) \
-    ((_elem) == source_single_slit_hndlr ? "source_single_slit" : \
-     (_elem) == source_double_slit_hndlr ? "source_double_slit" : \
-     (_elem) == source_round_hole_hndlr  ? "source_round_hole"  : \
-     (_elem) == mirror_hndlr             ? "mirror"             : \
-     (_elem) == beam_splitter_hndlr      ? "beam_splitter"      : \
-     (_elem) == screen_hndlr             ? "screen"             : \
-     (_elem) == discard_hndlr            ? "discard"            : \
-                                           "????")
+    ((_elem)->hndlr == source_single_slit_hndlr ? "source_single_slit" : \
+     (_elem)->hndlr == source_double_slit_hndlr ? "source_double_slit" : \
+     (_elem)->hndlr == source_round_hole_hndlr  ? "source_round_hole"  : \
+     (_elem)->hndlr == mirror_hndlr             ? "mirror"             : \
+     (_elem)->hndlr == beam_splitter_hndlr      ? "beam_splitter"      : \
+     (_elem)->hndlr == screen_hndlr             ? "screen"             : \
+     (_elem)->hndlr == discard_hndlr            ? "discard"            : \
+                                                  "????")
 
 #define SCREEN_AMP_ELEMENT_SIZE .01
 
 #define SOURCE_ROUND_HOLE  1
 #define SOURCE_SINGLE_SLIT 2
 #define SOURCE_DOUBLE_SLIT 3
+
+#define BEAM_FINDER_DIAM   1.0
+#define BEAM_FINDER_SPREAD 0.0
 
 //
 // typedefs
@@ -238,6 +241,27 @@ void sim_get_recent_sample_photons(photon_t **photons_out, int *max_photons_out)
 
 // -----------------  SIM XXX APIS  -------------------------------------------------
 
+void sim_toggle_element_flag(struct element_s *elem, int flag_idx)
+{
+    if (elem == NULL) {
+        INFO("XXX elem is null\n");
+        return;
+    }
+
+    INFO("XXX elem %s, flag_idx %d  flags 0x%x\n", ELEMENT_NAME_STR(elem), flag_idx, elem->flags);
+
+    if (flag_idx >= elem->max_flags) {
+        return;
+    }
+
+    elem->flags ^= (1 << flag_idx);
+    INFO("FLAGS 0x%x\n", elem->flags);
+
+    sim_reset(run_state);
+}
+
+// -----------------  SIM XXX APIS  -------------------------------------------------
+
 void sim_randomize_element(struct element_s *elem, double xy_span, double pan_tilt_span)
 {
     if (elem == NULL) {
@@ -446,6 +470,7 @@ static int read_config_file(char *config_filename)
 
         if (strcmp(elem_type_str, "source_single_slit") == 0) {
             elem->hndlr = source_single_slit_hndlr;
+            elem->max_flags = 1;  // ELEM_SOURCE_FLAG_MASK_BEAMFINDER
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf w=%lf h=%lf wspread=%lf hspread=%lf next=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
@@ -463,6 +488,7 @@ static int read_config_file(char *config_filename)
 
         } else if (strcmp(elem_type_str, "source_double_slit") == 0) {
             elem->hndlr = source_double_slit_hndlr;
+            elem->max_flags = 1;  // ELEM_SOURCE_FLAG_MASK_BEAMFINDER
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf w=%lf h=%lf wspread=%lf hspread=%lf ctrsep=%lf next=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
@@ -481,6 +507,7 @@ static int read_config_file(char *config_filename)
 
         } else if (strcmp(elem_type_str, "source_round_hole") == 0) {
             elem->hndlr = source_round_hole_hndlr;
+            elem->max_flags = 1;  // ELEM_SOURCE_FLAG_MASK_BEAMFINDER
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf diam=%lf spread=%lf next=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
@@ -496,6 +523,7 @@ static int read_config_file(char *config_filename)
 
         } else if (strcmp(elem_type_str, "mirror") == 0) {
             elem->hndlr = mirror_hndlr;
+            elem->max_flags = 1;  // ELEM_MIRROR_FLAG_MASK_DISCARD
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf next=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
@@ -509,6 +537,7 @@ static int read_config_file(char *config_filename)
 
         } else if (strcmp(elem_type_str, "beam_splitter") == 0) {
             elem->hndlr = beam_splitter_hndlr;
+            elem->max_flags = 1;  // ELEM_BEAM_SPLITTER_FLAG_MASK_DISCARD
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf next=%d next2=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
@@ -523,6 +552,7 @@ static int read_config_file(char *config_filename)
         } else if (strcmp(elem_type_str, "screen") == 0) {
             elem->hndlr = screen_hndlr;
             elem->next = -1;
+            elem->max_flags = 0;
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
@@ -536,6 +566,7 @@ static int read_config_file(char *config_filename)
         } else if (strcmp(elem_type_str, "discard") == 0) {
             elem->hndlr = discard_hndlr;
             elem->next = -1;
+            elem->max_flags = 0;
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
@@ -577,7 +608,7 @@ static int read_config_file(char *config_filename)
         for (j = 0; j < cfg->max_element; j++) {
             struct element_s *elem = &cfg->element[j];
             INFO("  %d %s next=%d\n", 
-                 j, ELEMENT_NAME_STR(elem->hndlr), elem->next);
+                 j, ELEMENT_NAME_STR(elem), elem->next);
         }
     }
 #endif
@@ -688,12 +719,12 @@ static void simulate_a_photon(photon_t *photon)
 
         if (next != -1) {
             DEBUG("photon leaving %s %d, next %s %d - %s\n",
-                  ELEMENT_NAME_STR(elem->hndlr), idx, 
-                  ELEMENT_NAME_STR(current_config->element[next].hndlr), next, 
+                  ELEMENT_NAME_STR(elem), idx, 
+                  ELEMENT_NAME_STR(&current_config->element[next]), next, 
                   line_str(&photon->current,s1));
         } else {
             DEBUG("photon done at %s %d, - %s\n",
-                  ELEMENT_NAME_STR(elem->hndlr), idx, point_str(&photon->current.p,s1));
+                  ELEMENT_NAME_STR(elem), idx, point_str(&photon->current.p,s1));
         }
 
         idx = next;
@@ -713,10 +744,17 @@ static int source_single_slit_hndlr(struct element_s *elem, photon_t *photon)
     geo_line_t photon_line;
 
     // determine the path of the photon leaving this source
-    determine_photon_line(SOURCE_SINGLE_SLIT,
-                          &elem->plane,
-                          ss->w, ss->h, ss->wspread, ss->hspread, 0,
-                          &photon_line);
+    if (elem->flags & ELEM_SOURCE_FLAG_MASK_BEAMFINDER) {
+        determine_photon_line(SOURCE_ROUND_HOLE,
+                            &elem->plane,
+                            BEAM_FINDER_DIAM, BEAM_FINDER_SPREAD, 0, 0, 0,
+                            &photon_line);
+    } else {
+        determine_photon_line(SOURCE_SINGLE_SLIT,
+                            &elem->plane,
+                            ss->w, ss->h, ss->wspread, ss->hspread, 0,
+                            &photon_line);
+    } 
       
     // init the photon fields
     memset(photon, 0, sizeof(photon_t));
@@ -733,10 +771,17 @@ static int source_double_slit_hndlr(struct element_s *elem, photon_t *photon)
     geo_line_t photon_line;
 
     // determine the path of the photon leaving this source
-    determine_photon_line(SOURCE_DOUBLE_SLIT,
-                          &elem->plane,
-                          ds->w, ds->h, ds->wspread, ds->hspread, ds->ctrsep,
-                          &photon_line);
+    if (elem->flags & ELEM_SOURCE_FLAG_MASK_BEAMFINDER) {
+        determine_photon_line(SOURCE_ROUND_HOLE,
+                            &elem->plane,
+                            BEAM_FINDER_DIAM, BEAM_FINDER_SPREAD, 0, 0, 0,
+                            &photon_line);
+    } else {
+        determine_photon_line(SOURCE_DOUBLE_SLIT,
+                            &elem->plane,
+                            ds->w, ds->h, ds->wspread, ds->hspread, ds->ctrsep,
+                            &photon_line);
+    }
       
     // init the photon fields
     memset(photon, 0, sizeof(photon_t));
@@ -753,10 +798,17 @@ static int source_round_hole_hndlr(struct element_s *elem, photon_t *photon)
     geo_line_t photon_line;
 
     // determine the path of the photon leaving this source
-    determine_photon_line(SOURCE_ROUND_HOLE,
-                          &elem->plane,
-                          rh->diam, rh->spread, 0, 0, 0,
-                          &photon_line);
+    if (elem->flags & ELEM_SOURCE_FLAG_MASK_BEAMFINDER) {
+        determine_photon_line(SOURCE_ROUND_HOLE,
+                            &elem->plane,
+                            BEAM_FINDER_DIAM, BEAM_FINDER_SPREAD, 0, 0, 0,
+                            &photon_line);
+    } else {
+        determine_photon_line(SOURCE_ROUND_HOLE,
+                            &elem->plane,
+                            rh->diam, rh->spread, 0, 0, 0,
+                            &photon_line);
+    }
       
     // init the photon fields
     memset(photon, 0, sizeof(photon_t));
@@ -864,6 +916,11 @@ static int mirror_hndlr(struct element_s *elem, photon_t *photon)
     // update the photon's direction for it's reflection by the mirror
     mirror_reflect(&photon->current, &elem->plane);
 
+    // mirror discard flag is set then discard the photon
+    if (elem->flags & ELEM_MIRROR_FLAG_MASK_DISCARD) {
+        return -1;
+    }
+
     // return next element
     return elem->next;
 }
@@ -885,6 +942,11 @@ static int beam_splitter_hndlr(struct element_s *elem, photon_t *photon)
     // update the photon's direction for it's reflection by the mirror
     if (random_range(0,1) < 0.5) {
         mirror_reflect(&photon->current, &elem->plane);
+
+        // XXX comments
+        if (elem->flags & ELEM_BEAM_SPLITTER_FLAG_MASK_DISCARD) {
+            return -1;
+        }
     }
 
     // if the current direction of the photon is within 90 degrees

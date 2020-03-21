@@ -26,6 +26,10 @@
 #define MAX_SCREEN 500
 #define SCREEN_ELEMENT_SIZE  0.1   // mm
 
+#define ELEM_SOURCE_FLAG_MASK_BEAMFINDER       (1 << 0)
+#define ELEM_MIRROR_FLAG_MASK_DISCARD          (1 << 0)
+#define ELEM_BEAM_SPLITTER_FLAG_MASK_DISCARD   (1 << 0)
+
 //
 // typedefs
 //
@@ -49,6 +53,8 @@ typedef struct {
         double y_offset;
         double pan_offset;
         double tilt_offset;
+        int flags;
+        int max_flags;
         int next;
         int next2;  // only for beamsplitter
         union {
@@ -106,6 +112,8 @@ void sim_stop(void);
 void sim_get_state(bool *running, double *rate);
 void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN]);
 void sim_get_recent_sample_photons(photon_t **photons, int *max_photons);
+
+void sim_toggle_element_flag(struct element_s *elem, int flag_idx);
 
 void sim_randomize_element(struct element_s *elem, double xy_span, double pan_tilt_span);
 void sim_randomize_all_elements(sim_config_t *cfg, double xy_span, double pan_tilt_span);

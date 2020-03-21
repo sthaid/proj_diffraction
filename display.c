@@ -169,15 +169,23 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         }
 
         // display element offsets
+        // XXX print and register, use LIGHT BLUE and ORANGE
+        sdl_render_printf(pane, 0, ROW2Y(2,LARGE_FONT), LARGE_FONT, WHITE, BLACK,
+                          "ID       X       Y     PAN    TILT FLAG");
         for (i = 0; i < current_config->max_element; i++) {
             struct element_s *elem = &current_config->element[i];
-// XXX print and register, use LIGHT BLUE and ORANGE
+            char flags_str[10]={0}, *p=flags_str;
+            int j;
+            for (j = 0; j < elem->max_flags; j++) {
+                p += sprintf(p, "%d", ((elem->flags >> (elem->max_flags-1-j)) & 1));
+            }
             sdl_render_printf(pane, 0, ROW2Y(3+i,LARGE_FONT), LARGE_FONT, 
                               (elem == selected_elem ? ORANGE : WHITE), BLACK, 
-                              "%2d - %7.3f %7.3f %7.3f %7.3f",
+                              "%2d %7.3f %7.3f %7.3f %7.3f %4s",
                               i, 
                               elem->x_offset, elem->y_offset, 
-                              RAD2DEG(elem->pan_offset), RAD2DEG(elem->tilt_offset));
+                              RAD2DEG(elem->pan_offset), RAD2DEG(elem->tilt_offset),
+                              flags_str);
         }
 
         // register for events ...
@@ -297,6 +305,9 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             break;
         case 'r':
             sim_reset_element(selected_elem);
+            break;
+        case '0' ... '9':
+            sim_toggle_element_flag(selected_elem, event->event_id - '0');
             break;
         }
 
