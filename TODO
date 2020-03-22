@@ -10,49 +10,17 @@ measure laser beam width and spread
 - incorporate into ifsom.config
 - incorporate into photons
 
-redo dir struct
-- top level README.md
-- README.txt in every dir
-
 how does a divergine lense work
 
 work on my single photon detector
 
 investigate optical components, for accurately positioning the mirrors and beamsplitters0
 
------ DIR STRUCT ---
+README.txt needed in photons and poisson dirs
 
-top level Makefile and README
-
-./Makefile
-./ds/Makefile
-./ds/v1/Makefile
-./devel/photons/Makefile
-./devel/pololu/test_pgm/Makefile
-./devel/gpio/Makefile
-./devel/poisson/Makefile
-
-drwxrwxr-x 3 haid haid 4.0K Mar 14 21:43 ds               compiles            HAS README
-drwxrwxr-x 2 haid haid 4.0K Feb 13 08:18 gpio             NO wiringPi            HAS README
-drwxrwxr-x 2 haid haid 4.0K Mar 22 08:01 ifsim            compiles            HAS README
-drwxrwxr-x 2 haid haid 4.0K Feb 19 08:16 photons            compiles           XXXX
-drwxrwxr-x 2 haid haid 4.0K Mar 22 07:57 poisson          compiles           XXXX
-drwxrwxr-x 4 haid haid 4.0K Jan 27 22:30 pololu          NO compile            HAS README
-drwxrwxr-x 2 haid haid 4.0K Mar 22 07:59 util
--rw-rw-r-- 1 haid haid 1.1K Jan 20 20:42 LICENSE
--rw-rw-r-- 1 haid haid 2.0K Jan 21 07:16 README.md
--rw-rw-r-- 1 haid haid  31K Mar 22 08:12 TODO
-
-NOTES vs README vs TODO
-top level Makefile
-README.md
-
-README.md in top dir
-TODO in top dir
-README.txt in every subdir
-
-
-
+-----------------------------------------------------------------------
+-----------------------------------------------------------------------
+-----------------------------------------------------------------------
 -----------------------------------------------------------------------
 
 .1mm slit width
