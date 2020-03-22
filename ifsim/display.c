@@ -87,7 +87,7 @@ void display_hndlr(void)
 
 // -----------------  INTERFEROMETER DIAGRAM PANE HANDLER  --------------------------------
 
-static void reset_pan_and_zoom(void);
+static void reset_pan_and_zoom(rect_t *pane);
 static void draw_lines(rect_t *pane, geo_point_t *geo_point, int max_points, int color);
 static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color);
 static void transform(geo_point_t *geo_p, point_t *pixel_p);
@@ -114,6 +114,16 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     #define SDL_EVENT_RANDOMIZE     (SDL_EVENT_USER_DEFINED + 5)
     #define SDL_EVENT_SELECT_ELEM   (SDL_EVENT_USER_DEFINED + 10)
 
+    #define ELEM_TYPE_TO_COLOR(et)  \
+        ((et) == ELEM_TYPE_SRC_SS   ? YELLOW     : \
+         (et) == ELEM_TYPE_SRC_DS   ? YELLOW     : \
+         (et) == ELEM_TYPE_SRC_RH   ? YELLOW     : \
+         (et) == ELEM_TYPE_MIRROR   ? BLUE       : \
+         (et) == ELEM_TYPE_BEAM_SPL ? LIGHT_BLUE : \
+         (et) == ELEM_TYPE_SCREEN   ? PINK       : \
+         (et) == ELEM_TYPE_DISCARD  ? RED        : \
+                                      WHITE)
+
     // ----------------------------
     // -------- INITIALIZE --------
     // ----------------------------
@@ -122,7 +132,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         INFO("PANE x,y,w,h  %d %d %d %d\n",
             pane->x, pane->y, pane->w, pane->h);
         vars = pane_cx->vars = calloc(1,sizeof(*vars));
-        reset_pan_and_zoom();
+        reset_pan_and_zoom(pane);
         return PANE_HANDLER_RET_NO_ACTION;
     }
 
@@ -163,24 +173,38 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         // display optical elements: source, mirrors. beamsplitters, etc.
         for (i = 0; i < current_config->max_element; i++) {
             struct element_s *elem = &current_config->element[i];
-            draw_optical_element(pane,
-                                 &current_config->element[i], 
-                                 elem == selected_elem ? ORANGE : WHITE);
+            int color;
+
+            if (elem->type == ELEM_TYPE_MIRROR && (elem->flags & ELEM_MIRROR_FLAG_MASK_DISCARD)) {
+                color = RED;
+            } else {
+                color = ELEM_TYPE_TO_COLOR(elem->type);
+            }
+
+            if ((elem == selected_elem) && ((microsec_timer()/500000) & 1)) {
+                color = ORANGE;
+            }
+
+            draw_optical_element(pane, &current_config->element[i], color);
         }
 
-        // display element offsets
-        // XXX print and register, use LIGHT BLUE and ORANGE
+        // display element offset / info table
         sdl_render_printf(pane, 0, ROW2Y(2,LARGE_FONT), LARGE_FONT, WHITE, BLACK,
-                          "ID       X       Y     PAN    TILT FLAG");
+                          "    NAME ID       X       Y     PAN    TILT FLAG");
         for (i = 0; i < current_config->max_element; i++) {
             struct element_s *elem = &current_config->element[i];
             char flags_str[10]={0}, *p=flags_str;
             int j;
+
+            sdl_render_printf(pane, 0, ROW2Y(3+i,LARGE_FONT), LARGE_FONT, 
+                              ELEM_TYPE_TO_COLOR(elem->type), BLACK,
+                              "%8s", elem->type_str);
+
             for (j = 0; j < elem->max_flags; j++) {
                 p += sprintf(p, "%d", ((elem->flags >> (elem->max_flags-1-j)) & 1));
             }
-            sdl_render_printf(pane, 0, ROW2Y(3+i,LARGE_FONT), LARGE_FONT, 
-                              (elem == selected_elem ? ORANGE : WHITE), BLACK, 
+            sdl_render_printf(pane, COL2X(10,LARGE_FONT), ROW2Y(3+i,LARGE_FONT), LARGE_FONT, 
+                              elem == selected_elem ? ORANGE : WHITE, BLACK,
                               "%2d %7.3f %7.3f %7.3f %7.3f %4s",
                               i, 
                               elem->x_offset, elem->y_offset, 
@@ -229,7 +253,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
 
             loc.x = 0;
             loc.y = ROW2Y(3+i,LARGE_FONT) + sdl_font_char_height(LARGE_FONT)/3;  //xxx why the "+ ..."
-            loc.w = ROW2Y(37,LARGE_FONT);
+            loc.w = ROW2Y(46,LARGE_FONT);
             loc.h = COL2X(1,LARGE_FONT);
             sdl_register_event(pane, &loc, SDL_EVENT_SELECT_ELEM+i, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
         }
@@ -261,11 +285,14 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             sim_stop();
             break;
         case SDL_EVENT_RESET:
-            reset_pan_and_zoom();
+            reset_pan_and_zoom(pane);
             sim_reset_all_elements(current_config);
             break;
         case SDL_EVENT_RANDOMIZE:
             sim_randomize_all_elements(current_config, 2, DEG2RAD(.5729578));
+            break;
+        case 'R':
+            sim_randomize_element(selected_elem, 2, DEG2RAD(.5729578));
             break;
         case SDL_EVENT_SELECT_ELEM ... SDL_EVENT_SELECT_ELEM+MAX_CONFIG_ELEMENT-1: {
             int idx = event->event_id - SDL_EVENT_SELECT_ELEM;
@@ -316,9 +343,6 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             sim_adjust_element_x(selected_elem, amount);
             break; }
         case 'r':
-            sim_randomize_element(selected_elem, 2, DEG2RAD(.5729578));
-            break;
-        case 'R':
             sim_reset_element(selected_elem);
             break;
         case '0' ... '9':
@@ -343,13 +367,13 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     return PANE_HANDLER_RET_NO_ACTION;
 }
 
-static void reset_pan_and_zoom(void)
+static void reset_pan_and_zoom(rect_t *pane) 
 {
-    x_pixel_ctr        = 706;
-    y_pixel_ctr        = 486;
-    x_mm_ctr           = 1114.18;
-    y_mm_ctr           = 589.248;
-    scale_pixel_per_mm = 0.578704;
+    x_pixel_ctr        = pane->w / 2;
+    y_pixel_ctr        = pane->h / 2;
+    scale_pixel_per_mm = 0.5;
+    x_mm_ctr           = (x_pixel_ctr - 250) / scale_pixel_per_mm;
+    y_mm_ctr           = (y_pixel_ctr - 250) / scale_pixel_per_mm;
 }
 
 // XXX comment about 'z' being ignored
@@ -379,13 +403,7 @@ static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, in
 static void transform(geo_point_t *geo_p, point_t *pixel_p)
 {
     pixel_p->x = nearbyint(x_pixel_ctr + (geo_p->x - x_mm_ctr) * scale_pixel_per_mm);
-#ifndef TEST  //XXX delete / cleanup
     pixel_p->y = nearbyint(y_pixel_ctr - (geo_p->y - y_mm_ctr) * scale_pixel_per_mm);
-#else
-    int z_pixel_ctr = 500;
-    double z_mm_ctr = 0;    
-    pixel_p->y = nearbyint(z_pixel_ctr + (geo_p->z - z_mm_ctr) * scale_pixel_per_mm);
-#endif
 }
 
 static void draw_optical_element(rect_t *pane, struct element_s *elem, int color)

@@ -26,9 +26,16 @@
 #define MAX_SCREEN 500
 #define SCREEN_ELEMENT_SIZE  0.1   // mm
 
+#define ELEM_TYPE_SRC_SS    1
+#define ELEM_TYPE_SRC_DS    2
+#define ELEM_TYPE_SRC_RH    3
+#define ELEM_TYPE_MIRROR    4
+#define ELEM_TYPE_BEAM_SPL  5
+#define ELEM_TYPE_SCREEN    6
+#define ELEM_TYPE_DISCARD   7
+
 #define ELEM_SOURCE_FLAG_MASK_BEAMFINDER       (1 << 0)
 #define ELEM_MIRROR_FLAG_MASK_DISCARD          (1 << 0)
-#define ELEM_BEAM_SPLITTER_FLAG_MASK_DISCARD   (1 << 0)
 
 //
 // typedefs
@@ -46,6 +53,8 @@ typedef struct {
     double wavelength;   // mm
     int max_element;
     struct element_s {
+        int type;
+        char *type_str;
         int (*hndlr)(struct  element_s *elem, photon_t *photon);
         geo_plane_t plane;
         geo_plane_t initial_plane;

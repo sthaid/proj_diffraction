@@ -1,6 +1,7 @@
 ifsim 
-- michelson morley
-- pgm documentation
+- adjust pan zoom reset                       DONE
+- michelson morley                            DONE
+- pgm documentation in README file
 - XXX issues, including in util
 - list of elems should contains names too
 - should be a scale shown on the diagram pane 

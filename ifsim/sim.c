@@ -11,16 +11,6 @@
 #define MAX_SIM_THREAD            1
 #define MAX_RECENT_SAMPLE_PHOTONS 1000
 
-#define ELEMENT_NAME_STR(_elem) \
-    ((_elem)->hndlr == source_single_slit_hndlr ? "source_single_slit" : \
-     (_elem)->hndlr == source_double_slit_hndlr ? "source_double_slit" : \
-     (_elem)->hndlr == source_round_hole_hndlr  ? "source_round_hole"  : \
-     (_elem)->hndlr == mirror_hndlr             ? "mirror"             : \
-     (_elem)->hndlr == beam_splitter_hndlr      ? "beam_splitter"      : \
-     (_elem)->hndlr == screen_hndlr             ? "screen"             : \
-     (_elem)->hndlr == discard_hndlr            ? "discard"            : \
-                                                  "????")
-
 #define SCREEN_AMP_ELEMENT_SIZE .01
 
 #define SOURCE_ROUND_HOLE  1
@@ -248,14 +238,11 @@ void sim_toggle_element_flag(struct element_s *elem, int flag_idx)
         return;
     }
 
-    INFO("XXX elem %s, flag_idx %d  flags 0x%x\n", ELEMENT_NAME_STR(elem), flag_idx, elem->flags);
-
     if (flag_idx >= elem->max_flags) {
         return;
     }
 
     elem->flags ^= (1 << flag_idx);
-    INFO("FLAGS 0x%x\n", elem->flags);
 
     sim_reset(run_state);
 }
@@ -468,8 +455,10 @@ static int read_config_file(char *config_filename)
         // - set the handler
         elem = &cfg->element[cfg->max_element];
 
-        if (strcmp(elem_type_str, "source_single_slit") == 0) {
-            elem->hndlr = source_single_slit_hndlr;
+        if (strcmp(elem_type_str, "src_ss") == 0) {
+            elem->type      = ELEM_TYPE_SRC_SS;
+            elem->type_str  = "scr_ss";
+            elem->hndlr     = source_single_slit_hndlr;
             elem->max_flags = 1;  // ELEM_SOURCE_FLAG_MASK_BEAMFINDER
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf w=%lf h=%lf wspread=%lf hspread=%lf next=%d",
@@ -486,8 +475,10 @@ static int read_config_file(char *config_filename)
             }
             cfg->max_element++;
 
-        } else if (strcmp(elem_type_str, "source_double_slit") == 0) {
-            elem->hndlr = source_double_slit_hndlr;
+        } else if (strcmp(elem_type_str, "src_ds") == 0) {
+            elem->type      = ELEM_TYPE_SRC_DS;
+            elem->type_str  = "scr_ds";
+            elem->hndlr     = source_double_slit_hndlr;
             elem->max_flags = 1;  // ELEM_SOURCE_FLAG_MASK_BEAMFINDER
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf w=%lf h=%lf wspread=%lf hspread=%lf ctrsep=%lf next=%d",
@@ -505,8 +496,10 @@ static int read_config_file(char *config_filename)
             }
             cfg->max_element++;
 
-        } else if (strcmp(elem_type_str, "source_round_hole") == 0) {
-            elem->hndlr = source_round_hole_hndlr;
+        } else if (strcmp(elem_type_str, "src_rh") == 0) {
+            elem->type      = ELEM_TYPE_SRC_RH;
+            elem->type_str  = "scr_rh";
+            elem->hndlr     = source_round_hole_hndlr;
             elem->max_flags = 1;  // ELEM_SOURCE_FLAG_MASK_BEAMFINDER
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf diam=%lf spread=%lf next=%d",
@@ -522,7 +515,9 @@ static int read_config_file(char *config_filename)
             cfg->max_element++;
 
         } else if (strcmp(elem_type_str, "mirror") == 0) {
-            elem->hndlr = mirror_hndlr;
+            elem->type      = ELEM_TYPE_MIRROR;
+            elem->type_str  = "mirror";
+            elem->hndlr     = mirror_hndlr;
             elem->max_flags = 1;  // ELEM_MIRROR_FLAG_MASK_DISCARD
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf next=%d",
@@ -535,9 +530,11 @@ static int read_config_file(char *config_filename)
             }
             cfg->max_element++;
 
-        } else if (strcmp(elem_type_str, "beam_splitter") == 0) {
-            elem->hndlr = beam_splitter_hndlr;
-            elem->max_flags = 1;  // ELEM_BEAM_SPLITTER_FLAG_MASK_DISCARD
+        } else if (strcmp(elem_type_str, "beam_spl") == 0) {
+            elem->type      = ELEM_TYPE_BEAM_SPL;
+            elem->type_str  = "beam_spl";
+            elem->hndlr     = beam_splitter_hndlr;
+            elem->max_flags = 0;
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf next1=%d next2=%d next3=%d next4=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
@@ -551,7 +548,9 @@ static int read_config_file(char *config_filename)
             cfg->max_element++;
 
         } else if (strcmp(elem_type_str, "screen") == 0) {
-            elem->hndlr = screen_hndlr;
+            elem->type      = ELEM_TYPE_SCREEN;
+            elem->type_str  = "screen";
+            elem->hndlr     = screen_hndlr;
             elem->max_flags = 0;
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf",
@@ -564,7 +563,9 @@ static int read_config_file(char *config_filename)
             cfg->max_element++;
 
         } else if (strcmp(elem_type_str, "discard") == 0) {
-            elem->hndlr = discard_hndlr;
+            elem->type      = ELEM_TYPE_DISCARD;
+            elem->type_str  = "discard";
+            elem->hndlr     = discard_hndlr;
             elem->max_flags = 0;
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf",
@@ -606,8 +607,7 @@ static int read_config_file(char *config_filename)
         INFO("config %d - %s %f\n", i, cfg->name, cfg->wavelength);
         for (j = 0; j < cfg->max_element; j++) {
             struct element_s *elem = &cfg->element[j];
-            INFO("  %d %s next=%d\n", 
-                 j, ELEMENT_NAME_STR(elem), elem->next);
+            INFO("  %d %s next=%d\n", j, elem->name);
         }
     }
 #endif
@@ -718,11 +718,11 @@ static void simulate_a_photon(photon_t *photon)
 
         if (next != -1) {
             DEBUG("photon leaving %s %d - %s\n",
-                  ELEMENT_NAME_STR(elem), idx, 
+                  elem->name idx, 
                   line_str(&photon->current,s1));
         } else {
             DEBUG("photon done at %s %d - %s\n",
-                  ELEMENT_NAME_STR(elem), idx, point_str(&photon->current.p,s1));
+                  elem->name, idx, point_str(&photon->current.p,s1));
         }
 
         idx = next;
@@ -944,11 +944,6 @@ static int beam_splitter_hndlr(struct element_s *elem, photon_t *photon)
     // update the photon's direction for it's reflection by the mirror
     if (random_range(0,1) < 0.5) {
         mirror_reflect(&photon->current, &elem->plane);
-
-        // XXX comments
-        if (elem->flags & ELEM_BEAM_SPLITTER_FLAG_MASK_DISCARD) {
-            return -1;
-        }
     }
 
     // if the current direction of the photon is within 90 degrees
