@@ -316,6 +316,9 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             sim_adjust_element_x(selected_elem, amount);
             break; }
         case 'r':
+            sim_randomize_element(selected_elem, 2, DEG2RAD(.5729578));
+            break;
+        case 'R':
             sim_reset_element(selected_elem);
             break;
         case '0' ... '9':
