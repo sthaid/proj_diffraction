@@ -1,3 +1,39 @@
+ifsim 
+- michelson morley
+- pgm documentation
+- XXX issues, including in util
+- list of elems should contains names too
+- should be a scale shown on the diagram pane 
+- use colors for different components ??
+
+measure laser beam width and spread
+- incorporate into ifsom.config
+- incorporate into photons
+
+redo dir struct
+- top level README.md
+- README.txt in every dir
+
+how does a divergine lense work
+
+work on my single photon detector
+
+investigate optical components, for accurately positioning the mirrors and beamsplitters0
+
+----- DIR STRUCT ---
+
+top level Makefile and README
+
+./Makefile
+./ds/Makefile
+./ds/v1/Makefile
+./devel/photons/Makefile
+./devel/pololu/test_pgm/Makefile
+./devel/gpio/Makefile
+./devel/poisson/Makefile
+
+
+-----------------------------------------------------------------------
 
 .1mm slit width
 532 nm
@@ -206,7 +242,7 @@ PVC Pipe Sizes
 SEARCH:  Square Mounting Flange Spigot/Street
 
 ===============================================
-PULES STRETCHER   
+PULSE STRETCHER   
 ===============================================
 
 LTC6752 Pulse Stretcher Circuit/Monostable Multivibrator
