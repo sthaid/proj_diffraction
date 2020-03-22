@@ -479,7 +479,7 @@ static int read_config_file(char *config_filename)
                    &elem->u.source_single_slit.h, 
                    &elem->u.source_single_slit.wspread, 
                    &elem->u.source_single_slit.hspread, 
-                   &elem->next);
+                   &elem->u.source_single_slit.next);
             if (cnt != 11) {
                 ERROR("scanning element source_single_slit, line %d\n", line_num);
                 goto error;
@@ -498,7 +498,7 @@ static int read_config_file(char *config_filename)
                    &elem->u.source_double_slit.wspread, 
                    &elem->u.source_double_slit.hspread, 
                    &elem->u.source_double_slit.ctrsep,
-                   &elem->next);
+                   &elem->u.source_double_slit.next);
             if (cnt != 12) {
                 ERROR("scanning element source_double_slit, line %d\n", line_num);
                 goto error;
@@ -514,7 +514,7 @@ static int read_config_file(char *config_filename)
                    &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
                    &elem->u.source_round_hole.diam, 
                    &elem->u.source_round_hole.spread, 
-                   &elem->next);
+                   &elem->u.source_round_hole.next);
             if (cnt != 9) {
                 ERROR("scanning element source_round_hole, line %d\n", line_num);
                 goto error;
@@ -528,7 +528,7 @@ static int read_config_file(char *config_filename)
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf next=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
                    &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
-                   &elem->next);
+                   &elem->u.mirror.next);
             if (cnt != 7) {
                 ERROR("scanning element mirror, line %d\n", line_num);
                 goto error;
@@ -539,11 +539,12 @@ static int read_config_file(char *config_filename)
             elem->hndlr = beam_splitter_hndlr;
             elem->max_flags = 1;  // ELEM_BEAM_SPLITTER_FLAG_MASK_DISCARD
             cnt = sscanf(line+char_count,
-                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf next=%d next2=%d",
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf next1=%d next2=%d next3=%d next4=%d",
                    &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
                    &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
-                   &elem->next, &elem->next2);
-            if (cnt != 8) {
+                   &elem->u.beam_splitter.next1, &elem->u.beam_splitter.next2,
+                   &elem->u.beam_splitter.next3, &elem->u.beam_splitter.next4);
+            if (cnt != 10) {
                 ERROR("scanning element beam_splitter, line %d\n", line_num);
                 goto error;
             }
@@ -551,7 +552,6 @@ static int read_config_file(char *config_filename)
 
         } else if (strcmp(elem_type_str, "screen") == 0) {
             elem->hndlr = screen_hndlr;
-            elem->next = -1;
             elem->max_flags = 0;
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf",
@@ -565,7 +565,6 @@ static int read_config_file(char *config_filename)
 
         } else if (strcmp(elem_type_str, "discard") == 0) {
             elem->hndlr = discard_hndlr;
-            elem->next = -1;
             elem->max_flags = 0;
             cnt = sscanf(line+char_count,
                    "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf",
@@ -718,12 +717,11 @@ static void simulate_a_photon(photon_t *photon)
         next = (elem->hndlr)(elem, photon);
 
         if (next != -1) {
-            DEBUG("photon leaving %s %d, next %s %d - %s\n",
+            DEBUG("photon leaving %s %d - %s\n",
                   ELEMENT_NAME_STR(elem), idx, 
-                  ELEMENT_NAME_STR(&current_config->element[next]), next, 
                   line_str(&photon->current,s1));
         } else {
-            DEBUG("photon done at %s %d, - %s\n",
+            DEBUG("photon done at %s %d - %s\n",
                   ELEMENT_NAME_STR(elem), idx, point_str(&photon->current.p,s1));
         }
 
@@ -762,7 +760,7 @@ static int source_single_slit_hndlr(struct element_s *elem, photon_t *photon)
     photon->points[photon->max_points++] = photon->current.p;
     
     // return next element
-    return elem->next;
+    return ss->next;
 }
 
 static int source_double_slit_hndlr(struct element_s *elem, photon_t *photon)
@@ -789,7 +787,7 @@ static int source_double_slit_hndlr(struct element_s *elem, photon_t *photon)
     photon->points[photon->max_points++] = photon->current.p;
     
     // return next element
-    return elem->next;
+    return ds->next;
 }
 
 static int source_round_hole_hndlr(struct element_s *elem, photon_t *photon)
@@ -816,7 +814,7 @@ static int source_round_hole_hndlr(struct element_s *elem, photon_t *photon)
     photon->points[photon->max_points++] = photon->current.p;
     
     // return next element
-    return elem->next;
+    return rh->next;
 }
 
 // note: argN values depend on source_type, see code for detailes
@@ -902,6 +900,7 @@ static void determine_photon_line(
 
 static int mirror_hndlr(struct element_s *elem, photon_t *photon)
 {
+    struct mirror_s *mirror = &elem->u.mirror;
     geo_point_t point_intersect;
 
     // intersect the photon with the mirror,
@@ -922,13 +921,16 @@ static int mirror_hndlr(struct element_s *elem, photon_t *photon)
     }
 
     // return next element
-    return elem->next;
+    return mirror->next;
 }
 
 static int beam_splitter_hndlr(struct element_s *elem, photon_t *photon)
 {
+    struct beam_splitter_s *bs = &elem->u.beam_splitter;
     geo_point_t point_intersect;
     double dotp;
+    geo_vector_t crossp;
+    int next;
 
     // intersect the photon with the mirror,
     // update photon total_distance,
@@ -950,9 +952,20 @@ static int beam_splitter_hndlr(struct element_s *elem, photon_t *photon)
     }
 
     // if the current direction of the photon is within 90 degrees
-    // of the beam splitter plane normal vector then return next, else next2
+    //    of the beam splitter plane normal vector 
+    // then 
+    //    return next1 or next4 
+    // else
+    //    return next2 or next3
+    // endif
     dotp = dot_product(&photon->current.v, &elem->plane.n);
-    return (dotp > 0) ? elem->next : elem->next2;
+    cross_product(&photon->current.v, &elem->plane.n, &crossp);
+    if (dotp > 0) {
+        next = crossp.c > 0 ? bs->next4 : bs->next1;
+    } else {
+        next = crossp.c > 0 ? bs->next3 : bs->next2;
+    }
+    return next;
 }
 
 static void mirror_reflect(geo_line_t *line, geo_plane_t *plane)
@@ -1016,8 +1029,8 @@ static int screen_hndlr(struct element_s *elem, photon_t *photon)
     photon->current.p = point_intersect;
     photon->points[photon->max_points++] = photon->current.p;
 
-    // return next element, which always equals -1 in this coase
-    return elem->next;
+    // return next element, which equals -1 in this coase
+    return -1;
 }
 
 static void determine_screen_coords(
@@ -1117,6 +1130,6 @@ static int discard_hndlr(struct element_s *elem, photon_t *photon)
     photon->current.p = point_intersect;
     photon->points[photon->max_points++] = photon->current.p;
 
-    // return next element, which always equals -1 in this coase
-    return elem->next;
+    // return next element, which equals -1 in this coase
+    return -1;
 }

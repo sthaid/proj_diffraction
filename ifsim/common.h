@@ -55,14 +55,13 @@ typedef struct {
         double tilt_offset;
         int flags;
         int max_flags;
-        int next;
-        int next2;  // only for beamsplitter
         union {
             struct source_single_slit_s {
                 double w;
                 double h;
                 double wspread;
                 double hspread;
+                int next;
             } source_single_slit;
             struct source_double_slit_s {
                 double w;
@@ -70,16 +69,21 @@ typedef struct {
                 double wspread;
                 double hspread;
                 double ctrsep;
+                int next;
             } source_double_slit;
             struct source_round_hole_s {
                 double diam;
                 double spread;
+                int next;
             } source_round_hole;
             struct mirror_s {
-                int nothing_here;
+                int next;
             } mirror;
             struct beam_splitter_s {
-                int nothing_here;
+                int next1;  // these next values are with respect
+                int next2;  // to the beam_splitter's normal vector;
+                int next3;  // considerint the nrml vector as x axis, the
+                int next4;  // next1 is first quadrant, next2 second quadrant, etc
             } beam_splitter;
             struct screen_s {
                 int nothing_here;
