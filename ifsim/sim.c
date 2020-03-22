@@ -64,7 +64,7 @@ static void determine_photon_line(
 
 static int mirror_hndlr(struct element_s *elem, photon_t *photon);
 static int beam_splitter_hndlr(struct element_s *elem, photon_t *photon);
-static void mirror_reflect(geo_line_t *line, geo_plane_t *plane);
+static int mirror_reflect(geo_line_t *line, geo_plane_t *plane);
 
 static int screen_hndlr(struct element_s *elem, photon_t *photon);
 static void determine_screen_coords(
@@ -936,18 +936,27 @@ static int mirror_hndlr(struct element_s *elem, photon_t *photon)
 {
     struct mirror_s *mirror = &elem->u.mirror;
     geo_point_t point_intersect;
+    int ret;
 
     // intersect the photon with the mirror,
     // update photon total_distance,
     // update the photon's position, and
     // add new current photon position to points array
-    intersect(&photon->current, &elem->plane, &point_intersect);   
+    ret = intersect(&photon->current, &elem->plane, &point_intersect);   
+    if (ret != 0) { 
+        ERROR_INTERVAL(1000000, "intersect failed ret=%d\n", ret);
+        return -1;
+    }
     photon->total_distance += distance(&photon->current.p, &point_intersect);
     photon->current.p = point_intersect;
     photon->points[photon->max_points++] = photon->current.p;
 
     // update the photon's direction for it's reflection by the mirror
-    mirror_reflect(&photon->current, &elem->plane);
+    ret = mirror_reflect(&photon->current, &elem->plane);
+    if (ret != 0) {
+        ERROR_INTERVAL(1000000, "mirror_reflect failed ret=%d\n", ret);
+        return -1;
+    }
 
     // mirror discard flag is set then discard the photon
     if (elem->flags & ELEM_MIRROR_FLAG_MASK_DISCARD) {
@@ -964,20 +973,28 @@ static int beam_splitter_hndlr(struct element_s *elem, photon_t *photon)
     geo_point_t point_intersect;
     double dotp;
     geo_vector_t crossp;
-    int next;
+    int next, ret;
 
     // intersect the photon with the mirror,
     // update photon total_distance,
     // update the photon's position, and
     // add new current photon position to points array
-    intersect(&photon->current, &elem->plane, &point_intersect);   
+    ret = intersect(&photon->current, &elem->plane, &point_intersect);   
+    if (ret != 0) { 
+        ERROR_INTERVAL(1000000, "intersect failed ret=%d\n", ret);
+        return -1;
+    }
     photon->total_distance += distance(&photon->current.p, &point_intersect);
     photon->current.p = point_intersect;
     photon->points[photon->max_points++] = photon->current.p;
 
     // update the photon's direction for it's reflection by the mirror
     if (random_range(0,1) < 0.5) {
-        mirror_reflect(&photon->current, &elem->plane);
+        ret = mirror_reflect(&photon->current, &elem->plane);
+        if (ret != 0) {
+            ERROR_INTERVAL(1000000, "mirror_reflect failed ret=%d\n", ret);
+            return -1;
+        }
     }
 
     // if the current direction of the photon is within 90 degrees
@@ -997,10 +1014,11 @@ static int beam_splitter_hndlr(struct element_s *elem, photon_t *photon)
     return next;
 }
 
-static void mirror_reflect(geo_line_t *line, geo_plane_t *plane)
+static int mirror_reflect(geo_line_t *line, geo_plane_t *plane)
 {
     geo_point_t point_before;
     geo_point_t point_reflected;
+    int ret;
 
     // create a point a little before the intesect point
     point_before.x = line->p.x - line->v.a;
@@ -1008,13 +1026,19 @@ static void mirror_reflect(geo_line_t *line, geo_plane_t *plane)
     point_before.z = line->p.z - line->v.c;
 
     // reflect the point_before  over the mirror plane
-    reflect(&point_before, plane, &point_reflected);
+    ret = reflect(&point_before, plane, &point_reflected);
+    if (ret < 0) {
+        return -1;
+    }
 
     // construct new path for the photon using the reflected point and 
     // the photons current position
     line->v.a = line->p.x - point_reflected.x;
     line->v.b = line->p.y - point_reflected.y;
     line->v.c = line->p.z - point_reflected.z;
+
+    // return success
+    return 0;
 }
 
 // -----------------  SCREEN HANDLER  ------------------------------------------------ 
@@ -1025,11 +1049,16 @@ static int screen_hndlr(struct element_s *elem, photon_t *photon)
     int         scramp_hidx, scramp_vidx;
     double      scramp_hpos, scramp_vpos;
     char        s[100] __attribute__((unused));
+    int         ret;
 
     static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
     // intersect the photon with the screen
-    intersect(&photon->current, &elem->plane, &point_intersect);
+    ret = intersect(&photon->current, &elem->plane, &point_intersect);
+    if (ret != 0) { 
+        ERROR_INTERVAL(1000000, "intersect failed ret=%d\n", ret);
+        return -1;
+    }
     DEBUG("point_intersect = %s\n", point_str(&point_intersect,s));
 
     // update photon total_distance
@@ -1150,12 +1179,17 @@ static void determine_screen_coords(
 static int discard_hndlr(struct element_s *elem, photon_t *photon)
 {
     geo_point_t point_intersect;
+    int         ret;
 
     // intersect the photon with the discarder,
     // update photon total_distance,
     // update the photon's position, and
     // add new current photon position to points array
-    intersect(&photon->current, &elem->plane, &point_intersect);   
+    ret = intersect(&photon->current, &elem->plane, &point_intersect);   
+    if (ret != 0) { 
+        ERROR_INTERVAL(1000000, "intersect failed ret=%d\n", ret);
+        return -1;
+    }
     photon->total_distance += distance(&photon->current.p, &point_intersect);
     photon->current.p = point_intersect;
     photon->points[photon->max_points++] = photon->current.p;

@@ -27,11 +27,16 @@ SOFTWARE.
 #include "util_geometry.h"
 #include "util_misc.h"
 
-// XXX todo - check for error conditions, such as denominator==0
+#define TWO_PI (2*M_PI)
 
 static inline double square(double x)
 {
     return x * x;
+}
+
+static inline bool is_close(double a, double b, double fraction)
+{
+    return fabs(a/b - 1) < fraction;
 }
 
 // -----------------  INTERSECT LINE AND PLANE  -----------------------------
@@ -86,6 +91,9 @@ int intersect(geo_line_t *line, geo_plane_t *plane, geo_point_t *point_result)
     PD = PA * PXo + PB * PYo + PC * PZo;
 
     denominator = (PA * LA + PB * LB + PC * LC);
+    if (denominator == 0) {
+        return -1;
+    }
     T = (PD - PA * LXo - PB * LYo - PC * LZo) / denominator;
 
     RX = LXo + T * LA;
@@ -109,6 +117,9 @@ int reflect(geo_point_t *point, geo_plane_t *plane, geo_point_t *point_result)
 
     PD = PA * PXo + PB * PYo + PC * PZo;
     denominator = (PA * LA + PB * LB + PC * LC);
+    if (denominator == 0) {
+        return -1;
+    }
     T = (PD - PA * LXo - PB * LYo - PC * LZo) / denominator;
 
     // the reflection point is at 2*T along the line constructed above
@@ -174,38 +185,31 @@ void vector_to_angle(geo_vector_t *v, double *h_angle, double *v_angle)
     *v_angle = asin(c / sqrt(square(a) + square(b) + square(c)));
 }
 
-// XXX clean this stuff up ...,   and UNIT TEST too
 void angle_to_vector(double h_angle, double v_angle, geo_vector_t *v)
 {
     // a = x component
     // b = y component
     // c = z component
 
-// XXX what if h_angle is x + 2pi
-// XXX should consider checking if it is close
-    if (h_angle == M_PI_2) {
-        printf("XXXXXXXXXXXX h_angle == M_PI_2\n");
+    // first check for special case where h_angle is 90 or 270 degrees
+    double tmp = (h_angle / TWO_PI) - floor(h_angle / TWO_PI);
+    if (is_close(tmp, 0.25, 1e-6)) {
         v->a = 0;
         v->b = 1;
         v->c = tan(v_angle);
         return;
     }
-
-    if (h_angle == -M_PI_2) {
-        printf("XXXXXXXXXXXX h_angle == -M_PI_2\n");
+    if (is_close(tmp, 0.75, 1e-6)) {
         v->a = 0;
         v->b = -1;
         v->c = tan(v_angle);
         return;
     }
 
-
+    // now it is save to call tan(h_angle)
     double tan_h_angle = tan(h_angle);
     double sin_v_angle = sin(v_angle);
     int h_angle_quadrant = get_quadrant(h_angle);
-
-    printf("quadrant(%g) = %d\n", h_angle, h_angle_quadrant);
-
     v->c = sin(v_angle);
     if (h_angle_quadrant == 1 || h_angle_quadrant == 4) {
         v->a = sqrt( (1 - square(sin_v_angle)) / (1 + square(tan_h_angle)) );
@@ -218,13 +222,10 @@ void angle_to_vector(double h_angle, double v_angle, geo_vector_t *v)
 // returns quadrant 1 = first, 2 = second , etc.
 int get_quadrant(double angle)
 {
-    #define TWO_PI (2*M_PI)
-
     double tmp;
     int quadrant;
 
     tmp = (angle / TWO_PI) - floor(angle / TWO_PI);
-    printf("tmp %e  %e  %e\n", tmp, angle/TWO_PI, floor(angle/TWO_PI));
 
     if (tmp == 1) {
         quadrant = 4;
@@ -293,7 +294,6 @@ char *line_str(geo_line_t *l, char *s)
 // -----------------  UNIT TEST  ------------------------------------
 
 // to build unit test program:
-//    gcc -Wall -DUNIT_TEST -o t1 util_geometry.c -lm
 //    gcc -Wall -DUNIT_TEST -o t1 util_geometry.c util_misc.c -lm
 
 #ifdef UNIT_TEST
@@ -303,8 +303,21 @@ int main(int argc, char **argv)
     char s[100], s1[100];
     double ha, va, m;
 
+#if 0
+    while (printf("is_close a b? "), fgets(s,sizeof(s),stdin) != NULL) {
+        double a,b;
+        if (sscanf(s, "%lf %lf", &a, &b) != 2) {
+            ERROR("invalid input\n");
+            printf("\n\n");
+            continue;
+        }
+        printf("is_close(%g %g) = %d\n", a,b,is_close(a,b,1e-6));
+    }
+    return 0;
+
     int q = get_quadrant(-5.42101e-20);
     printf("q = %d\n", q);
+#endif
 
     while (printf("vect? "), fgets(s,sizeof(s),stdin) != NULL) {
         if (sscanf(s, "%lf %lf %lf", &v.a, &v.b, &v.c) != 3) {
