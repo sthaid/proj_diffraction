@@ -1,11 +1,9 @@
 ifsim 
-- adjust pan zoom reset                       DONE
-- michelson morley                            DONE
+- should be a scale shown on the diagram pane 
 - pgm documentation in README file
 - XXX issues, including in util
-- list of elems should contains names too
-- should be a scale shown on the diagram pane 
-- use colors for different components ??
+   // XXX try to display last photon ray trace when stopped
+   // XXX put scale on diagram so size of hole can be checked
 
 measure laser beam width and spread
 - incorporate into ifsom.config

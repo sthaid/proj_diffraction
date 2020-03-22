@@ -1,6 +1,3 @@
-// XXX put scale on diagram so size of hole can be checked
-// XXX experiment with less than 5000 for MAX_SCREEN_AMP, to improve performance
-
 #include "common.h"
 
 //
@@ -28,14 +25,14 @@
 // variables
 //
 
-static volatile bool run_state;
-static volatile bool run_request;
+static volatile int    running_sim_threads;
+static volatile bool   run_request;
 
-static double screen_amp1[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
-static double screen_amp2[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
+static double          screen_amp1[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
+static double          screen_amp2[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
 
-static unsigned long total_photon_count;
-static double        photons_per_sec;
+static unsigned long   total_photon_count;
+static double          photons_per_sec;
 
 static photon_t        recent_sample_photons[MAX_RECENT_SAMPLE_PHOTONS];
 static int             max_recent_sample_photons;
@@ -45,11 +42,12 @@ static pthread_mutex_t recent_sample_photons_mutex = PTHREAD_MUTEX_INITIALIZER;
 // prototypes
 //
 
-static void recompute_element_plane(struct element_s *e);
-
 static int read_config_file(char *config_filename);
 static bool is_comment_or_blank_line(char *s);
 static void remove_trailing_newline_char(char *s);
+static int config_sanity_check(sim_config_t *cfg);
+
+static void recompute_element_plane(struct element_s *e);
 
 static void *sim_thread(void *cx);
 static void *sim_monitor_thread(void *cx);
@@ -89,7 +87,7 @@ static inline int min(int a, int b)
     return a < b ? a : b;
 }
 
-// -----------------  SIM APIS  -----------------------------------------------------
+// -----------------  SIM INIT API  -------------------------------------------------
 
 int sim_init(char *config_filename)
 {
@@ -107,284 +105,6 @@ int sim_init(char *config_filename)
 
     return 0;
 }
-
-void sim_select_config(int idx)
-{
-    bool was_running = run_state;
-
-    sim_reset(false);
-    current_config = &config[idx];
-
-    if (was_running) {
-        sim_run();
-    }
-}
-
-void sim_reset(bool start_running)
-{
-    sim_stop();
-
-    memset(screen_amp1,0,sizeof(screen_amp1));
-    memset(screen_amp2,0,sizeof(screen_amp2));
-    max_recent_sample_photons = 0;
-
-    if (start_running) {
-        sim_run();
-    }
-}
-
-void sim_run(void)
-{
-    run_request = true;
-    while (run_state == false) {
-        usleep(1000);
-    }
-}
-
-void sim_stop(void)
-{
-    run_request = false;
-    while (run_state == true) {
-        usleep(1000);
-    }
-}
-
-// -----------------  SIM XXX APIS  -------------------------------------------------
-
-void sim_get_state(bool *running, double *rate)
-{
-    if (running) {
-        *running = run_state;
-    }
-    if (rate) {
-        *rate = photons_per_sec;
-    }
-}
-
-void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN])
-{
-    int       i,j,ii,jj;
-    double    max_screen_value;
-    const int scale_factor = MAX_SCREEN_AMP / MAX_SCREEN;
-
-    // using the screen_amp1, screen_amp2, and scale_factor as input,
-    // compute the return screen buffer intensity values;
-    for (i = 0; i < MAX_SCREEN; i++) {
-        for (j = 0; j < MAX_SCREEN; j++) {
-            double sum = 0;
-            for (ii = i*scale_factor; ii < (i+1)*scale_factor; ii++) {
-                for (jj = j*scale_factor; jj < (j+1)*scale_factor; jj++) {
-                    sum += square(screen_amp1[ii][jj]) + square(screen_amp2[ii][jj]);
-                }
-            }
-            screen[i][j] = sqrt(sum);
-        }
-    }
-
-    // determine max_screen_value
-    max_screen_value = -1;
-    for (i = 0; i < MAX_SCREEN; i++) {
-        for (j = 0; j < MAX_SCREEN; j++) {
-            if (screen[i][j] > max_screen_value) {
-                max_screen_value = screen[i][j];
-            }
-        }
-    }
-    DEBUG("max_screen_value %g\n", max_screen_value);
-
-    // normalize screen values to range 0..1
-    if (max_screen_value) {
-        double max_screen_value_recipricol = 1 / max_screen_value;
-        for (i = 0; i < MAX_SCREEN; i++) {
-            for (j = 0; j < MAX_SCREEN; j++) {
-                screen[i][j] *= max_screen_value_recipricol;
-            }
-        }
-    }
-}
-
-void sim_get_recent_sample_photons(photon_t **photons_out, int *max_photons_out)
-{
-    int max;
-
-    // acquire mutex
-    pthread_mutex_lock(&recent_sample_photons_mutex);
-
-    // max is the smaller of MAX_RECENT_SAMPLE_PHOTONS or the 
-    // number of recent sample photons acuumulated by the simulation
-    max = min(MAX_RECENT_SAMPLE_PHOTONS, max_recent_sample_photons);
-
-    // allocate the return buffer
-    *photons_out = malloc(max*sizeof(photon_t));
-
-    // copy the recent_sample_photons to the allocated return buffer
-    memcpy(*photons_out, recent_sample_photons, max*sizeof(photon_t));
-    *max_photons_out = max;
-
-    // reset number of recent_sample_photons to 0, so that we'll
-    // start accumulating them again
-    max_recent_sample_photons = 0;
-
-    // release mutex
-    pthread_mutex_unlock(&recent_sample_photons_mutex);
-}
-
-// -----------------  SIM XXX APIS  -------------------------------------------------
-
-void sim_toggle_element_flag(struct element_s *elem, int flag_idx)
-{
-    if (elem == NULL) {
-        INFO("XXX elem is null\n");
-        return;
-    }
-
-    if (flag_idx >= elem->max_flags) {
-        return;
-    }
-
-    elem->flags ^= (1 << flag_idx);
-
-    sim_reset(run_state);
-}
-
-// -----------------  SIM XXX APIS  -------------------------------------------------
-
-void sim_randomize_element(struct element_s *elem, double xy_span, double pan_tilt_span)
-{
-    if (elem == NULL) {
-        return;
-    }
-
-    elem->x_offset = random_range(-xy_span/2, xy_span/2);
-    elem->y_offset = random_range(-xy_span/2, xy_span/2);
-    elem->pan_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
-    elem->tilt_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
-
-    recompute_element_plane(elem);
-
-    sim_reset(run_state);
-}
-
-void sim_randomize_all_elements(sim_config_t *cfg, double xy_span, double pan_tilt_span)
-{
-    int i;
-
-    for (i = 0; i < cfg->max_element; i++) {
-        struct element_s * elem = &cfg->element[i];
-
-        elem->x_offset = random_range(-xy_span/2, xy_span/2);
-        elem->y_offset = random_range(-xy_span/2, xy_span/2);
-        elem->pan_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
-        elem->tilt_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
-
-        recompute_element_plane(elem);
-    }    
-
-    sim_reset(run_state);
-}
-
-void sim_reset_element(struct element_s *elem)
-{
-    if (elem == NULL) {
-        return;
-    }
-
-    elem->plane       = elem->initial_plane;
-    elem->x_offset    = 0;
-    elem->y_offset    = 0;
-    elem->pan_offset  = 0;
-    elem->tilt_offset = 0;
-
-    sim_reset(run_state);
-}
-
-void sim_reset_all_elements(sim_config_t *cfg)
-{
-    int i;
-
-    for (i = 0; i < cfg->max_element; i++) {
-        struct element_s * elem = &cfg->element[i];
-
-        elem->plane       = elem->initial_plane;
-        elem->x_offset    = 0;
-        elem->y_offset    = 0;
-        elem->pan_offset  = 0;
-        elem->tilt_offset = 0;
-    }    
-
-    sim_reset(run_state);
-}
-
-void sim_adjust_element_x(struct element_s *elem, double delta_x)
-{
-    if (elem == NULL) {
-        return;
-    }
-
-    elem->x_offset += delta_x;
-
-    recompute_element_plane(elem);
-
-    sim_reset(run_state);
-}
-
-void sim_adjust_element_y(struct element_s *elem, double delta_y)
-{
-    if (elem == NULL) {
-        return;
-    }
-
-    elem->y_offset += delta_y;
-
-    recompute_element_plane(elem);
-
-    sim_reset(run_state);
-}
-
-void sim_adjust_element_pan(struct element_s *elem, double delta_pan)
-{
-    if (elem == NULL) {
-        return;
-    }
-
-    elem->pan_offset += delta_pan;
-
-    recompute_element_plane(elem);
-
-    sim_reset(run_state);
-}
-
-void sim_adjust_element_tilt(struct element_s *elem, double delta_tilt)
-{
-    if (elem == NULL) {
-        return;
-    }
-
-    elem->tilt_offset += delta_tilt;
-
-    recompute_element_plane(elem);
-
-    sim_reset(run_state);
-}
-
-static void recompute_element_plane(struct element_s *elem)
-{
-    double h_angle, v_angle;
-
-    // recompute elem->plane.p
-    elem->plane.p.x = elem->initial_plane.p.x + elem->x_offset;
-    elem->plane.p.y = elem->initial_plane.p.y + elem->y_offset;
-    elem->plane.p.z = elem->initial_plane.p.z;
-
-    // recompute elem->plane.n
-    vector_to_angle(&elem->initial_plane.n, &h_angle, &v_angle);
-    h_angle += elem->pan_offset;
-    v_angle -= elem->tilt_offset;
-    angle_to_vector(h_angle, v_angle, &elem->plane.n);
-}
-
-// XXX run_state
-// -----------------  READ CONFIG FILE  ---------------------------------------------
 
 static int read_config_file(char *config_filename)
 {
@@ -449,6 +169,11 @@ static int read_config_file(char *config_filename)
             ERROR("scan for element id and type failed, line %d\n", line_num);
             goto error;
         }
+        if (elem_id != cfg->max_element) {
+            ERROR("incorrect elem_id=%d expected=%d, line %d\n",
+                  elem_id, cfg->max_element, line_num);
+            goto error;
+        }
 
         // based on element type-string:
         // - continue scanning for the element's other parameters, and
@@ -457,7 +182,7 @@ static int read_config_file(char *config_filename)
 
         if (strcmp(elem_type_str, "src_ss") == 0) {
             elem->type      = ELEM_TYPE_SRC_SS;
-            elem->type_str  = "scr_ss";
+            elem->type_str  = "src_ss";
             elem->hndlr     = source_single_slit_hndlr;
             elem->max_flags = 1;  // ELEM_SOURCE_FLAG_MASK_BEAMFINDER
             cnt = sscanf(line+char_count,
@@ -477,7 +202,7 @@ static int read_config_file(char *config_filename)
 
         } else if (strcmp(elem_type_str, "src_ds") == 0) {
             elem->type      = ELEM_TYPE_SRC_DS;
-            elem->type_str  = "scr_ds";
+            elem->type_str  = "src_ds";
             elem->hndlr     = source_double_slit_hndlr;
             elem->max_flags = 1;  // ELEM_SOURCE_FLAG_MASK_BEAMFINDER
             cnt = sscanf(line+char_count,
@@ -498,7 +223,7 @@ static int read_config_file(char *config_filename)
 
         } else if (strcmp(elem_type_str, "src_rh") == 0) {
             elem->type      = ELEM_TYPE_SRC_RH;
-            elem->type_str  = "scr_rh";
+            elem->type_str  = "src_rh";
             elem->hndlr     = source_round_hole_hndlr;
             elem->max_flags = 1;  // ELEM_SOURCE_FLAG_MASK_BEAMFINDER
             cnt = sscanf(line+char_count,
@@ -595,19 +320,22 @@ static int read_config_file(char *config_filename)
 
     // validate the config; these are basic sanity checks and not 
     // an extensive validation; validations include:
-    // - first element must be source
-    // - there can be just one source and one screen
-    // - all next must be valid
-    // XXX
+    for (i = 0; i < max_config; i++) {
+        int ret = config_sanity_check(&config[i]);
+        if (ret != 0) {
+            ERROR("config_sanity_check failed for config %d, '%s'\n", i, config[i].name);
+            goto error;
+        }
+    }
 
-#if 0
+#if 1
     // debug print config
     for (i = 0; i < max_config; i++) {
         sim_config_t *cfg = &config[i];
         INFO("config %d - %s %f\n", i, cfg->name, cfg->wavelength);
         for (j = 0; j < cfg->max_element; j++) {
             struct element_s *elem = &cfg->element[j];
-            INFO("  %d %s next=%d\n", j, elem->name);
+            INFO("  %d %s\n", j, elem->type_str);
         }
     }
 #endif
@@ -646,6 +374,316 @@ static void remove_trailing_newline_char(char *s)
     }
 }
 
+static int config_sanity_check(sim_config_t *cfg)
+{
+    #define IS_SRC_ELEMENT(_elem) \
+       ((_elem)->type == ELEM_TYPE_SRC_SS || \
+        (_elem)->type == ELEM_TYPE_SRC_DS || \
+        (_elem)->type == ELEM_TYPE_SRC_RH) 
+
+    int src_element_cnt=0, screen_element_cnt=0, i;
+
+    // perform some basic checks ...
+
+    // first element must be source
+    if (!IS_SRC_ELEMENT(&cfg->element[0])) {
+        ERROR("cfg '%s', first element is not a photon soruce\n", cfg->name);
+        return -1;
+    }
+
+    // there can be just one source and one screen
+    for (i = 0; i < cfg->max_element; i++) {
+        struct element_s *elem = &cfg->element[i];
+        if (IS_SRC_ELEMENT(elem)) src_element_cnt++;
+        if (elem->type == ELEM_TYPE_SCREEN) screen_element_cnt++;
+    }
+    if (src_element_cnt != 1) {
+        ERROR("cfg '%s', src_element_cnt=%d, must be 1\n", cfg->name, src_element_cnt);
+        return -1;
+    }
+    if (screen_element_cnt != 1) {
+        ERROR("cfg '%s', screen_element_cnt=%d, must be 1\n", cfg->name, screen_element_cnt);
+        return -1;
+    }
+
+    // return success
+    return 0;
+}
+
+// -----------------  SIM CONTROL APIS  ---------------------------------------------
+
+void sim_select_config(int idx)
+{
+    bool was_running = run_request;
+
+    sim_reset(false);
+    current_config = &config[idx];
+
+    if (was_running) {
+        sim_run();
+    }
+}
+
+void sim_reset(bool start_running)
+{
+    sim_stop();
+
+    memset(screen_amp1,0,sizeof(screen_amp1));
+    memset(screen_amp2,0,sizeof(screen_amp2));
+    max_recent_sample_photons = 0;
+
+    if (start_running) {
+        sim_run();
+    }
+}
+
+void sim_run(void)
+{
+    run_request = true;
+    while (running_sim_threads != MAX_SIM_THREAD) {
+        usleep(1000);
+    }
+}
+
+void sim_stop(void)
+{
+    run_request = false;
+    while (running_sim_threads != 0) {
+        usleep(1000);
+    }
+}
+
+void sim_get_state(bool *running, double *rate)
+{
+    if (running) {
+        *running = run_request;
+    }
+    if (rate) {
+        *rate = photons_per_sec;
+    }
+}
+
+// -----------------  SIM GET RESULT APIS  ------------------------------------------
+
+void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN])
+{
+    int       i,j,ii,jj;
+    double    max_screen_value;
+    const int scale_factor = MAX_SCREEN_AMP / MAX_SCREEN;
+
+    // using the screen_amp1, screen_amp2, and scale_factor as input,
+    // compute the return screen buffer intensity values;
+    for (i = 0; i < MAX_SCREEN; i++) {
+        for (j = 0; j < MAX_SCREEN; j++) {
+            double sum = 0;
+            for (ii = i*scale_factor; ii < (i+1)*scale_factor; ii++) {
+                for (jj = j*scale_factor; jj < (j+1)*scale_factor; jj++) {
+                    sum += square(screen_amp1[ii][jj]) + square(screen_amp2[ii][jj]);
+                }
+            }
+            screen[i][j] = sqrt(sum);
+        }
+    }
+
+    // determine max_screen_value
+    max_screen_value = -1;
+    for (i = 0; i < MAX_SCREEN; i++) {
+        for (j = 0; j < MAX_SCREEN; j++) {
+            if (screen[i][j] > max_screen_value) {
+                max_screen_value = screen[i][j];
+            }
+        }
+    }
+    DEBUG("max_screen_value %g\n", max_screen_value);
+
+    // normalize screen values to range 0..1
+    if (max_screen_value) {
+        double max_screen_value_recipricol = 1 / max_screen_value;
+        for (i = 0; i < MAX_SCREEN; i++) {
+            for (j = 0; j < MAX_SCREEN; j++) {
+                screen[i][j] *= max_screen_value_recipricol;
+            }
+        }
+    }
+}
+
+void sim_get_recent_sample_photons(photon_t **photons_out, int *max_photons_out)
+{
+    int max;
+
+    // acquire mutex
+    pthread_mutex_lock(&recent_sample_photons_mutex);
+
+    // max is the smaller of MAX_RECENT_SAMPLE_PHOTONS or the 
+    // number of recent sample photons acuumulated by the simulation
+    max = min(MAX_RECENT_SAMPLE_PHOTONS, max_recent_sample_photons);
+
+    // allocate the return buffer
+    *photons_out = malloc(max*sizeof(photon_t));
+
+    // copy the recent_sample_photons to the allocated return buffer
+    memcpy(*photons_out, recent_sample_photons, max*sizeof(photon_t));
+    *max_photons_out = max;
+
+    // reset number of recent_sample_photons to 0, so that we'll
+    // start accumulating them again
+    max_recent_sample_photons = 0;
+
+    // release mutex
+    pthread_mutex_unlock(&recent_sample_photons_mutex);
+}
+
+// -----------------  SIM RUN-TIME ADJUSTMENT APIS  ---------------------------------
+
+void sim_toggle_element_flag(struct element_s *elem, int flag_idx)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    if (flag_idx >= elem->max_flags) {
+        return;
+    }
+
+    elem->flags ^= (1 << flag_idx);
+
+    sim_reset(run_request);
+}
+
+void sim_randomize_element(struct element_s *elem, double xy_span, double pan_tilt_span)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->x_offset = random_range(-xy_span/2, xy_span/2);
+    elem->y_offset = random_range(-xy_span/2, xy_span/2);
+    elem->pan_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
+    elem->tilt_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
+
+    recompute_element_plane(elem);
+
+    sim_reset(run_request);
+}
+
+void sim_randomize_all_elements(sim_config_t *cfg, double xy_span, double pan_tilt_span)
+{
+    int i;
+
+    for (i = 0; i < cfg->max_element; i++) {
+        struct element_s * elem = &cfg->element[i];
+
+        elem->x_offset = random_range(-xy_span/2, xy_span/2);
+        elem->y_offset = random_range(-xy_span/2, xy_span/2);
+        elem->pan_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
+        elem->tilt_offset = random_range(-pan_tilt_span/2, pan_tilt_span/2);
+
+        recompute_element_plane(elem);
+    }    
+
+    sim_reset(run_request);
+}
+
+void sim_reset_element(struct element_s *elem)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->plane       = elem->initial_plane;
+    elem->x_offset    = 0;
+    elem->y_offset    = 0;
+    elem->pan_offset  = 0;
+    elem->tilt_offset = 0;
+
+    sim_reset(run_request);
+}
+
+void sim_reset_all_elements(sim_config_t *cfg)
+{
+    int i;
+
+    for (i = 0; i < cfg->max_element; i++) {
+        struct element_s * elem = &cfg->element[i];
+
+        elem->plane       = elem->initial_plane;
+        elem->x_offset    = 0;
+        elem->y_offset    = 0;
+        elem->pan_offset  = 0;
+        elem->tilt_offset = 0;
+    }    
+
+    sim_reset(run_request);
+}
+
+void sim_adjust_element_x(struct element_s *elem, double delta_x)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->x_offset += delta_x;
+
+    recompute_element_plane(elem);
+
+    sim_reset(run_request);
+}
+
+void sim_adjust_element_y(struct element_s *elem, double delta_y)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->y_offset += delta_y;
+
+    recompute_element_plane(elem);
+
+    sim_reset(run_request);
+}
+
+void sim_adjust_element_pan(struct element_s *elem, double delta_pan)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->pan_offset += delta_pan;
+
+    recompute_element_plane(elem);
+
+    sim_reset(run_request);
+}
+
+void sim_adjust_element_tilt(struct element_s *elem, double delta_tilt)
+{
+    if (elem == NULL) {
+        return;
+    }
+
+    elem->tilt_offset += delta_tilt;
+
+    recompute_element_plane(elem);
+
+    sim_reset(run_request);
+}
+
+static void recompute_element_plane(struct element_s *elem)
+{
+    double h_angle, v_angle;
+
+    // recompute elem->plane.p
+    elem->plane.p.x = elem->initial_plane.p.x + elem->x_offset;
+    elem->plane.p.y = elem->initial_plane.p.y + elem->y_offset;
+    elem->plane.p.z = elem->initial_plane.p.z;
+
+    // recompute elem->plane.n
+    vector_to_angle(&elem->initial_plane.n, &h_angle, &v_angle);
+    h_angle += elem->pan_offset;
+    v_angle -= elem->tilt_offset;
+    angle_to_vector(h_angle, v_angle, &elem->plane.n);
+}
+
 // -----------------  SIMULATION THREAD  --------------------------------------------
 
 static void *sim_thread(void *cx)
@@ -655,16 +693,14 @@ static void *sim_thread(void *cx)
 
     INFO("STARTING id %ld\n", id);
 
-// XXX all threads need to coorinate
     while (true) {
-        // wait for run flag to be set
-        run_state = false;
+        // spin here until run_request is set
         while (run_request == false) {
             usleep(10000);
         }
 
-        // while run flag is set, simulate photons
-        run_state = true;
+        // while run_request is set, simulate photons
+        __sync_fetch_and_add(&running_sim_threads,1);
         while (run_request == true) {
             // simulate a photon
             simulate_a_photon(&photon);
@@ -677,6 +713,7 @@ static void *sim_thread(void *cx)
                 pthread_mutex_unlock(&recent_sample_photons_mutex);
             }
         }
+        __sync_fetch_and_sub(&running_sim_threads,1);
     }
 
     return NULL;
@@ -697,9 +734,6 @@ static void *sim_monitor_thread(void *cx)
         end_photon_count = total_photon_count;
 
         photons_per_sec = (end_photon_count - start_photon_count) / ((end_us - start_us) / 1000000.);
-        if (run_state) {
-            INFO("RATE = %g million photons/sec\n", photons_per_sec/1000000);
-        }
     }
 
     return NULL;
@@ -1006,7 +1040,9 @@ static int screen_hndlr(struct element_s *elem, photon_t *photon)
     scramp_hidx = scramp_hpos /  SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
     scramp_vidx = scramp_vpos /  SCREEN_AMP_ELEMENT_SIZE + MAX_SCREEN_AMP/2;
 
-    // XXX comment
+    // if the intersect point indexes are within the screen_amp1/2 arrays then
+    // update screen_amp1 and screen_amp2 at the intersect point, by adding the
+    // amplitude of the photon's electric field
     if (scramp_hidx >= 0 && scramp_hidx < MAX_SCREEN_AMP &&
         scramp_vidx >= 0 && scramp_vidx < MAX_SCREEN_AMP)
     {
@@ -1038,7 +1074,6 @@ static void determine_screen_coords(
     double magnitude_vect_horizontal;
     double cos_theta;
 
-    // XXX disable this later
     #define TEST_ENABLE
 
     // make vector from screen ctr point to point_intersect

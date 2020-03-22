@@ -1,5 +1,3 @@
-// XXX try to display last photon ray trace when stopped
-
 #include "common.h"
 
 //
@@ -301,7 +299,6 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
                 break;
             }
             selected_elem = &current_config->element[idx];
-            INFO("XXX SEL %d\n", idx);
             break; }
         case SDL_EVENT_KEY_ESC:
             selected_elem = NULL;
@@ -376,7 +373,6 @@ static void reset_pan_and_zoom(rect_t *pane)
     y_mm_ctr           = (y_pixel_ctr - 250) / scale_pixel_per_mm;
 }
 
-// XXX comment about 'z' being ignored
 static void draw_lines(rect_t *pane, geo_point_t *geo_points, int max_points, int color)
 {
     int i;
