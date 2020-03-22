@@ -1,4 +1,6 @@
-### Overview
+=====================
+OVERVIEW
+=====================
 
 This program calculates the diffraction pattern that results from
 monochromatic light passing through one or more slits and illuminating
@@ -10,7 +12,9 @@ A sample 'dsparam' file is included in this repository.
 
 Refer to sample output in screenshot.jpg.
 
-### Building the Software
+=====================
+BUILDING THE SOFTWARE
+=====================
 
 To build: install the required packages and run 'make'.
 
@@ -21,7 +25,9 @@ The following packages are required:
 * libpng-devel
 * libjpeg-turbo-devel
 
-### Design
+=====================
+DESIGN
+=====================
 
 The program calculates the diffraction pattern on the screen by assuming that every point 
 along each slit emits a circular wave. The amplitude of this circular wave is
@@ -36,13 +42,15 @@ array 'screen2_amp'
 
 Finally the screen intensity is determined as 
 
-    screen_inten[idx] = screen1_amp[idx]^2 + screen2_amp[idx}^2
+    screen_inten[idx] = sqrt( screen1_amp[idx]^2 + screen2_amp[idx}^2 )
 
 The above approach was inspired by 
 https://en.wikipedia.org/wiki/Huygens%E2%80%93Fresnel_principle.
 However, simplifying assumptions are used in this software.
 
-### Testing
+=====================
+TESTING     
+=====================
 
 Tested by confirming that the Distance Between Adjacent Fringes predicted
 by this software agrees with this equation:
@@ -52,7 +60,9 @@ by this software agrees with this equation:
                                       DistanceBetweenSLitCenters
 
 
-### References
+=====================
+REFERENCES
+=====================
 
 * https://en.wikipedia.org/wiki/Huygens%E2%80%93Fresnel_principle
 * https://courses.lumenlearning.com/physics/chapter/27-3-youngs-double-slit-experiment/
