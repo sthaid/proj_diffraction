@@ -328,7 +328,7 @@ static int read_config_file(char *config_filename)
         }
     }
 
-#if 1
+#if 0
     // debug print config
     for (i = 0; i < max_config; i++) {
         sim_config_t *cfg = &config[i];
