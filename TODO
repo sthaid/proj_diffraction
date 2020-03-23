@@ -1,22 +1,20 @@
 ifsim 
-- should be a scale shown on the diagram pane 
 - pgm documentation in README file
-- XXX issues, including in util
-   // XXX try to display last photon ray trace when stopped
-   // XXX put scale on diagram so size of hole can be checked
+- put scale on diagram so size of hole can be checked
 
 measure laser beam width and spread
-- incorporate into ifsom.config
+- incorporate into ifsim.config
 - incorporate into photons
+
+investigate optical components, for accurately positioning the mirrors and beamsplitters0
 
 how does a divergine lense work
 
 work on my single photon detector
 
-investigate optical components, for accurately positioning the mirrors and beamsplitters0
-
 README.txt needed in photons and poisson dirs
 
+clean up this file
 -----------------------------------------------------------------------
 -----------------------------------------------------------------------
 -----------------------------------------------------------------------

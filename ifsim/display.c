@@ -90,6 +90,7 @@ static void draw_lines(rect_t *pane, geo_point_t *geo_point, int max_points, int
 static void draw_line(rect_t *pane, geo_point_t *geo_p1, geo_point_t *geo_p2, int color);
 static void transform(geo_point_t *geo_p, point_t *pixel_p);
 static void draw_optical_element(rect_t *pane, struct element_s *elem, int color);
+static void draw_scale(rect_t *pane);
 
 static int x_pixel_ctr;
 static int y_pixel_ctr;
@@ -104,13 +105,14 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
-    #define SDL_EVENT_ZOOM          (SDL_EVENT_USER_DEFINED + 0)
-    #define SDL_EVENT_PAN           (SDL_EVENT_USER_DEFINED + 1)
-    #define SDL_EVENT_SIM_RUN       (SDL_EVENT_USER_DEFINED + 2)
-    #define SDL_EVENT_SIM_STOP      (SDL_EVENT_USER_DEFINED + 3)
-    #define SDL_EVENT_RESET         (SDL_EVENT_USER_DEFINED + 4)
-    #define SDL_EVENT_RANDOMIZE     (SDL_EVENT_USER_DEFINED + 5)
-    #define SDL_EVENT_SELECT_ELEM   (SDL_EVENT_USER_DEFINED + 10)
+    #define SDL_EVENT_ZOOM           (SDL_EVENT_USER_DEFINED + 0)
+    #define SDL_EVENT_PAN            (SDL_EVENT_USER_DEFINED + 1)
+    #define SDL_EVENT_SIM_RUN        (SDL_EVENT_USER_DEFINED + 2)
+    #define SDL_EVENT_SIM_STOP       (SDL_EVENT_USER_DEFINED + 3)
+    #define SDL_EVENT_RESET          (SDL_EVENT_USER_DEFINED + 4)
+    #define SDL_EVENT_RANDOMIZE      (SDL_EVENT_USER_DEFINED + 5)
+    #define SDL_EVENT_RESET_PAN_ZOOM (SDL_EVENT_USER_DEFINED + 6)
+    #define SDL_EVENT_SELECT_ELEM    (SDL_EVENT_USER_DEFINED + 10)
 
     #define ELEM_TYPE_TO_COLOR(et)  \
         ((et) == ELEM_TYPE_SRC_SS   ? YELLOW     : \
@@ -146,21 +148,6 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         bool running;
         double rate;
 
-        // display title
-        sim_get_state(&running, &rate);
-        if (running) {
-            sprintf(state_str, "RUNNING %0.1f M /s", rate/1e6);
-        } else {
-            sprintf(state_str, "STOPPED");
-        }
-        sprintf(title_str, "%s - %g nm - %s", 
-                current_config->name, 
-                MM2NM(current_config->wavelength),
-                state_str);
-        sdl_render_text(pane, 
-                        pane->w/2 - COL2X(strlen(title_str),LARGE_FONT)/2, 0, 
-                        LARGE_FONT, title_str, WHITE, BLACK);
-
         // get and display the ray trace for the recent sample photons
         sim_get_recent_sample_photons(&photons, &max_photons);
         for (i = 0; i < max_photons; i++) {
@@ -185,6 +172,24 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
 
             draw_optical_element(pane, &current_config->element[i], color);
         }
+
+        // display title
+        sim_get_state(&running, &rate);
+        if (running) {
+            sprintf(state_str, "RUNNING %0.1f M /s", rate/1e6);
+        } else {
+            sprintf(state_str, "STOPPED");
+        }
+        sprintf(title_str, "%s - %g nm - %s", 
+                current_config->name, 
+                MM2NM(current_config->wavelength),
+                state_str);
+        sdl_render_text(pane, 
+                        pane->w/2 - COL2X(strlen(title_str),LARGE_FONT)/2, 0, 
+                        LARGE_FONT, title_str, WHITE, BLACK);
+
+        // display scale
+        draw_scale(pane);
 
         // display element offset / info table
         sdl_render_printf(pane, 0, ROW2Y(2,LARGE_FONT), LARGE_FONT, WHITE, BLACK,
@@ -236,6 +241,11 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
                 pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(3,LARGE_FONT), LARGE_FONT,
                 "RANDOMIZE", LIGHT_BLUE, BLACK,
                 SDL_EVENT_RANDOMIZE, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        // - reset_pan_zoom event: reset pan/zoom
+        sdl_render_text_and_register_event(
+                pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(4,LARGE_FONT), LARGE_FONT,
+                "RESET_PAN_ZOOM", LIGHT_BLUE, BLACK,
+                SDL_EVENT_RESET_PAN_ZOOM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
         // - element select events; both click on the element or click on the offset display line
         for (i = 0; i < current_config->max_element; i++) {
             struct element_s *elem = &current_config->element[i];
@@ -285,6 +295,9 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         case SDL_EVENT_RESET:
             reset_pan_and_zoom(pane);
             sim_reset_all_elements(current_config);
+            break;
+        case SDL_EVENT_RESET_PAN_ZOOM:
+            reset_pan_and_zoom(pane);
             break;
         case SDL_EVENT_RANDOMIZE:
             sim_randomize_all_elements(current_config, 2, DEG2RAD(.5729578));
@@ -422,6 +435,30 @@ static void draw_optical_element(rect_t *pane, struct element_s *elem, int color
         draw_line(pane, &p1, &p2, color);
         point_minus_vector(&p0, &v_plane, &p0);
     }
+}
+
+static void draw_scale(rect_t *pane)
+{
+    int ctr, y, str_pixel_len;
+    char str[20];
+
+    // draw horizontal scale centered on bottom
+    ctr = pane->w / 2;
+    y = pane->h - ROW2Y(2,LARGE_FONT);
+
+    sdl_render_line(pane, ctr-100, y, ctr+100, y, WHITE);
+    sdl_render_line(pane, ctr-100, y-5, ctr-100, y+5, WHITE);
+    sdl_render_line(pane, ctr+100, y-5, ctr+100, y+5, WHITE);
+
+    sprintf(str, "%.3f mm", 200/scale_pixel_per_mm);
+    str_pixel_len = COL2X(strlen(str),LARGE_FONT);
+    sdl_render_printf(pane, ctr-str_pixel_len/2, y+10, LARGE_FONT, WHITE, BLACK, str);
+
+    // draw vertical scale on centered on left
+    ctr = pane->h * 3 / 4;
+    sdl_render_line(pane, 30, ctr-100, 30, ctr+100, WHITE);
+    sdl_render_line(pane, 25, ctr-100, 35, ctr-100, WHITE);
+    sdl_render_line(pane, 25, ctr+100, 35, ctr+100, WHITE);
 }
 
 // -----------------  INTERFEROMETER PATTERN PANE HANDLER  ----------------------
