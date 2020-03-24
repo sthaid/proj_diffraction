@@ -60,7 +60,7 @@ void display_handler(void)
     // init sdl, and get actual window width and height
     win_width  = DEFAULT_WIN_WIDTH;
     win_height = DEFAULT_WIN_HEIGHT;
-    if (sdl_init(&win_width, &win_height, true) < 0) {
+    if (sdl_init(&win_width, &win_height, true, true) < 0) {
         FATAL("sdl_init %dx%d failed\n", win_width, win_height);
     }
     INFO("REQUESTED win_width=%d win_height=%d\n", DEFAULT_WIN_WIDTH, DEFAULT_WIN_HEIGHT);
