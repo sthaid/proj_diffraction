@@ -172,7 +172,7 @@ typedef struct pane_cx_s {
 //
 
 // sdl initialize
-int32_t sdl_init(int32_t * w, int32_t * h, bool resizeable);
+int32_t sdl_init(int32_t * w, int32_t * h, bool resizeable, bool swap_white_black);
 void sdl_get_max_texture_dim(int32_t * max_texture_dim);
 
 // pane support

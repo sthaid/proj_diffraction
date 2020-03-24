@@ -137,5 +137,5 @@ void sim_adjust_element_y(struct element_s *elem, double delta_y);
 void sim_adjust_element_pan(struct element_s *elem, double delta_pan);
 void sim_adjust_element_tilt(struct element_s *elem, double delta_tilt);
 
-int display_init(void);
+int display_init(bool swap_white_black);
 void display_hndlr(void);

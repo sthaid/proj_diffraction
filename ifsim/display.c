@@ -21,7 +21,10 @@
 // variables
 //
 
+static bool              swap_white_black;
 static struct element_s *selected_elem;
+static int               win_width;
+static int               win_height;
 
 //
 // prototypes
@@ -33,8 +36,21 @@ static int control_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_para
 
 // -----------------  DISPLAY_INIT  ---------------------------------------------
 
-int display_init(void)
+int display_init(bool swap_white_black_arg)
 {
+    // save swap_white_black arg for use later
+    swap_white_black = swap_white_black_arg;
+
+    // init sdl, and get actual window width and height
+    win_width  = DEFAULT_WIN_WIDTH;
+    win_height = DEFAULT_WIN_HEIGHT;
+    if (sdl_init(&win_width, &win_height, true, swap_white_black) < 0) {
+        FATAL("sdl_init %dx%d failed\n", win_width, win_height);
+    }
+    INFO("REQUESTED win_width=%d win_height=%d\n", DEFAULT_WIN_WIDTH, DEFAULT_WIN_HEIGHT);
+    INFO("ACTUAL    win_width=%d win_height=%d\n", win_width, win_height);
+
+    // return success
     return 0;
 }
 
@@ -42,20 +58,11 @@ int display_init(void)
 
 void display_hndlr(void)
 {
-    int win_width, win_height;
     int interferometer_diagram_pane_width;
     int interference_pattern_pane_width;
     int interference_pattern_pane_height;
 
-    // init sdl, and get actual window width and height
-    win_width  = DEFAULT_WIN_WIDTH;
-    win_height = DEFAULT_WIN_HEIGHT;
-    if (sdl_init(&win_width, &win_height, true) < 0) {
-        FATAL("sdl_init %dx%d failed\n", win_width, win_height);
-    }
-    INFO("REQUESTED win_width=%d win_height=%d\n", DEFAULT_WIN_WIDTH, DEFAULT_WIN_HEIGHT);
-    INFO("ACTUAL    win_width=%d win_height=%d\n", win_width, win_height);
-
+    // init pane sizing variables
     interference_pattern_pane_width = MAX_SCREEN + 4;
     interference_pattern_pane_height = (MAX_SCREEN+121) + 4;
     interferometer_diagram_pane_width = win_width - interference_pattern_pane_width;
@@ -193,7 +200,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
 
         // display element offset / info table
         sdl_render_printf(pane, 0, ROW2Y(2,LARGE_FONT), LARGE_FONT, WHITE, BLACK,
-                          "    NAME ID       X       Y     PAN    TILT FLAG");
+                          "    NAME   ID       X       Y     PAN    TILT FLAG");
         for (i = 0; i < current_config->max_element; i++) {
             struct element_s *elem = &current_config->element[i];
             char flags_str[10]={0}, *p=flags_str;
@@ -593,7 +600,11 @@ static void render_interference_screen(
                 ERROR("green %d\n", green);
                 green = (green < 0 ? 0 : 255);
             }
-            pixels[i][j] = (green << 8) | (0xff << 24);
+            if (green == 0) {
+                pixels[i][j] = (0xff << 24) | (swap_white_black ? 0xffffff : 0);
+            } else {
+                pixels[i][j] = (0xff << 24) | (green << 8);
+            }
         }
     }
     sdl_update_texture(texture, (unsigned char*)pixels, MAX_SCREEN*sizeof(int));

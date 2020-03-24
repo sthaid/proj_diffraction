@@ -42,7 +42,7 @@ static pthread_mutex_t recent_sample_photons_mutex = PTHREAD_MUTEX_INITIALIZER;
 // prototypes
 //
 
-static int read_config_file(char *config_filename);
+static int read_config_file(char *filename);
 static bool is_comment_or_blank_line(char *s);
 static void remove_trailing_newline_char(char *s);
 static int config_sanity_check(sim_config_t *cfg);
@@ -89,12 +89,17 @@ static inline int min(int a, int b)
 
 // -----------------  SIM INIT API  -------------------------------------------------
 
-int sim_init(char *config_filename)
+int sim_init(char *filename)
 {
     pthread_t thread_id;
     long i;
 
-    if (read_config_file(config_filename) < 0) {
+    if (read_config_file(filename) < 0) {
+        return -1;
+    }
+
+    if (max_config == 0) {
+        ERROR("no configs defined in %s\n", filename);
         return -1;
     }
 
@@ -106,7 +111,7 @@ int sim_init(char *config_filename)
     return 0;
 }
 
-static int read_config_file(char *config_filename)
+static int read_config_file(char *filename)
 {
     FILE         *fp;
     char          line[1000];
@@ -122,9 +127,9 @@ static int read_config_file(char *config_filename)
     line_num = 0;
 
     // open config file
-    fp = fopen(config_filename, "r");
+    fp = fopen(filename, "r");
     if (fp == NULL) {
-        ERROR("failed to open config file '%s'\n", config_filename);
+        ERROR("failed to open config file '%s'\n", filename);
         goto error;
     }
 

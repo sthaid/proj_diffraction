@@ -104,20 +104,19 @@ static sdl_event_t      sdl_push_ev;
 static struct pane_list_head_s * sdl_pane_list_head[10];
 static int              sdl_pane_list_head_idx;
 
-// XXX these values need to be swapped if used directly
 static uint32_t         sdl_color_to_rgba[] = {
                             //    red           green          blue    alpha
-                               (127 << 24) | (  0 << 16) | (255 << 8) | 255,     // PURPLE
-                               (  0 << 24) | (  0 << 16) | (255 << 8) | 255,     // BLUE
-                               (  0 << 24) | (255 << 16) | (255 << 8) | 255,     // LIGHT_BLUE
-                               (  0 << 24) | (255 << 16) | (  0 << 8) | 255,     // GREEN
-                               (255 << 24) | (255 << 16) | (  0 << 8) | 255,     // YELLOW
-                               (255 << 24) | (128 << 16) | (  0 << 8) | 255,     // ORANGE
-                               (255 << 24) | (105 << 16) | (180 << 8) | 255,     // PINK 
-                               (255 << 24) | (  0 << 16) | (  0 << 8) | 255,     // RED         
-                               (224 << 24) | (224 << 16) | (224 << 8) | 255,     // GRAY        
-                               (255 << 24) | (255 << 16) | (255 << 8) | 255,     // WHITE       
-                               (  0 << 24) | (  0 << 16) | (  0 << 8) | 255,     // BLACK       
+                               (127 << 0) | (  0 << 8) | (255 << 16) | (255 << 24),  // PURPLE
+                               (  0 << 0) | (  0 << 8) | (255 << 16) | (255 << 24),  // BLUE
+                               (  0 << 0) | (255 << 8) | (255 << 16) | (255 << 24),  // LIGHT_BLUE
+                               (  0 << 0) | (255 << 8) | (  0 << 16) | (255 << 24),  // GREEN
+                               (255 << 0) | (255 << 8) | (  0 << 16) | (255 << 24),  // YELLOW
+                               (255 << 0) | (128 << 8) | (  0 << 16) | (255 << 24),  // ORANGE
+                               (255 << 0) | (105 << 8) | (180 << 16) | (255 << 24),  // PINK 
+                               (255 << 0) | (  0 << 8) | (  0 << 16) | (255 << 24),  // RED         
+                               (224 << 0) | (224 << 8) | (224 << 16) | (255 << 24),  // GRAY        
+                               (255 << 0) | (255 << 8) | (255 << 16) | (255 << 24),  // WHITE       
+                               (  0 << 0) | (  0 << 8) | (  0 << 16) | (255 << 24),  // BLACK       
                                         };
 
 //
@@ -150,7 +149,7 @@ static inline uint32_t _bswap32(uint32_t a)
 
 // -----------------  SDL INIT & MISC ROUTINES  ------------------------- 
 
-int32_t sdl_init(int32_t *w, int32_t *h, bool resizeable)
+int32_t sdl_init(int32_t *w, int32_t *h, bool resizeable, bool swap_white_black)
 {
     #define SDL_FLAGS (resizeable ? SDL_WINDOW_RESIZABLE : 0)
     #define MAX_FONT_SEARCH_PATH 3
@@ -230,6 +229,14 @@ int32_t sdl_init(int32_t *w, int32_t *h, bool resizeable)
     // currently the SDL Text Input feature is not being used here
     SDL_StopTextInput();
 
+    // if caller requests swap_white_black then swap the white and black
+    // entries of the sdl_color_to_rgba table
+    if (swap_white_black) {
+        uint32_t tmp = sdl_color_to_rgba[WHITE];
+        sdl_color_to_rgba[WHITE] = sdl_color_to_rgba[BLACK];
+        sdl_color_to_rgba[BLACK] = tmp;
+    }
+
     // register exit handler
     atexit(exit_handler);
 
@@ -282,10 +289,10 @@ static void set_color(int32_t color)
     uint32_t rgba;
 
     rgba = sdl_color_to_rgba[color];
-    r = (rgba >> 24) & 0xff;
-    g = (rgba >> 16) & 0xff;
-    b = (rgba >>  8) & 0xff;
-    a = (rgba      ) & 0xff;
+    r = (rgba >>  0) & 0xff;
+    g = (rgba >>  8) & 0xff;
+    b = (rgba >> 16) & 0xff;
+    a = (rgba >> 24) & 0xff;
     SDL_SetRenderDrawColor(sdl_renderer, r, g, b, a);
 }
 
@@ -428,7 +435,8 @@ void sdl_pane_manager(void *display_cx,                        // optional, cont
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + 'x') {  // ALT-x: terminate pane
                         pane_terminate(&pane_list_head, FG_PANE_CX);
                         redraw = true;
-                    } else if (event->event_id == SDL_EVENT_KEY_ALT + 'p') {  // ALT-p: print screen
+                    } else if (event->event_id == SDL_EVENT_KEY_ALT + 'p'  || // ALT-p: print screen
+                               event->event_id == SDL_EVENT_KEY_CTRL + 'p') { // CTRL-p: print screen
                         sdl_print_screen(print_screen_filename(),true,NULL);
                         redraw = true;
                     } else if (event->event_id == SDL_EVENT_KEY_ALT + SDL_EVENT_KEY_UP_ARROW) {  // ALT+arrow: move pane
@@ -1824,7 +1832,7 @@ texture_t sdl_create_filled_circle_texture(int32_t radius, int32_t color)
     int32_t radiusError = 1-x;
     int32_t pixels[width][width];
     SDL_Texture * texture;
-    uint32_t rgba = _bswap32(sdl_color_to_rgba[color]);
+    uint32_t rgba = sdl_color_to_rgba[color];
 
     #define DRAWLINE(Y, XS, XE, V) \
         do { \
@@ -1877,16 +1885,16 @@ texture_t sdl_create_text_texture(int32_t fg_color, int32_t bg_color, int32_t fo
     }
 
     fg_rgba = sdl_color_to_rgba[fg_color];
-    fg_sdl_color.r = (fg_rgba >> 24) & 0xff;
-    fg_sdl_color.g = (fg_rgba >> 16) & 0xff;
-    fg_sdl_color.b = (fg_rgba >>  8) & 0xff;
-    fg_sdl_color.a = (fg_rgba >>  0) & 0xff;
+    fg_sdl_color.r = (fg_rgba >>  0) & 0xff;
+    fg_sdl_color.g = (fg_rgba >>  8) & 0xff;
+    fg_sdl_color.b = (fg_rgba >> 16) & 0xff;
+    fg_sdl_color.a = (fg_rgba >> 24) & 0xff;
 
     bg_rgba = sdl_color_to_rgba[bg_color];
-    bg_sdl_color.r = (bg_rgba >> 24) & 0xff;
-    bg_sdl_color.g = (bg_rgba >> 16) & 0xff;
-    bg_sdl_color.b = (bg_rgba >>  8) & 0xff;
-    bg_sdl_color.a = (bg_rgba >>  0) & 0xff;
+    bg_sdl_color.r = (bg_rgba >>  0) & 0xff;
+    bg_sdl_color.g = (bg_rgba >>  8) & 0xff;
+    bg_sdl_color.b = (bg_rgba >> 16) & 0xff;
+    bg_sdl_color.a = (bg_rgba >> 24) & 0xff;
 
     // if the font has not been initialized then do so
     font_init(font_ptsize);
@@ -2185,7 +2193,7 @@ void sdl_print_screen(char *file_name, bool flash_display, rect_t * rect_arg)
     // it worked, flash display if enabled;
     // the caller must redraw the screen if flash_display is enabled
     if (flash_display) {
-        set_color(BLACK);
+        set_color(WHITE);
         SDL_RenderClear(sdl_renderer);
         SDL_RenderPresent(sdl_renderer);
         usleep(250000);
