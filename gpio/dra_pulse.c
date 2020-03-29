@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <signal.h>
+#include <math.h>
 #include <sys/time.h>
 
 #include <dra_gpio.h>
@@ -20,6 +21,7 @@ volatile bool done;
 // prototypes
 void get_pulse_rate(unsigned int intvl_us, double *gpio_read_rate, double *pulse_rate);
 void sigalrm_handler(int signum);
+char * stars(double value, int stars_max, double value_max);
 
 // -----------------  MAIN  --------------------------------------------
 
@@ -29,7 +31,9 @@ int main(int argc, char **argv)
     double gpio_read_rate, pulse_rate;
 
     // init dra_gpio capability
-    gpio_init();
+    if (gpio_init() != 0) {
+        return 1;
+    }
 
     // register for SIGALRM
     memset(&act, 0, sizeof(act));
@@ -40,8 +44,13 @@ int main(int argc, char **argv)
     while (true) {
         // get pulse rate, and print results
         get_pulse_rate(1000000, &gpio_read_rate, &pulse_rate);
+#if 0
         printf("gpio_read_rate = %.3f  pulse_rate = %.6f   (units million/sec)\n",
                gpio_read_rate/1000000, pulse_rate/1000000);
+#else
+        printf("%6.3f - %s\n",
+              pulse_rate/1000000, stars(pulse_rate/1000000, 160, 1.0));
+#endif
 
         // short delay
         usleep(500000);
@@ -92,3 +101,25 @@ void sigalrm_handler(int signum)
 {
     done = true;
 }
+
+char * stars(double value, int stars_max, double value_max)
+{
+    static char stars[1000];
+    int len;
+    bool overflow = false;
+
+    len = nearbyint((value / value_max) * stars_max);
+    if (len > stars_max) {
+        len = stars_max;
+        overflow = true;
+    }
+
+    memset(stars, '*', len);
+    stars[len] = '\0';
+    if (overflow) {
+        strcpy(stars+len, "...");
+    }
+
+    return stars;
+}
+

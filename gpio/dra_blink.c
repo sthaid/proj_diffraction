@@ -3,7 +3,9 @@
 
 int main(int argc, char **argv)
 {
-    gpio_init();
+    if (gpio_init() != 0) {
+        return 1;
+    }
 
     set_gpio_pin_mode(18, PIN_MODE_OUTPUT);
 

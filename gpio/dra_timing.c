@@ -11,7 +11,9 @@ int main(int argc, char **argv)
     double duration_secs;
     int v;
 
-    gpio_init();
+    if (gpio_init() != 0) {
+        return 1;
+    }
 
     set_gpio_pin_mode(25, PIN_MODE_INPUT);
 

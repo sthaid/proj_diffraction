@@ -1,4 +1,3 @@
-
 // This program was written to test the integration of the following ...
 // - Silicon Photomultiplier in a box which I hope keeps the light out
 //      Microfc-SMA-10035-GEVB
@@ -14,7 +13,7 @@
 //      The Pulse Strectcher output connected to GPIO_PIN 26
 // - This test program, which reads the GPIO 26 value in a tight loop,
 //   and post processes the data to determine the pulse rate.
-//   Refer to comments in the pulse_count routine for how the gpio values
+//   Refer to comments in the PARSE_PULSE macro for how the gpio values
 //   are processed to determine the pulse rate.
 
 // Power supplies
@@ -147,10 +146,10 @@ void sigint_handler(int signum);
 char * stars(double value, int stars_max, double value_max);
 
 void count_consecutive_reset(void);
-bool count_consecutive_at_eod(void);
+bool count_consecutive_is_at_eod(void);
 int count_consecutive(int v);
 
-void read_gpio(char *duration_secs_str, bool verbose);
+void read_gpio(char *duration_secs_str, bool verbose, double *gpio_read_rate_ret);
 int read_file(char *filename);
 void write_file(char *filename);
 void pulse_count(char *output_fmt_str);
@@ -165,6 +164,7 @@ int main(int argc, char **argv)
     struct sigaction act;
     char cmdline[1000], cmd[100], arg1[100], arg2[100];
     int rc;
+    double gpio_read_rate;
 
     // if arg is provided it should be a filename
     if (argc > 1) {
@@ -205,7 +205,7 @@ int main(int argc, char **argv)
                 printf("ERROR: gpio hardware access is not initialized\n");
                 continue;
             }
-            read_gpio(arg1, true);  // duration_secs_str, verbose
+            read_gpio(arg1, true, &gpio_read_rate);  // duration_secs_str, verbose, gpio_read_rate
         } else if (strcmp(cmd, "read_file") == 0) {
             read_file(arg1);  // filename_str
         } else if (strcmp(cmd, "write_file") == 0) {
@@ -263,7 +263,6 @@ char * stars(double value, int stars_max, double value_max)
 
 // -----------------  COUNT CONSECUTICE BITS OF GPIO.DATA  -------------
 
-// XXX review this again
 #define GET_BIT_AT_CCIDX \
     ((gpio.data[ccidx>>5] & (1 << (31 - (ccidx & 0x1f)))) != 0)
 
@@ -276,7 +275,7 @@ void count_consecutive_reset(void)
     max_ccidx = gpio.max_data * 32;
 }
 
-bool count_consecutive_at_eod(void)
+bool count_consecutive_is_at_eod(void)
 {
     return ccidx >= max_ccidx;
 }
@@ -287,7 +286,7 @@ int count_consecutive(int v)
 
     while (true) {
         if (ccidx >= max_ccidx) {
-            return -1;
+            return cnt;
         }
 
         if (GET_BIT_AT_CCIDX == v) {
@@ -301,13 +300,13 @@ int count_consecutive(int v)
 
 // -----------------  CMD HANDLER ROUTINES  ----------------------------
 
-void read_gpio(char *duration_secs_str, bool verbose)
+void read_gpio(char *duration_secs_str, bool verbose, double *gpio_read_rate_ret)
 {
     struct itimerval new_value, old_value;
     uint64_t start_us, end_us;
     double duration_secs;
     int max_data;
-    double rate;
+    double gpio_read_rate;
 
     // convert caller's duration_secs_str to duration_secs
     if (duration_secs_str[0] == '\0') {
@@ -337,13 +336,12 @@ void read_gpio(char *duration_secs_str, bool verbose)
     max_data = 0;
     start_us = microsec_timer();
     while (!sigalrm_rcvd) {
-        int i, v;
+        int i;
         unsigned int v32;
 
         for (v32 = 0, i = 0; i < 32; i++) {
-            v = gpio_read(GPIO_PIN);
-            v32 |= v;
             v32 <<= 1;
+            v32 |= gpio_read(GPIO_PIN);
         }
 
         gpio.data[max_data++] = v32;
@@ -359,10 +357,13 @@ void read_gpio(char *duration_secs_str, bool verbose)
     gpio.duration_us = end_us - start_us;
 
     // print gpio read rate
+    gpio_read_rate = (max_data * 32.) / ((end_us - start_us) / 1000000.);
     if (verbose) {
-        rate = (max_data * 32.) / ((end_us - start_us) / 1000000.);
-        printf("gpio read rate %g million samples/sec\n", rate/1000000);
+        printf("gpio read rate %g million gpio_read/sec\n", gpio_read_rate/1000000);
     }
+
+    // return the gpio_read_rate 
+    *gpio_read_rate_ret = gpio_read_rate;
 }
 
 int read_file(char * filename)
@@ -455,13 +456,38 @@ void write_file(char * filename)
     close(fd);
 }
 
+// First look for consecutive 1s followed by consecutive 0s.
+// If there are few consecutive 0s following the consecutive 1s then 
+//  these 0s are not considered the end of the pulse, instead they are considered
+//  to be part of the pulse. We allow for up to 4 short groups of consecutive
+//  0s to be considered part of the pulse.
+#define PARSE_PULSE \
+    do { \
+        int _i; \
+        cnt1 = count_consecutive(1); \
+        cnt0 = count_consecutive(0); \
+        for (_i = 0; _i < 4; _i++) { \
+            if (cnt0 >= 8) { \
+                break; \
+            } \
+            cnt1 += cnt0; \
+            cnt1 += count_consecutive(1); \
+            cnt0 = count_consecutive(0); \
+        } \
+    } while (0)
+
 void pulse_count(char *output_fmt_str)
 {
-    int count=0, sum_cnt1=0;
+    int count=0, sum_cnt0=0, sum_cnt1=0;
     double rate_kcntpersec;
     double duration_secs;
     double avg_pulse_len;
     int cnt1, cnt0, output_fmt;
+
+    if (gpio.magic != GPIO_STRUCT_MAGIC) {
+        printf("ERROR: no gpio data\n");
+        return;
+    }
 
     if (output_fmt_str[0] == '\0') {
         // graphical output, max rate value = 100 k cnt/sec
@@ -477,28 +503,24 @@ void pulse_count(char *output_fmt_str)
     }
 
     count_consecutive_reset();
-    count_consecutive(0);
+    sum_cnt0 += count_consecutive(0);
 
     while (true) {
-// XXX add comments describing the algorithm
-        cnt1 = count_consecutive(1);
-        cnt0 = count_consecutive(0);
-        if (cnt0 < 5) {
-            cnt1 += cnt0;
-            cnt1 += count_consecutive(1);
-            cnt0 = count_consecutive(0);
-        }
-        if (cnt0 < 5) {
-            cnt1 += cnt0;
-            cnt1 += count_consecutive(1);
-            cnt0 = count_consecutive(0);
-        }
-        if (count_consecutive_at_eod()) {
+        PARSE_PULSE;
+
+        sum_cnt0 += cnt0;
+        sum_cnt1 += cnt1;
+
+        if (count_consecutive_is_at_eod()) {
             break;
         }
 
-        sum_cnt1 += cnt1;
         count++;
+    }
+
+    if (sum_cnt0 + sum_cnt1 != gpio.max_data * 32) {
+        printf("ERROR: BUG sum_cnt0=%d sum_cnt1=%d gpio.max_data=%d\n",
+               sum_cnt0, sum_cnt1, gpio.max_data*32);
     }
 
     duration_secs = gpio.duration_us / 1000000.;
@@ -511,8 +533,8 @@ void pulse_count(char *output_fmt_str)
                count, duration_secs, avg_pulse_len, rate_kcntpersec);
         break;
     case 1 ... 10000:
-        printf("%8.3f max=%dK cnt/sec: %s\n", 
-               rate_kcntpersec, output_fmt, stars(rate_kcntpersec, 160, output_fmt));
+        printf("max=%d-kcnt/sec - %8.3f: %s\n", 
+               output_fmt, rate_kcntpersec, stars(rate_kcntpersec, 130, output_fmt));
         break;
     }
 }
@@ -522,28 +544,22 @@ void pulse_display(void)
     int cnt1, cnt0, lines=0;
     char s[100];
 
+    if (gpio.magic != GPIO_STRUCT_MAGIC) {
+        printf("ERROR: no gpio data\n");
+        return;
+    }
+
     count_consecutive_reset();
     count_consecutive(0);
 
     while (true) {
-        cnt1 = count_consecutive(1);
-        cnt0 = count_consecutive(0);
-        if (cnt0 < 5) {
-            cnt1 += cnt0;
-            cnt1 += count_consecutive(1);
-            cnt0 = count_consecutive(0);
-        }
-        if (cnt0 < 5) {
-            cnt1 += cnt0;
-            cnt1 += count_consecutive(1);
-            cnt0 = count_consecutive(0);
-        }
-        if (count_consecutive_at_eod()) {
+        PARSE_PULSE;
+        if (count_consecutive_is_at_eod()) {
             break; 
         }
 
         printf("%3d %6d: ", cnt1, cnt0);
-        printf("%-15s ", stars(cnt1, 10, 10));
+        printf("%-25s ", stars(cnt1, 20, 20));
         printf("%-65s ", stars(cnt0, 60, 60));
         printf("\n");
 
@@ -561,10 +577,12 @@ void pulse_display(void)
 
 void run(char *duration_secs_str, char *output_fmt_str)
 {
+    double gpio_read_rate;
+
     sigint_rcvd = false;
     while (!sigint_rcvd) {
-        read_gpio(duration_secs_str, false);
-// XXX also display rate
+        read_gpio(duration_secs_str, false, &gpio_read_rate);
+        printf("gpio_read_rate=%2.0f ", gpio_read_rate/1000000);
         pulse_count(output_fmt_str);
     }
     sigint_rcvd = false;
