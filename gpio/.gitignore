@@ -5,6 +5,7 @@ dra_blink
 dra_switch
 dra_timing
 dra_pulse
+dra_sipm
 wpi_blink
 wpi_switch
 wpi_timing

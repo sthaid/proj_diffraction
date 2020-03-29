@@ -12,7 +12,7 @@
 
 volatile unsigned int *gpio_regs;
 
-static inline void gpio_init(void)
+static inline int gpio_init(void)
 {
     #define PI4B_PERIPHERAL_BASE_ADDR 0xfe000000
     #define GPIO_BASE_ADDR            (PI4B_PERIPHERAL_BASE_ADDR + 0x200000)
@@ -21,8 +21,8 @@ static inline void gpio_init(void)
     int fd;
 
     if ((fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) {
-        printf("can't open /dev/mem \n");
-        exit(-1);
+        printf("ERROR: can't open /dev/mem \n");
+        return -1;
     }
 
     gpio_regs = mmap(NULL,
@@ -35,9 +35,11 @@ static inline void gpio_init(void)
     close(fd);
 
     if (gpio_regs == MAP_FAILED) {
-        printf("mmap failed\n");
-        exit(-1);
+        printf("ERROR: mmap failed\n");
+        return -1;
     }
+
+    return 0;
 }
 
 static inline void gpio_write(int pin, int value)
