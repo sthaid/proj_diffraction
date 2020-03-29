@@ -27,7 +27,7 @@
 // I use batteries because I worry about ground loops and other possible adverse
 // characteristics that may be associated with using an AC adapter.
 
-// Also refer to jpg files in this directory, for pictures of the setup. XXX
+// Also refer to jpg files in this directory, for pictures of the setup.
 
 // This program needs to be run as root to be able to access the GPIO registers.
 // If this program is just being used on a saved gpio file, then running as 
