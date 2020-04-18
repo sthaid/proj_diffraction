@@ -2,13 +2,8 @@
 TITLE: TODO
 ===============================================
 
-clean up book marks 
-
-update photons pgm to incorporate beam size and slit sizes
-- and check the logic, need this to determine the filter density
-- Updata photons program to account for the percentage of photons  
-  that actually go through the slit
-- also print the parameters with the results
+ND fileter OD needed = 8
+  - using b=/15  g=.50
 
 ifsim pgm
 - incorporate beam spread into ifsim.config, for the vertical spread

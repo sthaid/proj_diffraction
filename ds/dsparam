@@ -6,7 +6,6 @@ double_slit_0.10mm_space_0.10mm_38awg  2         532        -.15 -.05      +.05 
 double_slit_0.10mm_space_0.20mm_32awg  2         532        -.20 -.10      +.10 +.20
 double_slit_0.10mm_space_0.25mm_30awg  2         532        -.225 -.125     +.125 +.225
 double_slit_0.10mm_space_0.31mm_28awg  2         532        -.255 -.155     +.155 +.255
-
 double_slit_0.10mm_space_0.40mm        2         532        -.30 -.20      +.20 +.30
 double_slit_0.10mm_space_0.50mm        2         532        -.35 -.25      +.25 +.35
 double_slit_0.10mm_space_0.60mm        2         532        -.40 -.30      +.30 +.40
@@ -15,6 +14,19 @@ double_slit_0.10mm_space_0.80mm        2         532        -.50 -.40      +.40 
 
 point_double_slit_spacing_0.40         2         532       -.2 -.2         +.2  +.2
 point_single_slit                      2         532       0 0
+
+# 4 Double Slits of Different Spacings    U14101  <=== ORDERED THIS ONE
+# Slit Width (b)  =   .15 mm
+# Spacings (g)    =   .25  .5  .75  1.0
+# https://www.amazon.com/gp/product/B00KWZ5WQ0/ref=ox_sc_act_title_1?smid=ATVPDKIKX0DER&psc=1
+#
+# spacing is measured from the centers of the slits, (I think)
+
+slide_0.15mm_space_ctr_0.25mm          2          532         -.2 -.05        +.05 +.2
+slide_0.15mm_space_ctr_0.50mm          2          532         -.325 -.175     +.175 +.325
+slide_0.15mm_space_ctr_0.75mm          2          532         -.45 -.3        +.3 +.45
+slide_0.15mm_space_ctr_1.00mm          2          532         -.575 -.425     +.425 +.575
+
 
 #double_slit_0.10mm                     1.117     532        -.15 -.05      +.05 +.15
 #double_slit_0.10mm_b                   1.117     532        -.16 -.05      +.05 +.16

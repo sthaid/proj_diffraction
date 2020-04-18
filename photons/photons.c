@@ -19,19 +19,28 @@ struct {
     char *name;
     double wavelength;
     double detector_effeciency;
-} color_tbl[3] = {
+} color_tbl[] = {
+#if 0
     { "RED",   635e-9,   0.13 },  // effeciency is for overvoltage=5.0v
     { "GREEN", 520e-9,   0.27 },
     { "BLUE",  445e-9,   0.40 },
+#else
+//  { "RED",   635e-9,   0.10 },  // effeciency is for overvoltage=3.5v  
+    { "GREEN", 520e-9,   0.22 },  // note: 4/18/2020 based on 3 9v batteries providing
+//  { "BLUE",  445e-9,   0.33 },  //       28v, which is 3.5v larger than Vbr 24.5
+#endif
                     };
 
 const double h                = 6.626e-34;          // planck constant
 const double c                = 2.998e8;            // speed of light
-const double laser_power      = 5e-3;               // 5 milliwatt output beam power
-const double filter_od        = 7;                  // filter optical density
+const double laser_power      = 5e-3;               // 5 milliwatt output beam power  XXX output power <5mW
+const double filter_od        = 8;                  // filter optical density
 const double double_slit_pass = 0.2;                // fraction of laser photons which pass through double slit
-const double pattern_area     = (100e-3 * 10e-3);   // 100mm x 10mm
-const double detector_area    = (.1e-3 * 1e-3);     // .1mm x 1mm
+                                                    //   note: 4/18/2020 calculated based on 1.6mm dia beam and
+                                                    //         using the slide b=.15 g=.50
+const double pattern_area     = (38e-3 * 2e-3);     // 38mm x 2mm  
+                                                    //    note: 4/18/2020 measured with slide b=.15 g=.50
+const double detector_area    = (1e-3 * 1e-3);      // 1mm x 1mm
 
 void calculate_detector_count_rate(int color);
 
@@ -70,15 +79,15 @@ void calculate_detector_count_rate(int color)
     photon_rate_after_filter      = photon_rate_at_laser * pow(10, -filter_od);
     photon_rate_after_double_slit = photon_rate_after_filter * double_slit_pass;
     detector_count_rate           = photon_rate_after_double_slit * 
-                                   (detector_area / pattern_area) * 
-                                   detector_effeciency;
+                                    (detector_area / pattern_area) * 
+                                    detector_effeciency;
     intvl_ns                      = 1 / photon_rate_after_double_slit * 1e9;
 
     // notes:
     // - intvl_ns is the average interval between photons after the filter
     // - an intvl_ns of 1 would mean the photons are on average seperated by 1 foot
 
-    printf("%8s : detctor_count_rate=%.0f  intvl_ns=%0.2f  (%e %e)\n", 
+    printf("%8s : detctor_count_rate=%.0f  intvl_ns=%0.2f  laser_per_sec=%g  after_double_slit_persec=%g\n", 
           name, 
           detector_count_rate, 
           intvl_ns,
