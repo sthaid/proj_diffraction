@@ -2,20 +2,10 @@
 TITLE: TODO
 ===============================================
 
-ND fileter OD needed = 8
-  - using b=/15  g=.50
-
-ifsim pgm
-- incorporate beam spread into ifsim.config, for the vertical spread
-
-check edmund scientific specifications, and start to make order list
-- filter sizes
-- platform sizes
-- height of center line mounted mirrors, etc
-- some of the results from earlier searches
-     50 x 50 mm   thickness 2.1 mm  and 2.8 mm for OD 3 and 4
-     SCHOTT NG9, 3.0 OD, 50mm Sq., Absorptive ND Filter
-     SCHOTT NG9, 4.0 OD, 50mm Sq., Absorptive ND Filter
+INFO:
+- using Double Slit  b=/15  g=.50
+- ND filter OD=8,  so get 2x OD=4;  50x50x2.8
+- optical axis is 1"
 
 3d printing
 - holder for single or double slit slides
@@ -60,6 +50,26 @@ TITLE: TODO LATER
 - rpi / gpio - update dra_gpio.h to allow for setting pull up/down
 
 - add README for all subdirs
+
+===============================================
+TITLE: EDMUND OPTICS
+===============================================
+
+Home                https://www.edmundoptics.com/c/products/0/
+Optical Components  https://www.edmundoptics.com/c/optics/602/
+Opto Mechanics      https://www.edmundoptics.com/c/optomechanics/604/
+  Tables and Breadboards:  https://www.edmundoptics.com/c/optical-tables-breadboards/1180/
+  Optical mounts           https://www.edmundoptics.com/c/benchtop-optical-mounts/645/
+  Kinematic Optical Mounts https://www.edmundoptics.com/f/kinematic-circular-optical-mounts/13402/
+
+Neutral Density Filters
+  https://www.edmundoptics.com/c/neutral-density-filters/619/#28105=28105_s%3ANTAuMCB4IDUwLjA1&27966=27966_s%3ANA2&27966=27966_s%3ANC4w0&27966=27966_s%3ANC4wMA2
+  https://www.edmundoptics.com/p/schott-ng9-40-od-50mm-sq-absorptive-nd-filter/42610/
+      SCHOTT NG9, 4.0 OD, 50mm Sq., Absorptive ND Filter
+      $80
+      50x50x2.8
+      can be stacked
+      uncoated
 
 ===============================================
 TITLE: SOME OF THE PARTS ORDERS
