@@ -1,89 +1,144 @@
-ifsim 
-- pgm documentation in README file
-- put scale on diagram so size of hole can be checked
-
-measure laser beam width and spread
-- incorporate into ifsim.config
-- incorporate into photons
-
-investigate optical components, for accurately positioning the mirrors and beamsplitters0
-
-how does a divergine lense work
-
-work on my single photon detector
-
-README.txt needed in photons and poisson dirs
-
-clean up this file
-
------------------------------------------------------------------------
------------------------------------------------------------------------
------------------------------------------------------------------------
------------------------------------------------------------------------
-
-.1mm slit width
-532 nm
-distance = 2.0 m
-
-                  fringes  
-seperation    num minimum   seperation
-   .10mm             2         4.85 mm       38 awg
-   .20mm             4         3.41 mm       32 awg
-   .25mm           4 or 6      2.95 mm       30 awg
-   .31mm             6         2.54 mm       28 awg
-
-check on ebay order
-what wire size / gauge
-  28  .321 mm   OR  .0122 inch = .31 mm    IN CART
-  29  .286 mm
-  30  .255 mm   OR  .0098 inch = .249 mm   IN CART
-  31  .227 mm
-  32  .202 mm   OR  .0078 inch = .198 mm   IN CART
-
-print this time but also 
-- include room for a base and 
-- don't slit all the way through
-- use holes to fasten wire 
-
 ===============================================
-TODO
+TITLE: TODO
 ===============================================
 
-General TODO
-- clean up book marks doubleslit2
-- place print order
-- order screws from boltdepot, need at least 7
+clean up book marks 
 
-Laser Box                                                               TODO
-- find a solid base
-- design box, and make drawings, could use tinkercad
-  - how much space will be needed for the interferometer
-- will need the height of the sensor for box design
-- need to buy
-  - buy circular saw to cut the hole for the pvc pipe
-  - buy neutral density filter, but first determine what level is needed
-- buy misc parts
-  - 1" wood base   SHOULD ARRIVE MARCH 4
-- design 3d print parts for laser mount
+update photons pgm to incorporate beam size and slit sizes
+- and check the logic, need this to determine the filter density
+- Updata photons program to account for the percentage of photons  
+  that actually go through the slit
+- also print the parameters with the results
 
-Laser Mount 
-- pick out green laser and get dimensions                            DONE
-  - will need to measure the dimensions when it gets here
-- tinkercad pieces needed, and print them                            TODO
-  - cone and backplate                                               
-  - the ball and hole 
-  - laser end support
-- what is size of ND filter                                          DONE
+ifsim pgm
+- incorporate beam spread into ifsim.config, for the vertical spread
+
+check edmund scientific specifications, and start to make order list
+- filter sizes
+- platform sizes
+- height of center line mounted mirrors, etc
+- some of the results from earlier searches
      50 x 50 mm   thickness 2.1 mm  and 2.8 mm for OD 3 and 4
      SCHOTT NG9, 3.0 OD, 50mm Sq., Absorptive ND Filter
      SCHOTT NG9, 4.0 OD, 50mm Sq., Absorptive ND Filter
-- buy laser pointer with on/off switch                               DONE
-     https://www.apinex.com/ret2/JLPS-20B.html
-- searching for 'inside outside thread nut'
-       "inside outside thread nut"
-       "metric threaded insert"
-       T Nuts
-       "inside outside thread screw sleeve conversion nut"
+
+3d printing
+- holder for single or double slit slides
+- holder for filters
+- maybe a mount for the SiPM sensor
+- maybe another piece for homemade single slit, with base
+
+sensor box
+- more coats of paint
+- attach translation rail to the box, and wire it up
+  - update pololu setting.txt and do_apply_settngs
+  - test it
+- put sensor in box and test the count rates 
+- put hole in box for power cord for light too, maybe the
+  light can be permanently in the box
+- retest the sipm count rate
+- SiPM sensor 
+   - mount design
+   - new mounting board for amplifiers, using 5V battery
+
+laser box
+- design
+- may want to use the foam all around
+
+orders
+- more foam?
+- mounting boad for amplifiers
+- single slit slide
+- usb power cable
+- parts for laser box
+  - more foam ?
+  - eye hooks, what are these for?
+  - angle bracket for laser
+- prepare edmund scientific order
+  - investigate optical components, for accurately positioning the mirrors and beamsplitters0
+- boltdepot
+
+===============================================
+TITLE: TODO LATER
+===============================================
+
+- rpi / gpio - update dra_gpio.h to allow for setting pull up/down
+
+- add README for all subdirs
+
+===============================================
+TITLE: SOME OF THE PARTS ORDERS
+===============================================
+
+laser pointer
+  https://www.apinex.com/ret2/JLPS-20B.html
+
+pulse stretcher
+  http://www.proto-advantage.com/store/
+  https://www.digikey.com/en/datasheets/linear-technologyanalog-devices/linear-technologyanalog-devices-45780
+
+silicon photomultiplier
+  https://www.digikey.com/product-detail/en/on-semiconductor/MICROFC-SMA-10035-GEVB/MICROFC-SMA-10035-GEVBOS-ND/9744734
+
+amplifiers for SiPM
+  https://www.minicircuits.com/WebStore/dashboard.html?model=ZX60-43-S%2B
+
+bolt depot
+  https://www.boltdepot.com/Product-Details.aspx?product=2301
+
+linear rail
+  https://www.pololu.com/product/3130      # TIC T825
+  https://www.amazon.com/gp/product/B07DC42DLW/ref=ppx_yo_dt_b_asin_title_o01_s01?ie=UTF8&psc=1
+
+shims
+  https://www.accu.co.uk/704-shim-washers#elasticsearch_id_feature_894828=894828_125&id_elasticsearch_category=704&orderby=ranking&orderway=asc
+
+double slit slide
+  https://www.amazon.com/gp/product/B00KWZ5WQ0/ref=ox_sc_act_title_1?smid=ATVPDKIKX0DER&psc=1
+
+raspberry pi t-type gpio expander
+  https://www.amazon.com/gp/product/B01LYN4J3B/ref=ox_sc_act_title_1?smid=A3IRH1M32QHQ71&psc=1
+
+===============================================
+TITLE: LASERS
+===============================================
+
+My purchased greeen laser pointer with on/off switch
+   https://www.apinex.com/ret2/JLPS-20B.html
+
+   Specifications :
+        Laser Class   : 3R ( IIIa )
+        Output Power  : <5mW
+        Wavelength    : 532nm
+        Batteries     : 2 x AAA, (2 x 1.5V)
+        Body material : Brass
+        Range         : 2000 meters
+
+   My Measurements of this laser ...
+       beam width 
+       - 1.6mm close to laser
+       - 2 mm at about 7 feet
+
+General Info: light wavelength
+  400    to 700     nanometers
+  400e-9 to 700e-9  meters
+  .4e-6  to .7e-6   meters
+  approx  0.5    micrometers
+  approx  0.0005 millimeter
+
+  Infrared 750 nm to 1000000 nm
+  Red      610-750 nm
+  Green    500-570
+  Blue     450-500    (this will work best with my SiPM)
+  Violet   400-425 nm
+
+General Info: how many photons are emitted from a laser pointer
+- http://umdberg.pbworks.com/w/page/50455623/Momentum%20of%20a%20laser%20beam
+- A laser pointer typically has a power rating of 1 mW, or 0.001 Joules per second. 
+  This means that every second a laser pointer emits a number of photons equal to 
+  (3.2x1018photons/J)(0.001J/s) = 3.2x1015 photons/s.
+
+Laser Mount 3D Printed
 - tinkercad dimensions, and notes
   - laser end dimensions
     - fron end  13.60 mm
@@ -94,7 +149,7 @@ Laser Mount
     - small cylnder diameter  = 8 mm
     - large cylinder diameter = 13.6   height 16
     - laser cylinder end below spere center by 4 mm
-  - screws to be used
+  - screws to be used XXX ADD TO BOLTDEPOT ORDER
     - https://www.boltdepot.com/Product-Details.aspx?product=2301
     - Sheet metal screws, Self tapping, Phillips pan head, Stainless steel 18-8, #6 x 5/8"
     - head dia max .270"      = 6.858 mm      USE 7.0 mm
@@ -129,106 +184,8 @@ Laser Mount
       - centered 12.5 mm from ends
       - dia = 5.6 mm
 
-SiPM sensor
-- need to know height of sensor for Laser Box design                   TODO
-- design the mount for the SiPM sensor
-- connect to new amplifier and view dark pulses on scope
-- add some light and compare pulse rate with light on and off
-- ordered the ZX60−43S+  - should receive 2nd eamil Feb 12             ORDERED
-- rpi / gpio
-  - try using real time enhancements
-  - update dra_gpio.h to allow for setting pull up/down
-- try to make use of the inexpensive RF amplifiers ?                   MAYBE LATER
-  - how to make band pass filter
-  - simulate band pass filter with my circuit simulator             
-    (maybe modify it to do a frequency sweep graph, 
-     but this is probably too hard)
-  - buy 2nd $10 amp
-  - buy parts for band pass filter
-  - make the band pass filter, and try another 2nd $10 amp           
-
-Work on my double slit proto
-- assemlbe once parts are received                                  TODO
-- mount for my double slit                                          TODO
-- .1 mm diameter wire                                               RECEIVED
-- thickness measurements
-  - thickness of razor blade  .089 mm
-  - thickness of paper        .095 mm
-  - diameter of wire ordered  .099 mm
-- hardware from bolt depot                                          RECEIVED 
-  - m3 nuts        10
-  - m3 washers     10   fender
-  - m3 screws      10   5mm len
-  - m3 screws      10   8mm len
-  - m3 screws      10  10mm len
-  - and same as above for m4
-  - #39 drill, 2.5mm
-- 3d print - sla                                                    ORDERED
-  info: razor is 22 x 43
-  tinkercad
-   - piece  46 x 46 x 8
-   - center box is 10 x 10
-   - m3 screw holes 11 mm off center line, and diameter 3.5 mm
-   - slits are on center line, and are     1  10.5 8
-       3 mm from edge of box
-       10.5 mm long
-       1 mm wide
-   - cylindr 5 x 5 x 8
-- order shims                                                       OREDERED FROM ACCU & EBAY
-- INFO shims
-  - 0.1 mm stainless steel shim
-  - Thickness Feeler Gauge 0.1mm Stainless Steel
-  - https://www.ebay.com/itm/4-5-x-10-x-0-1mm-Stainless-Steel-Shim-Washer-10pcs/323746351062?hash=item4b60c947d6:g:BU8AAOSwVDpca35V
-  - https://www.accu.co.uk/704-shim-washers#elasticsearch_id_feature_894828=894828_125&id_elasticsearch_category=704&orderby=ranking&orderway=asc
-        ACCU 22 x 16
-             18 x 12
-             16 x 10
-             14 x 8
-             12 x 6
-             10 x 5
-             8 x 4
-             6 x 3
-        EBAY 10 x 4.5
-
-Updata photons program to account for the percentage of photons      TODO
-that actually go through the slit
-- also print the parameters with the results
-
-sensor box
-- make drawing, including the wiring
-- make the box
-- test for light leaks
-- mount the rail and the sensor
-- test the dark count rate in the box in lighted room and darkened room
-- consider painting interior black
-- mount a low level light source on the flange cap for testing
-
-Misc
-- check amazon order for double slit                                 TODO
-- clean up devel dir
-  - add README
-  - update pololu setting.txt and do_apply_settngs
-
 ===============================================
-POSSIBLE FUTURE ENHANCEMENTS
-===============================================
-
-check into peltier cooling 
-- the cooler would be cooling the entire sensor box
-- https://www.amazon.com/s?k=peltier+cooler&ref=nb_sb_noss_2
-- graph the dark rate based on cooling
-
-===============================================
-BOX FOR PHOTON COUNTER
-===============================================
-
-PVC Pipe Sizes
-  https://www.pvcfittingsonline.com/resource-center/pvc-pipe-od-size-chart/
-
-SEARCH:  Square Mounting Flange Spigot/Street
-
-===============================================
-PULSE STRETCHER   
+TITLE: PULSE STRETCHER   
 ===============================================
 
 LTC6752 Pulse Stretcher Circuit/Monostable Multivibrator
@@ -273,7 +230,7 @@ Comparison of Feedback vs Bias voltage on U1
 Connection to GPIO
 
 Performance Measurements
-  The values in the above table were determined by reducing the SigGen
+  The values in the table below were determined by reducing the SigGen
   amplitude to the point that the dra_pulse program (on the Raspberry Pi)
   stopped detecting the pulses at the expected frequency.
 
@@ -308,17 +265,7 @@ Future Investigations TODO
   4) how does oscilloscipe probe work
 
 ===============================================
-RASPBERRY PI
-===============================================
-
-Recent Model
-  Raspberry Pi-4 B  1,2,4GB
-
-GPIO Access - T Type Expansion Board
-  https://www.amazon.com/gp/product/B01LYN4J3B/ref=ox_sc_act_title_1?smid=A3IRH1M32QHQ71&psc=1
-
-===============================================
-LINEAR RAIL ACTUATOR
+TITLE: LINEAR RAIL ACTUATOR
 ===============================================
 
 Purchased this Linear Rail Actuator
@@ -362,7 +309,7 @@ My controller
   with sufficient additional cooling).
 
 ===============================================
-DOUBLE SLIT 
+TITLE: DOUBLE SLIT 
 ===============================================
 
 Ordered from Amazon:
@@ -377,55 +324,66 @@ Also Available - but did not order this one
   Spacings (g)    =     .3
   https://www.amazon.com/gp/product/B00KWZ6DOU/ref=ox_sc_act_title_2?smid=ATVPDKIKX0DER&psc=1
 
+Making my own Double Slit using razor blades and wire:
+- info wire gauge vs diameter
+    28  .321 mm 
+    29  .286 mm
+    30  .255 mm
+    31  .227 mm
+    32  .202 mm
+    38  .101 mm
+- info: various thickness measurements
+  - thickness of razor blade  .089 mm
+  - thickness of paper        .095 mm
+  - diameter of wire ordered  .099 mm
+- 3d print - sla 
+    info: razor dimensions are 22 x 43
+    tinkercad
+     - piece  46 x 46 x 8
+     - center box is 10 x 10
+     - m3 screw holes 11 mm off center line, and diameter 3.5 mm
+     - slits are on center line, and are     1  10.5 8
+         3 mm from edge of box
+         10.5 mm long
+         1 mm wide
+     - cylindr 5 x 5 x 8
+- shims  .1mm stainless steel shims
+  - https://www.accu.co.uk/704-shim-washers#elasticsearch_id_feature_894828=894828_125&id_elasticsearch_category=704&orderby=ranking&orderway=asc
+
+Simulation of my double slit proto (using razor blades and wire):
+- using the 'ds' program
+  - .1mm slit width
+  - 532 nm
+  - distance = 2.0 m
+  - seperation refers to the distance between the edges of the 2 slits (not the centers)
+                       fringes  
+     seperation    num minimum   seperation
+        .10mm             2         4.85 mm       38 awg
+        .20mm             4         3.41 mm       32 awg
+        .25mm           4 or 6      2.95 mm       30 awg
+        .31mm             6         2.54 mm       28 awg
+
+===============================================
+TITLE: SINGLE SLIT 
+===============================================
+
 Experiments with single slits I made using utility knife blades:
-  The Seperation in the below refers to the 
+- The Seperation in the below refers to the 
    first 2 nulls on opposite sides of the middle.
-  The Predicted Seperation is from the 'ds' program.
-
-  APPROXIMATE      PREDICTED         MEASURED 
-  SLIT WIDTH       SEPERATION        SEPERATION
-    .10 mm           26 mm            40 mm
-    .15 mm           18 mm            14 mm
-    .25 mm           11 mm            10 mm
-
-===============================================
-WAVELENGTH OF LIGHT    
-===============================================
-
-light wavelength
-- 400    to 700     nanometers
-- 400e-9 to 700e-9  meters
-- .4e-6  to .7e-6   meters
-- approx  0.5    micrometers
-- approx  0.0005 millimeter
-
-Infrared 750 nm to 1000000 nm
-Red      610-750 nm
-Green    500-570
-Blue     450-500    <==== this will work best with my SiPM
-Violet   400-425 nm
+- The Predicted Seperation is from the 'ds' program.
+    APPROXIMATE      PREDICTED         MEASURED 
+    SLIT WIDTH       SEPERATION        SEPERATION
+      .10 mm           26 mm            40 mm
+      .15 mm           18 mm            14 mm
+      .25 mm           11 mm            10 mm
 
 ===============================================
-LOW RATE PHOTON GENERATION
-===============================================
-
-how many photons are emitted from a laser pointer
-- http://umdberg.pbworks.com/w/page/50455623/Momentum%20of%20a%20laser%20beam
-- A laser pointer typically has a power rating of 1 mW, or 0.001 Joules per second. 
-  This means that every second a laser pointer emits a number of photons equal to 
-  (3.2x1018photons/J)(0.001J/s) = 3.2x1015 photons/s.
-
-Red light lasers were once the standard, but lost its supremacy down the road. 
-Red lasers lack the power and distance possible in newer models. Red lasers use 
-diodes, optics, and various electronic components. Its wavelength is 630-680nm 
-and its power is 5mW and below.
-
-===============================================
-SILICON PHOTMULTIPLIER  (SiPM)
+TITLE: SILICON PHOTMULTIPLIER  (SiPM)
 ===============================================
 
 Digikey.com
 -----------
+
   login   <== this is important
   Product Index > Development Boards, Kits, Programmers > Evaluation Boards - Sensors
      ON SEMI
@@ -445,13 +403,9 @@ Digikey.com
 
   The search page from above: https://www.digikey.com/products/en/development-boards-kits-programmers/evaluation-boards-sensors/795?FV=-1%7C488%2C345%7C364931%2C-8%7C795%2C-5%7C1054&quantity=0&ColumnSort=1000011&page=1&pageSize=25
 
-===============================================
-SILICON PHOTMULTIPLIER  (SiPM) ...
-Notes On The MICROFC-SMA-10035-GEVB - C-SERIES 1MM 35U SMA
-===============================================
+C-Series SiPM Sensorss    ON Semiconductor
+------------------------------------------
 
-DOC: C-Series SiPM Sensorss    ON Semiconductor
------------------------------------------
 Overview
 - low dark count rate
 - high PDE
@@ -491,7 +445,7 @@ Evaluation Boards - SMA Biasing Borard MicroFc-SMA-xxxxx
      Fout   :  Fast Output
      Sout   :  Standard Output  (ande)
 
-DOC: Reference Designs for the SMA and SMTPA MLP-Packaged SiPM Evaluation Boards
+Reference Designs for the SMA and SMTPA MLP-Packaged SiPM Evaluation Boards
 ---------------------------------------------------------------------------
 
 J1 Bias
@@ -501,7 +455,7 @@ J3 Sout
 Sout is attached to 49R9-0402 Resisotor
   This appears to be 49.9 ohms
 
-DOC: Introduction to the Silicon Photomultiplier (SiPM)
+Introduction to the Silicon Photomultiplier (SiPM)
 -------------------------------------------------
 
 Standard Output Pulse Shape  (not for my part though)
@@ -510,8 +464,8 @@ Standard Output Pulse Shape  (not for my part though)
 - 80mv  - 50 ms
 - 100mv - max
   
-DOC: Biasing and Readout of ON Semiconductor SiPM Sensors
------------------------------------------------------
+Biasing and Readout of ON Semiconductor SiPM Sensors
+----------------------------------------------------
 
 P-on-N structure used for blue-sensitive SiPMs - C-Series, J-series
 
@@ -589,22 +543,13 @@ HiLetgo 0.1-2000MHz RF WideBand Amplifier 30dB High Gain Low Noise LNA Amplifier
   5 V when the input is 12 Volts. This is because of the voltage drop across the
   bias resistor
 
-===============================================
-DIODES
-===============================================
+Integration SiPM + Amplifier + PulseStretcher + RaspberryPi
+-----------------------------------------------------------
 
-    Anode  ------------->|------------  Cathode
-
-    LED Larger Pin
-
-
-    GPIO 3.3v  -------->|--------220ohm-------- GND
-
-
-    LED Voltage drop approx 1.8V
+See comments in gpio/dra_sipm.c
 
 ===============================================
-3D PRINTING - ABS vs PLA materials
+TITLE: 3D PRINTING - ABS vs PLA materials
 ===============================================
 
 https://www.3dhubs.com/knowledge-base/pla-vs-abs-whats-difference/
@@ -672,7 +617,7 @@ rules-of-thumb ...
                                                 at lower temperatures
 
 ===============================================
-3D PRINTING - SLA
+TITLE: 3D PRINTING - SLA
 ===============================================
 
 https://www.3dhubs.com/knowledge-base/introduction-sla-3d-printing/
@@ -786,3 +731,37 @@ Rules of Thumb
   injection molded-like parts at an affordable price.
 - Industrial SLA machines can produce very large parts (as big as 
   1500 x 750 x 500 mm).
+
+===============================================
+TITLE: MISC
+===============================================
+
+Raspberry Pi
+------------
+
+Recent Model
+  Raspberry Pi-4 B  1,2,4GB
+
+GPIO Access - T Type Expansion Board
+  https://www.amazon.com/gp/product/B01LYN4J3B/ref=ox_sc_act_title_1?smid=A3IRH1M32QHQ71&psc=1
+
+PVC Pipe Sizes
+--------------
+
+https://www.pvcfittingsonline.com/resource-center/pvc-pipe-od-size-chart/
+SEARCH:  Square Mounting Flange Spigot/Street
+
+
+Diodes / LEDs
+-------------
+
+LEDs:
+- Longer Pin is usually the anode
+- Voltage drop approx 1.8V
+
+Anode  
+LED Longer   ------------->|------------  Cathode
+Pin
+
+GPIO 3.3v -------->|--------220ohm-------- GND
+

@@ -1,6 +1,7 @@
 # name                             distance  wavelen      slit start/end pairs
 #                                  (meters)  (nanometer)  (millimeters)
 single_slit_0.10mm                     2         532       -.050 .050
+
 double_slit_0.10mm_space_0.10mm_38awg  2         532        -.15 -.05      +.05 +.15
 double_slit_0.10mm_space_0.20mm_32awg  2         532        -.20 -.10      +.10 +.20
 double_slit_0.10mm_space_0.25mm_30awg  2         532        -.225 -.125     +.125 +.225
