@@ -3,15 +3,27 @@ TITLE: TODO
 ===============================================
 
 INFO:
-- using Double Slit  b=/15  g=.50
+- using Double Slit  b=.15  g=.50
 - ND filter OD=8,  so get 2x OD=4;  50x50x2.8
 - optical axis is 1"
+- metric breadboard  M6 ,  25mm hole spacing,  clearance hole for M6 = 6.6mm
+
+place bolt depot order
+5174 - Metric machine screws, Phillips pan head, Stainless steel 18-8 (A-2), 4mm x 0.7mm x 50mm.
+           Each	10 $0.24	$2.40	Remove
+5583 - Metric machine screws, Phillips pan head, Stainless steel 18-8 (A-2), 4mm x 0.7mm x 60mm. 
+           Each	10 $0.31	$3.10	Remove
+6896 - Metric wing nuts, Stainless steel 18-8 (A-2), 4mm x 0.7mm. 
+           Each	10 $0.38	$3.80	Remove
+XXX ADD
+- eye hooks and mounting for the translation rail
+- spacers for the optical breadboard
 
 3d printing
-- holder for single or double slit slides
-- holder for filters
-- maybe a mount for the SiPM sensor
-- maybe another piece for homemade single slit, with base
+- holder for double slit slides                            TINKERCAD done
+- maybe another piece for homemade single slit, with base  TINKERCAD done
+- holder for filters                                       XXX
+- a mount for the SiPM sensor                              XXX later
 
 sensor box
 - more coats of paint
@@ -31,10 +43,9 @@ laser box
 - may want to use the foam all around
 
 orders
-- more foam?
-- mounting boad for amplifiers
-- single slit slide
-- usb power cable
+- usb power cable       IN CART
+- more foam?            IN CART
+- mounting board for amplifiers
 - parts for laser box
   - more foam ?
   - eye hooks, what are these for?
@@ -42,6 +53,7 @@ orders
 - prepare edmund scientific order
   - investigate optical components, for accurately positioning the mirrors and beamsplitters0
 - boltdepot
+- single slit slide   NOT AVAIL
 
 ===============================================
 TITLE: TODO LATER
@@ -105,6 +117,94 @@ raspberry pi t-type gpio expander
   https://www.amazon.com/gp/product/B01LYN4J3B/ref=ox_sc_act_title_1?smid=A3IRH1M32QHQ71&psc=1
 
 ===============================================
+TITLE: TINKERCAD
+===============================================
+
+Notes on using tinkercad:
+- login https://accounts.autodesk.com/User/SignUp    
+    username = my email addr
+- ctl up / down for z axis positioning
+
+mount for ND filtess
+           W    L    H
+- piece   68   18   58
+- cutout  52   10   50    centered at top of piece
+- circle  D=30  centered on cutout
+- handles D=8 L=10
+
+mmount for single slit razor blades
+- starting with the double slit piece: which is 46x46 x 8
+- need to rotate 90 and raise by 2.4 to center on 1"
+- add base   46x30x8   with hole track  6.5 x 26
+
+mount for double slit slide
+- slide actual is 50x50x3.1
+- vertical
+  - w=68  h=42  d=10.3
+  - slide cutout  w=52 d=3.3  h=42
+  - square view hole  w=30  h=23  hole bottom is 13 from bottom of vertical piece
+- base
+  - w=68   l=22   h=8
+  - hole trk 6.6 x 38
+
+Laser Mount
+- laser end dimensions
+  - fron end  13.60 mm
+  - back end  13.40 mm
+- sphere
+  - laser end diameter      = 13.60
+  - sphre diameter          = 24
+  - small cylnder diameter  = 8 mm
+  - large cylinder diameter = 13.6   height 16
+  - laser cylinder end below spere center by 4 mm
+- screws to be used XXX ADD TO BOLTDEPOT ORDER
+  - https://www.boltdepot.com/Product-Details.aspx?product=2301
+  - Sheet metal screws, Self tapping, Phillips pan head, Stainless steel 18-8, #6 x 5/8"
+  - head dia max .270"      = 6.858 mm      USE 7.0 mm
+  - head height max  .097"  = 2.46 mm       USE 2.6 mm
+  - diameter .138"          = 3.505 mm      USE 3.6 mm
+- cone and nd filter mount
+  - nd filter mount dimensions  50 x 50 x 7 mm
+  - cone hole diameter          8 mm
+  - cone max od                 25 mm
+  - cone angle                  30 degrees 
+  - cone dims 
+    - top radius    = 4 mm
+    - base radius   = 12.5
+    - height        = 14.72
+    - then rotate   = 180 degrees
+  - cylinder dims 
+    - 25.4 x 25.4 x 14.72
+  - box to be placed below cylinder/cone combo
+    - dims  50 x 50 x 7
+    - 8 mm hole in middle
+  - screw dims 
+              DIA         HEIGHT
+     thread  3.6mm      through-hole
+     head    7.0mm      2.6
+- back end attachment to laser
+  - 13.40 diameter hollow cylinder
+  - 25 x 25 x 10 box
+- back end support
+  - bottom   41 x 30 x 8
+  - side      8 x 30 x 41  OR copy and rotate bottom
+  - holes for adjusting screws 
+    - centered 12.5 mm from ends
+    - dia = 5.6 mm
+
+my attempt at a double slit using razor blades and wire
+- printed SLA
+- razor info: dimensions are 22 x 43
+- piece  46 x 46 x 8
+- center box is 10 x 10
+- m3 screw holes 11 mm off center line, and diameter 3.5 mm
+- slits are on center line, and are     1  10.5 8
+    3 mm from edge of box
+    10.5 mm long
+    1 mm wide
+- cylinder 5 x 5 x 8
+
+===============================================
 TITLE: LASERS
 ===============================================
 
@@ -142,52 +242,6 @@ General Info: how many photons are emitted from a laser pointer
 - A laser pointer typically has a power rating of 1 mW, or 0.001 Joules per second. 
   This means that every second a laser pointer emits a number of photons equal to 
   (3.2x1018photons/J)(0.001J/s) = 3.2x1015 photons/s.
-
-Laser Mount 3D Printed
-- tinkercad dimensions, and notes
-  - laser end dimensions
-    - fron end  13.60 mm
-    - back end  13.40 mm
-  - sphere
-    - laser end diameter      = 13.60
-    - sphre diameter          = 24
-    - small cylnder diameter  = 8 mm
-    - large cylinder diameter = 13.6   height 16
-    - laser cylinder end below spere center by 4 mm
-  - screws to be used XXX ADD TO BOLTDEPOT ORDER
-    - https://www.boltdepot.com/Product-Details.aspx?product=2301
-    - Sheet metal screws, Self tapping, Phillips pan head, Stainless steel 18-8, #6 x 5/8"
-    - head dia max .270"      = 6.858 mm      USE 7.0 mm
-    - head height max  .097"  = 2.46 mm       USE 2.6 mm
-    - diameter .138"          = 3.505 mm      USE 3.6 mm
-  - cone and nd filter mount
-    - nd filter mount dimensions  50 x 50 x 7 mm
-    - cone hole diameter          8 mm
-    - cone max od                 25 mm
-    - cone angle                  30 degrees 
-    - cone dims for tinkercad
-      - top radius    = 4 mm
-      - base radius   = 12.5
-      - height        = 14.72
-      - then rotate   = 180 degrees
-    - cylinder dims for tinkercad
-      - 25.4 x 25.4 x 14.72
-    - box to be placed below cylinder/cone combo
-      - dims  50 x 50 x 7
-      - 8 mm hole in middle
-    - screw dims for tinkercad
-                DIA         HEIGHT
-       thread  3.6mm      through-hole
-       head    7.0mm      2.6
-  - back end attachment to laser
-    - 13.40 diameter hollow cylinder
-    - 25 x 25 x 10 box
-  - back end support
-    - bottom   41 x 30 x 8
-    - side      8 x 30 x 41  OR copy and rotate bottom
-    - holes for adjusting screws 
-      - centered 12.5 mm from ends
-      - dia = 5.6 mm
 
 ===============================================
 TITLE: PULSE STRETCHER   
@@ -341,17 +395,7 @@ Making my own Double Slit using razor blades and wire:
   - thickness of razor blade  .089 mm
   - thickness of paper        .095 mm
   - diameter of wire ordered  .099 mm
-- 3d print - sla 
-    info: razor dimensions are 22 x 43
-    tinkercad
-     - piece  46 x 46 x 8
-     - center box is 10 x 10
-     - m3 screw holes 11 mm off center line, and diameter 3.5 mm
-     - slits are on center line, and are     1  10.5 8
-         3 mm from edge of box
-         10.5 mm long
-         1 mm wide
-     - cylindr 5 x 5 x 8
+- also see tinkercad section
 - shims  .1mm stainless steel shims
   - https://www.accu.co.uk/704-shim-washers#elasticsearch_id_feature_894828=894828_125&id_elasticsearch_category=704&orderby=ranking&orderway=asc
 
