@@ -2,66 +2,95 @@
 TITLE: TODO
 ===============================================
 
-INFO:
-- using Double Slit  b=.15  g=.50
-- ND filter OD=8,  so get 2x OD=4;  50x50x2.8
-- optical axis is 1"
-- metric breadboard  M6 ,  25mm hole spacing,  clearance hole for M6 = 6.6mm
+Edmund Orders
+- optical filters
 
-place bolt depot order
-5174 - Metric machine screws, Phillips pan head, Stainless steel 18-8 (A-2), 4mm x 0.7mm x 50mm.
+amazon
+- window shades
+- mounting board for amplifiers;  and cover for electronics
+
+===============================================
+TITLE: GENERAL INFO
+===============================================
+
+trans rail  
+- platform width=60  depth=70  height=52.2
+- M4 on bottom
+   . 20mm x 180mm  qty 4
+   . max depth = 5mm
+   . board is 23mm
+   . washer is 1 mm
+   ** conclusion max length = 23 + 1 + 5 = 29mm (with 1 washer)
+- M6 on top 
+   . max depth = 9mm
+   . spacing 30mm
+
+using Double Slit  b=.15  g=.50
+
+ND filter OD=8,  so get 2x OD=4;  50x50x2.8
+
+optical axis is 1"
+
+metric breadboard  M6 ,  25mm hole spacing,  clearance hole for M6 = 6.6mm
+
+===============================================
+TITLE: ORDERED & NOT YET RECEIVED
+===============================================
+
+Amazon
+- wifi extender 
+- usb power cable 
+- angle bracket for laser 
+
+3d printing              
+- holder for double slit slides                            
+- maybe another piece for homemade single slit, with base  
+- holder for filters                                       
+- a mount for the SiPM sensor                              
+
+bolt depot
+- ND filter mount   x6
+    - 5174 - Metric machine screws, Phillips pan head, Stainless steel 18-8 (A-2), 4mm x 0.7mm x 50mm.
            Each	10 $0.24	$2.40	Remove
-5583 - Metric machine screws, Phillips pan head, Stainless steel 18-8 (A-2), 4mm x 0.7mm x 60mm. 
+    - 5583 - Metric machine screws, Phillips pan head, Stainless steel 18-8 (A-2), 4mm x 0.7mm x 60mm. 
            Each	10 $0.31	$3.10	Remove
-6896 - Metric wing nuts, Stainless steel 18-8 (A-2), 4mm x 0.7mm. 
+    - 6896 - Metric wing nuts, Stainless steel 18-8 (A-2), 4mm x 0.7mm. 
            Each	10 $0.38	$3.80	Remove
-XXX ADD
-- eye hooks and mounting for the translation rail
-- spacers for the optical breadboard
-
-3d printing
-- holder for double slit slides                            TINKERCAD done
-- maybe another piece for homemade single slit, with base  TINKERCAD done
-- holder for filters                                       XXX
-- a mount for the SiPM sensor                              XXX later
-
-sensor box
-- more coats of paint
-- attach translation rail to the box, and wire it up
-  - update pololu setting.txt and do_apply_settngs
-  - test it
-- put sensor in box and test the count rates 
-- put hole in box for power cord for light too, maybe the
-  light can be permanently in the box
-- retest the sipm count rate
-- SiPM sensor 
-   - mount design
-   - new mounting board for amplifiers, using 5V battery
-
-laser box
-- design
-- may want to use the foam all around
-
-orders
-- usb power cable       IN CART
-- more foam?            IN CART
-- mounting board for amplifiers
-- parts for laser box
-  - more foam ?
-  - eye hooks, what are these for?
-  - angle bracket for laser
-- prepare edmund scientific order
-  - investigate optical components, for accurately positioning the mirrors and beamsplitters0
-- boltdepot
-- single slit slide   NOT AVAIL
+- laser holder, wood screws    x10
+     https://www.boltdepot.com/Product-Details.aspx?product=2301   5/8
+      - Sheet metal screws, Self tapping, Phillips pan head, Stainless steel 18-8, #6 x 5/8"
+      - head dia max .270"      = 6.858 mm      USE 7.0 mm
+      - head height max  .097"  = 2.46 mm       USE 2.6 mm
+      - diameter .138"          = 3.505 mm      USE 3.6 mm
+     https://www.boltdepot.com/Product-Details.aspx?product=2302    3/4
+     https://www.boltdepot.com/Product-Details.aspx?product=9867    7/8
+- sipm nylon mount - bolts and nuts
+    40mm len 1/4 20
+    https://www.boltdepot.com/Product-Details.aspx?product=21640    1.5"       x4
+    https://www.boltdepot.com/Product-Details.aspx?product=21282    1.5"       x4
+    https://www.boltdepot.com/Product-Details.aspx?product=21283    2"         x4
+    https://www.boltdepot.com/Product-Details.aspx?product=21673   1/4 20 wing nuts
+    https://www.boltdepot.com/Product-Details.aspx?product=21265   1/4 20 nylon nuts
+- m6 for trans rail, and washers
+    https://www.boltdepot.com/Product-Details.aspx?product=5189    m6 16mm          x6
+    https://www.boltdepot.com/Product-Details.aspx?product=5964   m6 16 mm  hex head          x6
+    https://www.boltdepot.com/Product-Details.aspx?product=4516    m6 washers          x6
+- m4 for trans rail    29mm max  
+    https://www.boltdepot.com/Product-Details.aspx?product=5940   m4 25 mm          x6
+    https://www.boltdepot.com/Product-Details.aspx?product=5941   m4 30mm          x6
+- misc
+    3mm x 9mm fender washers
 
 ===============================================
 TITLE: TODO LATER
 ===============================================
 
-- rpi / gpio - update dra_gpio.h to allow for setting pull up/down
+Other orders - maybe later ...
+- single slit slide   NOT AVAIL FROM AMAZON
 
-- add README for all subdirs
+rpi / gpio - update dra_gpio.h to allow for setting pull up/down
+
+add README for all subdirs
 
 ===============================================
 TITLE: EDMUND OPTICS
@@ -124,6 +153,20 @@ Notes on using tinkercad:
 - login https://accounts.autodesk.com/User/SignUp    
     username = my email addr
 - ctl up / down for z axis positioning
+
+sipm mount to trans rail
+- base 96 54 8
+  holes 6.5D  ctrs are: 10mm from back, 33 from ends, 30mm seperation
+  strain relief at fron left   20mm len, 8mm high,  5mm depth
+   and need holes in the strain relief
+     3mm x 2mm rectangle  top is 3 mm down, left is at 2, 8, 14
+- vertical 80 45  8
+   side boundaries  30  7.5  26
+   top boundaries   10  7.5  26
+   support columns   13.5 24 20
+      6.5mm hole diameter
+       centered 12 from the top     edge is 12 - 3.25    =     8.75
+                7.75 from left      edge is 7.75 - 3.25  =     4.5
 
 mount for ND filtess
            W    L    H
