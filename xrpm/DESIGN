@@ -1,0 +1,106 @@
+===============================================
+TITLE: NEW PGM
+===============================================
+
+main.c
+- phase 1: unit test 
+- phase 2: curses implementation
+audio.c
+- audio_init
+- audio_exit
+- audio_say_text
+- audio_set_volume
+- audio_get_volume
+- audio_set_mute
+- audio_get_mute
+sipm.c
+- sipm_init
+- sipm_exit
+- sipm_get_rate
+- sipm_get_status
+xrail.c
+- xrail_init
+- xrail_exit - will return rail to home if it has been calibrated
+- xrail_cal_move_right
+- xrail_cal_move_left 
+- xrail_cal_set_home
+- xrail_set_pos
+- xrail_get_status
+
+curses commands
+- graph: left, right control cursor position
+         up, down, control zero point
+         ctrl up, down control y axis scale
+- audio: v, V volume control;  ^v toggle mute;  alt-v test
+- F1:  sipm graph,  when running this, audio will be on unless muted
+- F2:  xrail and sipm;  creates file that can be used by gnuplot
+- ESC: stop 
+
+executable name = xrpm
+
+
+sipm notes:
+- time the dra_sipm steps, and verify multi threads can work in sipm.c
+  DONE - with optimizatin 14ms;  else 200ms
+
+===============================================
+TITLE: TEXT TO SPEECH
+===============================================
+
+- The Raspberry Pi supports both audio output over either HDMI (default) or 
+  the 3.5mm audio jack (headphone jack).
+  - How do I enable analogue audio output for my Raspberry Pi?
+    . Navigate to your screen.
+    . Select "Manage Screen".
+    . Select "Advanced".
+    . Set "Audio Output" to "3.5mm jack".
+    . Press "Save".
+
+- http://raspberrypi-aa.github.io/session3/audio.html#:~:text=To%20change%20the%20volume%2C%20run,Route%20or%20Playback%20Switch%20controls.
+- https://elinux.org/RPi_Text_to_Speech_(Speech_Synthesis)
+
+- packeages needed:
+    sudo apt-get install mplayer
+    sudo apt-get install festival
+
+- run festival as a startup service
+   festival --server
+       Run in server mode waiting for clients of server_port (1314)
+
+- using nc
+     It is quite simple to build a very basic client/server model using nc.  On one console,
+     start nc listening on a specific port for a connection.  For example:
+           $ nc -l 1234
+     nc is now listening on port 1234 for a connection.  On a second console (or a second
+     machine), connect to the machine and port being listened on:
+           $ nc 127.0.0.1 1234
+
+- rpi audio volume control
+     sudo amixer cset numid=1 90%
+
+===============================================
+TITLE: GNUPLOT 
+===============================================
+
+Plotting with gnuplot
+- http://www.gnuplot.info/
+- http://www.gnuplot.info/docs_5.4/Gnuplot_5.4.pdf
+- https://alvinalexander.com/technology/gnuplot-charts-graphs-examples/
+    [HOME haid@home proj_diffraction]$ cat doplot 
+    plot '2col.dat' with linespoints
+    [HOME haid@home proj_diffraction]$ cat 2col.dat 
+    # sample 2-column data file
+    # -------------------------
+    1     1
+    2     4
+    3     9
+    4    16
+    5    25
+    6    36
+    7    49
+    8    64
+    9    81
+    10  100
+    [HOME haid@home proj_diffraction]$ gnuplot -p doplot
+    QSocketNotifier: Can only be used with threads started with QThread
+
