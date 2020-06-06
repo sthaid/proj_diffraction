@@ -7,7 +7,8 @@ CFLAGS = -g -O2 -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-clobb
 SRC_XRPM = main.c \
            utils.c \
            audio.c \
-           sipm.c
+           sipm.c \
+           xrail.c
 
 OBJ_XRPM=$(SRC_XRPM:.c=.o)
 
