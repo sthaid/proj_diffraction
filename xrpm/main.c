@@ -5,6 +5,9 @@ int main(int argc, char **argv)
     int volume;
 
 // XXX call the xrail routines and unit test xrail
+    utils_init();
+    INFO("hello\n");
+    exit(1);
     audio_init();
 
     volume = audio_get_volume();
@@ -18,6 +21,7 @@ int main(int argc, char **argv)
     }
 
     audio_exit();
+    utils_exit();
 
     return 0;
 }

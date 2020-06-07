@@ -7,8 +7,6 @@
 // XXX if an error occurs, such as losing voltage, need to recal
 // XXX allow it to come up even if voltage not okay
 
-// XXX log to file, and append
-
 #include "common.h"
 
 #include <tic.h>

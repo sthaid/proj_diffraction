@@ -12,7 +12,11 @@
 #include <signal.h>
 #include <pthread.h>
 #include <math.h>
+#include <inttypes.h>
 #include <sys/time.h>
+
+// for calls to time2str
+#define MAX_TIME_STR 50
 
 // logging macros
 #define INFO(fmt, args...) \
@@ -30,8 +34,12 @@
     } while (0)
 
 // utils.c
+void utils_init(void);
+void utils_exit(void);
 void logmsg(char * lvl, const char * func, char * fmt, ...) __attribute__ ((format (printf, 3, 4)));
 uint64_t microsec_timer(void);
+uint64_t get_real_time_us(void);
+char * time2str(char * str, int64_t us, bool gmt, bool display_ms, bool display_date);
 
 // audio.c
 void audio_init(void);
