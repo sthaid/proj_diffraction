@@ -7,6 +7,11 @@ start festival on rpi at boot
 
 check the -Wno in Makefile
 
+
+NOTES on the tic settings 
+
+update the my_tic_test, if needed to accomodate the new settings
+
 ===============================================
 TITLE: NEW PGM
 ===============================================

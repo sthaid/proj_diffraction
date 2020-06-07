@@ -7,11 +7,20 @@ FILE *logfp;
 void utils_init(void)
 {
     logfp = fopen("xrpm.log", "a");
+    if (logfp == NULL) {
+        fprintf(stderr, "failed to open xrpm.log, %s\n", strerror(errno));
+        exit(1);
+    }
+
     setlinebuf(logfp);
+
+    fprintf(logfp, "\n\n");
+    INFO("STARTING\n");
 }
 
 void utils_exit(void)
 {
+    INFO("EXITTING\n");
 }
 
 // -----------------  LOGGING  ------------------------------------------

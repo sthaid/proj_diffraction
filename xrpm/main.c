@@ -1,17 +1,17 @@
 #include "common.h"
 
+// XXX get ctrlc and use this to exit orderly
+
 int main(int argc, char **argv)
 {
-    int volume;
-
-// XXX call the xrail routines and unit test xrail
     utils_init();
-    INFO("hello\n");
-    exit(1);
     audio_init();
+    xrail_init();
+    INFO("INITIALIZATION COMPLETE\n");
 
+#if 0
+    int volume;
     volume = audio_get_volume();
-
     while (true) {
         audio_say_text("hello");  // XXX use varargs, sprintf fmt
         audio_set_volume(volume);
@@ -19,7 +19,13 @@ int main(int argc, char **argv)
         if (volume < 50) volume = 50;
         sleep(1);
     }
+#endif
+    // XXX unit test xrail
 
+    sleep(5);
+
+    INFO("TERMINATING\n");
+    xrail_exit();
     audio_exit();
     utils_exit();
 

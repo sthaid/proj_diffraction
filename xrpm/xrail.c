@@ -1,12 +1,3 @@
-// XXX test start pgm with voltage off
-
-// XXX use the tic_settings pgm to update the settings
-//       bring the settings directory to here
-//       and command_timeout is 0,  OR maybe just longer
-
-// XXX if an error occurs, such as losing voltage, need to recal
-// XXX allow it to come up even if voltage not okay
-
 #include "common.h"
 
 #include <tic.h>
@@ -35,6 +26,9 @@
 
 // expected value of command_timeout setting, 0 means disabled
 #define COMMAND_TIMEOUT_MS 0
+
+// use this for debug and test
+//#define VERBOSE
 
 //
 // typedes
@@ -154,6 +148,7 @@ void xrail_cal_complete(void)
 
     home_pos = get_curr_pos();
     calibrated = true;
+    INFO("calibrated home_pos=%d\n", home_pos);
 }
 
 void xrail_goto_location(double mm, bool wait)
@@ -225,6 +220,7 @@ static void goto_tgt_pos(bool wait)
             }
             if (usec > TIMEOUT_US) {
                 ERROR("failed to reach tgt_pos %d, curr_pos=%d\n", tgt_pos, curr_pos);
+                ERROR("clearing calibrated\n");
                 calibrated = false;
                 break;
             }
@@ -273,6 +269,7 @@ static void print_and_check_settings(void)
 
     ERR_CHK(tic_get_settings(handle, &settings));
 
+#ifdef VERBOSE
     INFO("SETTINGS ...\n");
     PRINT_SETTING(product);
     PRINT_SETTING(control_mode);
@@ -295,6 +292,7 @@ static void print_and_check_settings(void)
     PRINT_SETTING(max_accel);
     PRINT_SETTING(max_decel);
     PRINT_SETTING(invert_motor_direction);
+#endif
 
     // Calculation of max_speed and max_accel register values ...
     //
@@ -351,6 +349,7 @@ static void print_and_check_check_variables(void)
 
     ERR_CHK(tic_get_variables(handle, &variables, false));
 
+#ifdef VERBOSE
     INFO("VARIABLES ...\n");
     PRINT_VARIABLE(operation_state);
     PRINT_VARIABLE(energized);
@@ -376,11 +375,12 @@ static void print_and_check_check_variables(void)
     PRINT_VARIABLE(current_limit_code);
     PRINT_VARIABLE(decay_mode);
     PRINT_VARIABLE(input_state);
+#endif
 
     // check voltage
     int vin_voltage = tic_variables_get_vin_voltage(variables);
     if (vin_voltage < MIN_VIN_VOLTAGE || vin_voltage > MAX_VIN_VOLTAGE) {
-        FATAL("variable vin_voltage=%d out of range %d to %d\n",
+        ERROR("variable vin_voltage=%d out of range %d to %d\n",
               vin_voltage, MIN_VIN_VOLTAGE, MAX_VIN_VOLTAGE);
     }
 
@@ -423,7 +423,7 @@ static void get_status(bool *arg_okay, bool *arg_calibrated, double *arg_curr_lo
             var_vin_voltage >= MIN_VIN_VOLTAGE && var_vin_voltage <= MAX_VIN_VOLTAGE);
 
     if (!okay && calibrated) {
-        ERROR("clearing calibrated because of bad status\n");
+        ERROR("clearing calibrated\n");
         calibrated = false;
     }
 
