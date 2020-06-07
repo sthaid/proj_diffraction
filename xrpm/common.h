@@ -49,10 +49,10 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
 // xrail.c
 void xrail_init(void);
 void xrail_exit(void);
-int xrail_cal_move_right(void);
-int xrail_cal_move_left(void);
-int xrail_cal_set_home(void);
-int xrail_set_pos(int pos_xxx);
+void xrail_cal_move_right(void);
+void xrail_cal_move_left(void);
+void xrail_cal_complete(void);
+void xrail_set_pos(double mm);
 void xrail_get_status(void *xxx);
 
 

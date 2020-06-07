@@ -6,21 +6,21 @@
 // defines
 //
 
-#define MIN_VIN_VOLTAGE 16000  // mv
+// allowed voltage range, in mv
+#define MIN_VIN_VOLTAGE 16000
 #define MAX_VIN_VOLTAGE 24000
 
 // these both return double, and can only be used when calibrated
 #define CALIBRATED_MM_TO_TGT_POS(_mm)       (home_pos + (double)(_mm) * (200 * 32 / 5)) 
 #define CALIBRATED_TGT_POS_TO_MM(_tgt_pos)  (((double)(_tgt_pos) - home_pos) / (200 * 32 / 5))
 
-// XXX not sure if I want to use this
+// execute tic routine and FATAL error if it fails
 #define ERR_CHK(statement) \
     do { \
         tic_error * error; \
         error = statement; \
         if (error) { \
-            fprintf(stderr, "ERROR: '%s' -> %s\n", #statement, tic_error_get_message(error)); \
-            exit(1); \
+            FATAL("'%s' -> %s\n", #statement, tic_error_get_message(error)); \
         } \
     } while (0)
 
@@ -33,7 +33,6 @@
 //
 
 static tic_handle * handle;
-static bool         ctrl_c_signal_rcvd;
 static bool         calibrated;
 static int          tgt_pos;
 static int          home_pos;
@@ -42,14 +41,22 @@ static int          home_pos;
 // prototypes
 //
 
+static void open_tic(void);
+static void goto_tgt_pos(void);
+static int get_curr_pos(void);
+static void * keep_alive_thread(void * cx);
+static void check_settings(void);
+static void check_variables(void);
+static void print_status(void);
+static char * operation_state_str(int op_state);
+static char * error_status_str(int err_stat);
+
 // -----------------  INIT / EXIT  ----------------------------------------
 
 void xrail_init(void)
 {
     pthread_t thread_id;
-    char cmd[100], arg[100], s[100];
-    int cnt;
-    double mm;
+    int curr_pos;
 
     // get handle to the tic device
     open_tic();
@@ -69,11 +76,21 @@ void xrail_init(void)
     // energize and exit_safe_start 
     ERR_CHK(tic_energize(handle));
     ERR_CHK(tic_exit_safe_start(handle));
+
+    // confirm curret_position is 0
+    curr_pos = get_curr_pos();
+    if (curr_pos != 0) {
+        FATAL("curr_pos=%d, should be 0\n", curr_pos);
+    }
 }
 
 void xrail_exit(void)
 {
-    // XXX return home
+    // return home
+    if (calibrated) {
+        tgt_pos = home_pos;
+        goto_tgt_pos();
+    }
 
     // enter_safe_start and deenergize
     ERR_CHK(tic_enter_safe_start(handle));
@@ -85,29 +102,62 @@ void xrail_exit(void)
 
 // -----------------  APIS  -----------------------------------------------
 
-int xrail_cal_move_right(void)
+void xrail_cal_move_right(void)
 {
+    double mm = 1;
+
+    if (calibrated) {
+        ERROR("already calibrated\n");
+        return;
+    }
+
+    tgt_pos = tgt_pos + mm * (200 * 32 / 5);
+    goto_tgt_pos();
 }
 
-int xrail_cal_move_left(void)
+void xrail_cal_move_left(void)
 {
+    double mm = -1;
+
+    if (calibrated) {
+        ERROR("already calibrated\n");
+        return;
+    }
+
+    tgt_pos = tgt_pos + mm * (200 * 32 / 5);
+    goto_tgt_pos();
 }
 
-int xrail_cal_set_home(void)
+void xrail_cal_complete(void)
 {
+    if (calibrated) {
+        ERROR("already calibrated\n");
+        return;
+    }
+
+    home_pos = tgt_pos;
+    calibrated = true;
 }
 
-int xrail_set_pos(int pos_xxx)
+void xrail_set_pos(double mm)
 {
+    if (!calibrated) {
+        ERROR("not calibrated\n");
+        return;
+    }
+
+    tgt_pos =  CALIBRATED_MM_TO_TGT_POS(mm);
+    goto_tgt_pos();
 }
 
 void xrail_get_status(void *xxx)
 {
+    print_status();  // XXX tbd
 }
 
 // -----------------  TIC PRIMARY SUPPORT ROUTINES  ----------------------
 
-static void open_tic()
+static void open_tic(void)
 {
     tic_device ** list;
     size_t count;
@@ -134,28 +184,40 @@ static void open_tic()
     tic_list_free(list);
 }
 
-static void set_tgt_pos_and_wait()
+static void goto_tgt_pos(void)
 {
+    int wait_ms = 0;
+    int curr_pos;
+
     ERR_CHK(tic_set_target_position(handle, tgt_pos));
 
     while (true) {
-        tic_variables *variables;
-        int curr_pos;
-
-        ERR_CHK(tic_get_variables(handle, &variables, false));
-        curr_pos = tic_variables_get_current_position(variables);
-        tic_variables_free(variables);
+        curr_pos = get_curr_pos();
 
         if (curr_pos == tgt_pos) {
             break;
         }
 
-        if (ctrl_c_signal_rcvd) {
-            break;
+        if (wait_ms > 5000) {
+            FATAL("curr_pos=%d failed to reach tgt_pos=%d after %d ms\n",
+                  curr_pos, tgt_pos, wait_ms);
         }
 
         usleep(10000);
+        wait_ms += 10;
     }
+}
+
+static int get_curr_pos(void) 
+{
+    tic_variables *variables;
+    int curr_pos;
+
+    ERR_CHK(tic_get_variables(handle, &variables, false));
+    curr_pos = tic_variables_get_current_position(variables);
+    tic_variables_free(variables);
+
+    return curr_pos;
 }
 
 static void * keep_alive_thread(void * cx)
@@ -397,7 +459,7 @@ char * operation_state_str(int op_state);
 char * error_status_str(int err_stat) ;
 
 void open_tic(void);
-void set_tgt_pos_and_wait(void);
+void goto_tgt_pos(void);
 
 void * keep_alive_thread(void * cx);
 
@@ -454,7 +516,7 @@ int main(int argc, char **argv)
                 }
 
                 tgt_pos = tgt_pos + mm * (200 * 32 / 5);
-                set_tgt_pos_and_wait();
+                goto_tgt_pos();
                 if (check_for_ctrl_c("cal")) {
                     continue;
                 }
@@ -478,7 +540,7 @@ int main(int argc, char **argv)
             }
 
             tgt_pos = CALIBRATED_MM_TO_TGT_POS(mm);
-            set_tgt_pos_and_wait();
+            goto_tgt_pos();
             if (check_for_ctrl_c("goto")) {
                 continue;
             }
@@ -490,7 +552,7 @@ int main(int argc, char **argv)
             }
 
             tgt_pos = CALIBRATED_MM_TO_TGT_POS(0);
-            set_tgt_pos_and_wait();
+            goto_tgt_pos();
             if (check_for_ctrl_c("home")) {
                 continue;
             }
@@ -503,7 +565,7 @@ int main(int argc, char **argv)
 
             for (mm = -20; mm < 20; mm += 0.1) {
                 tgt_pos = CALIBRATED_MM_TO_TGT_POS(mm);
-                set_tgt_pos_and_wait();
+                goto_tgt_pos();
                 if (check_for_ctrl_c("test1")) {
                     break;
                 }
@@ -519,25 +581,25 @@ int main(int argc, char **argv)
 
             do {
                 tgt_pos = CALIBRATED_MM_TO_TGT_POS(0);
-                set_tgt_pos_and_wait();
+                goto_tgt_pos();
                 if (check_for_ctrl_c("test2")) {
                     break;
                 }
 
                 tgt_pos = CALIBRATED_MM_TO_TGT_POS(-20);
-                set_tgt_pos_and_wait();
+                goto_tgt_pos();
                 if (check_for_ctrl_c("test2")) {     
                     break;
                 }
 
                 tgt_pos = CALIBRATED_MM_TO_TGT_POS(+20);
-                set_tgt_pos_and_wait();
+                goto_tgt_pos();
                 if (check_for_ctrl_c("test2")) {     
                     break;
                 }
 
                 tgt_pos = CALIBRATED_MM_TO_TGT_POS(0);
-                set_tgt_pos_and_wait();
+                goto_tgt_pos();
                 if (check_for_ctrl_c("test2")) {     
                     break;
                 }

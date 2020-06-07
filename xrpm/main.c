@@ -2,14 +2,17 @@
 
 int main(int argc, char **argv)
 {
-    int volume=100;
+    int volume;
+
     audio_init();
+
+    volume = audio_get_volume();
 
     while (true) {
         audio_say_text("hello");  // XXX use varargs, sprintf fmt
         audio_set_volume(volume);
-        volume -= 10;
-        if (volume < 30) volume = 30;
+        volume -= 1;
+        if (volume < 50) volume = 50;
         sleep(1);
     }
 

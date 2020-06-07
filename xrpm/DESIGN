@@ -1,3 +1,12 @@
+unsigned long ?    uint64_t
+
+only build xrpm on rpi, and only build
+other pgms on fedora
+
+start festival on rpi at boot
+
+check the -Wno in Makefile
+
 ===============================================
 TITLE: NEW PGM
 ===============================================
