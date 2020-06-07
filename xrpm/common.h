@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <pthread.h>
+#include <math.h>
 #include <sys/time.h>
 
 // logging macros
@@ -49,11 +50,10 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
 // xrail.c
 void xrail_init(void);
 void xrail_exit(void);
-void xrail_cal_move_right(void);
-void xrail_cal_move_left(void);
+void xrail_cal_move(double mm);
 void xrail_cal_complete(void);
-void xrail_set_pos(double mm);
-void xrail_get_status(void *xxx);
-
+void xrail_goto_location(double mm, bool wait);
+bool xrail_reached_location(void);
+void xrail_get_status(bool *okay, bool *calibrated, double *curr_loc_mm, char *status_str, double *voltage);
 
 #endif

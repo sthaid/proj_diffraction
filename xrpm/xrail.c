@@ -1,5 +1,13 @@
-// XXX over all review
-// XXX test with unit test in main.c
+// XXX test start pgm with voltage off
+
+// XXX use the tic_settings pgm to update the settings
+//       bring the settings directory to here
+//       and command_timeout is 0,  OR maybe just longer
+
+// XXX if an error occurs, such as losing voltage, need to recal
+// XXX allow it to come up even if voltage not okay
+
+// XXX log to file, and append
 
 #include "common.h"
 
@@ -14,8 +22,8 @@
 #define MAX_VIN_VOLTAGE 24000
 
 // these both return double, and can only be used when calibrated
-#define CALIBRATED_MM_TO_TGT_POS(_mm)       (home_pos + (double)(_mm) * (200 * 32 / 5)) 
-#define CALIBRATED_TGT_POS_TO_MM(_tgt_pos)  (((double)(_tgt_pos) - home_pos) / (200 * 32 / 5))
+#define CALIBRATED_MM_TO_POS(_mm)       (home_pos + (double)(_mm) * (200 * 32 / 5)) 
+#define CALIBRATED_POS_TO_MM(_tgt_pos)  (((double)(_tgt_pos) - home_pos) / (200 * 32 / 5))
 
 // execute tic routine and FATAL error if it fails
 #define ERR_CHK(statement) \
@@ -26,6 +34,9 @@
             FATAL("'%s' -> %s\n", #statement, tic_error_get_message(error)); \
         } \
     } while (0)
+
+// expected value of command_timeout setting, 0 means disabled
+#define COMMAND_TIMEOUT_MS 0
 
 //
 // typedes
@@ -45,12 +56,15 @@ static int          home_pos;
 //
 
 static void open_tic(void);
-static void goto_tgt_pos(void);
+static void goto_tgt_pos(bool wait);
+static bool at_tgt_pos(void);
 static int get_curr_pos(void);
 static void * keep_alive_thread(void * cx);
 static void print_and_check_settings(void);
 static void print_and_check_check_variables(void);
-static void print_status(void);
+static bool is_status_okay(void);
+static void get_status(bool *arg_okay, bool *arg_calibrated, double *arg_curr_loc_mm, 
+                       char *arg_status_str, double *arg_voltage);
 static char * operation_state_str(int op_state);
 static char * error_status_str(int err_stat);
 
@@ -72,8 +86,10 @@ void xrail_init(void)
     print_and_check_settings();
     print_and_check_check_variables();
 
-    // create thread to, reset command timeout
-    pthread_create(&thread_id, NULL, keep_alive_thread, NULL);
+    // create thread to periodically reset command timeout
+    if (COMMAND_TIMEOUT_MS != 0) {
+        pthread_create(&thread_id, NULL, keep_alive_thread, NULL);
+    }
 
     // energize and exit_safe_start 
     ERR_CHK(tic_energize(handle));
@@ -91,7 +107,7 @@ void xrail_exit(void)
     // if calibration is done then return home
     if (calibrated) {
         tgt_pos = home_pos;
-        goto_tgt_pos();
+        goto_tgt_pos(true);
     }
 
     // enter_safe_start and deenergize
@@ -104,30 +120,23 @@ void xrail_exit(void)
 
 // -----------------  APIS  -----------------------------------------------
 
-void xrail_cal_move_right(void)
+void xrail_cal_move(double mm)
 {
-    double mm = 1;
-
     if (calibrated) {
         ERROR("already calibrated\n");
         return;
     }
-
-    tgt_pos = get_curr_pos() + mm * (200 * 32 / 5);
-    goto_tgt_pos();
-}
-
-void xrail_cal_move_left(void)
-{
-    double mm = -1;
-
-    if (calibrated) {
-        ERROR("already calibrated\n");
+    if (!is_status_okay()) {
+        ERROR("not is_status_okay\n");
+        return;
+    }
+    if (!at_tgt_pos()) {
+        ERROR("not at_tgt_pos\n");
         return;
     }
 
     tgt_pos = get_curr_pos() + mm * (200 * 32 / 5);
-    goto_tgt_pos();
+    goto_tgt_pos(true);
 }
 
 void xrail_cal_complete(void)
@@ -136,25 +145,43 @@ void xrail_cal_complete(void)
         ERROR("already calibrated\n");
         return;
     }
+    if (!is_status_okay()) {
+        ERROR("not is_status_okay\n");
+        return;
+    }
+    if (!at_tgt_pos()) {
+        ERROR("not at_tgt_pos\n");
+        return;
+    }
 
     home_pos = get_curr_pos();
     calibrated = true;
 }
 
-void xrail_set_pos(double mm)
+void xrail_goto_location(double mm, bool wait)
 {
     if (!calibrated) {
         ERROR("not calibrated\n");
         return;
     }
 
-    tgt_pos = CALIBRATED_MM_TO_TGT_POS(mm);
-    goto_tgt_pos();
+    tgt_pos = nearbyint(CALIBRATED_MM_TO_POS(mm));
+    goto_tgt_pos(wait);
 }
 
-void xrail_get_status(void *xxx)
+bool xrail_reached_location(void)
 {
-    print_status();  // XXX tbd
+    if (!calibrated) {
+        ERROR("not calibrated\n");
+        return false;
+    }
+
+    return at_tgt_pos();
+}
+
+void xrail_get_status(bool *okay, bool *calibrated, double *curr_loc_mm, char *status_str, double *voltage)
+{
+    get_status(okay, calibrated, curr_loc_mm, status_str, voltage);
 }
 
 // -----------------  TIC PRIMARY SUPPORT ROUTINES  ----------------------
@@ -185,28 +212,33 @@ static void open_tic(void)
     tic_list_free(list);
 }
 
-static void goto_tgt_pos(void)
+static void goto_tgt_pos(bool wait)
 {
-    int wait_ms = 0;
-    int curr_pos;
-
     ERR_CHK(tic_set_target_position(handle, tgt_pos));
 
-    while (true) {
-        curr_pos = get_curr_pos();
-
-        if (curr_pos == tgt_pos) {
-            break;
+    if (wait) {
+        #define DELAY_US   100000
+        #define TIMEOUT_US 5000000
+        int curr_pos, usec=0;
+        while (true) {
+            curr_pos = get_curr_pos();
+            if (curr_pos == tgt_pos) {
+                break;
+            }
+            if (usec > TIMEOUT_US) {
+                ERROR("failed to reach tgt_pos %d, curr_pos=%d\n", tgt_pos, curr_pos);
+                calibrated = false;
+                break;
+            }
+            usleep(DELAY_US);
+            usec += DELAY_US;
         }
-
-        if (wait_ms > 5000) {
-            FATAL("curr_pos=%d failed to reach tgt_pos=%d after %d ms\n",
-                  curr_pos, tgt_pos, wait_ms);
-        }
-
-        usleep(10000);
-        wait_ms += 10;
     }
+}
+
+static bool at_tgt_pos(void)
+{
+    return get_curr_pos() == tgt_pos;
 }
 
 static int get_curr_pos(void) 
@@ -225,7 +257,7 @@ static void * keep_alive_thread(void * cx)
 {
     while (true) {
         ERR_CHK(tic_reset_command_timeout(handle));
-        usleep(100000);
+        usleep(COMMAND_TIMEOUT_MS * 1000 / 2);
     }
     return NULL;
 }
@@ -295,7 +327,7 @@ static void print_and_check_settings(void)
     CHECK_SETTING(control_mode, 0);                      // 0 => Serial/I2C/USB
     CHECK_SETTING(disable_safe_start, 0);                // 0 => safe start not disabled
     CHECK_SETTING(soft_error_response, 2);               // 2 => decel to hold
-    CHECK_SETTING(command_timeout, 1000);                // 1000 ms
+    CHECK_SETTING(command_timeout, COMMAND_TIMEOUT_MS);  // 
     CHECK_SETTING(current_limit, 1472);                  // 1472 ma
     CHECK_SETTING(current_limit_code_during_error, 255); // 0xff => feature disabled
     CHECK_SETTING(step_mode, 5);                         // 5 => 1/32 step
@@ -358,10 +390,18 @@ static void print_and_check_check_variables(void)
     variables = NULL;
 }
 
-// -----------------  TIC ACQUIRE STATUS  --------------------------------
+// -----------------  TIC GET STATUS  ------------------------------------
 
-// XXX tbd
-static void print_status(void)
+static bool is_status_okay(void)
+{
+    bool okay;
+
+    get_status(&okay, NULL, NULL, NULL, NULL);
+    return okay;
+}
+
+static void get_status(bool *arg_okay, bool *arg_calibrated, double *arg_curr_loc_mm, 
+                       char *arg_status_str, double *arg_voltage)
 {
     tic_variables *variables = NULL;
     bool okay;
@@ -384,29 +424,27 @@ static void print_status(void)
             var_error_status == 0 &&
             var_vin_voltage >= MIN_VIN_VOLTAGE && var_vin_voltage <= MAX_VIN_VOLTAGE);
 
-    if (okay) {
-        if (!calibrated) {  // XXX tbd, return str (or strs)
-            fprintf(stderr, "INFO: UNCAL: tgt_pos=%d curr_pos=%d\n",
-                    var_target_position, 
-                    var_current_position);
-        } else {
-            fprintf(stderr, "INFO: CAL: tgt_pos=%d curr_pos=%d - tgt_pos_mm=%.1f curr_pos_mm=%.1f\n",
-                    var_target_position, 
-                    var_current_position,
-                    CALIBRATED_TGT_POS_TO_MM(var_target_position),
-                    CALIBRATED_TGT_POS_TO_MM(var_current_position));
-        }
-    } else {
-        fprintf(stderr, "ERROR: vars - op_state=%d(%s) energized=%d err_status=0x%x(%s) mv=%d tgt_pos=%d curr_pos=%d\n",
-                var_operation_state, operation_state_str(var_operation_state),
-                var_energized,
-                var_error_status, error_status_str(var_error_status),
-                var_vin_voltage,
-                var_target_position,
-                var_current_position);
-        if (var_target_position != tgt_pos) {
-            fprintf(stderr, "ERROR: req_tgt_pos=%d != var_tgt_pos=%d\n", tgt_pos, var_target_position);
-        }
+    if (!okay && calibrated) {
+        ERROR("clearing calibrated because of bad status\n");
+        calibrated = false;
+    }
+
+    if (arg_okay) {
+        *arg_okay = okay;
+    }
+    if (arg_calibrated) {
+        *arg_calibrated = calibrated;
+    }
+    if (arg_curr_loc_mm) {
+        *arg_curr_loc_mm = CALIBRATED_POS_TO_MM(var_current_position);
+    }
+    if (arg_status_str) {
+        sprintf(arg_status_str, "%s - %s",
+                operation_state_str(var_operation_state),
+                error_status_str(var_error_status));
+    }
+    if (arg_voltage) {
+        *arg_voltage = (double)var_vin_voltage / 1000;
     }
 }
 

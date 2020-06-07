@@ -4,6 +4,7 @@ int main(int argc, char **argv)
 {
     int volume;
 
+// XXX call the xrail routines and unit test xrail
     audio_init();
 
     volume = audio_get_volume();
