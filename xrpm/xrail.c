@@ -1,3 +1,6 @@
+// XXX over all review
+// XXX test with unit test in main.c
+
 #include "common.h"
 
 #include <tic.h>
@@ -145,7 +148,7 @@ void xrail_set_pos(double mm)
         return;
     }
 
-    tgt_pos =  CALIBRATED_MM_TO_TGT_POS(mm);
+    tgt_pos = CALIBRATED_MM_TO_TGT_POS(mm);
     goto_tgt_pos();
 }
 
