@@ -1,4 +1,3 @@
 #!/bin/bash
 
-ticcmd -d $AZ_MOTOR_SN --settings settings.txt
-ticcmd -d $EL_MOTOR_SN --settings settings.txt
+ticcmd --settings settings.txt
