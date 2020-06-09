@@ -332,7 +332,7 @@ void check_settings(void)
     CHECK_SETTING(control_mode, 0);                      // 0 => Serial/I2C/USB
     CHECK_SETTING(disable_safe_start, 0);                // 0 => safe start not disabled
     CHECK_SETTING(soft_error_response, 2);               // 2 => decel to hold
-    CHECK_SETTING(command_timeout, 1000);                // 1000 ms
+    CHECK_SETTING(command_timeout, 0);                   // disabled
     CHECK_SETTING(current_limit, 1472);                  // 1472 ma
     CHECK_SETTING(current_limit_code_during_error, 255); // 0xff => feature disabled
     CHECK_SETTING(step_mode, 5);                         // 5 => 1/32 step
