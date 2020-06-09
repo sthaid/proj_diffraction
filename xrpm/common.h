@@ -44,7 +44,8 @@ char * time2str(char * str, int64_t us, bool gmt, bool display_ms, bool display_
 // audio.c
 void audio_init(void);
 void audio_exit(void);
-void audio_say_text(char *text);
+void audio_say_text(char * fmt, ...) __attribute__ ((format (printf, 1, 2)));
+int audio_change_volume(int delta);
 void audio_set_volume(int volume);
 int audio_get_volume(void);
 void audio_set_mute(bool mute);
@@ -62,6 +63,6 @@ void xrail_cal_move(double mm);
 void xrail_cal_complete(void);
 void xrail_goto_location(double mm, bool wait);
 bool xrail_reached_location(void);
-void xrail_get_status(bool *okay, bool *calibrated, double *curr_loc_mm, char *status_str, double *voltage);
+void xrail_get_status(bool *okay, bool *calibrated, double *curr_loc_mm, double *tgt_loc_mm, double *voltage, char *status_str);
 
 #endif

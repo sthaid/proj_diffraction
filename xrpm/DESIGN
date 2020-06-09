@@ -1,16 +1,32 @@
+review this file and make a TODO SECTION
+
+--------
+
 unsigned long ?    uint64_t
 
-only build xrpm on rpi, and only build
-other pgms on fedora
 
-start festival on rpi at boot
+
+
+
+===============================================
+TITLE: TODO    
+===============================================
+
+unit test the xrail.c code
+- make a better unit test in main.c
 
 check the -Wno in Makefile
 
+start festival on rpi at boot
 
-NOTES on the tic settings 
+only build xrpm on rpi, and only build other pgms on fedora;
+- maybe get rid of top level makefile
 
-update the my_tic_test, if needed to accomodate the new settings
+===============================================
+TITLE: TIC SETTINGS
+===============================================
+
+TBD
 
 ===============================================
 TITLE: NEW PGM

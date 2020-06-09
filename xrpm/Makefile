@@ -23,7 +23,7 @@ DEP=$(SRC_XRPM:.c=.d)
 all: $(TARGETS)
 
 xrpm: $(OBJ_XRPM) 
-	$(CC) -pthread -lm -lpololu-tic-1 -o $@ $(OBJ_XRPM)
+	$(CC) -pthread -lreadline -lm -lpololu-tic-1 -o $@ $(OBJ_XRPM)
 
 -include $(DEP)
 

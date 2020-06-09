@@ -1,3 +1,5 @@
+// XXX will this work if we start with power off?
+
 #include "common.h"
 
 #include <tic.h>
@@ -27,6 +29,9 @@
 // expected value of command_timeout setting, 0 means disabled
 #define COMMAND_TIMEOUT_MS 0
 
+// maximum absolute value location
+#define MAX_MM  25
+
 // use this for debug and test
 //#define VERBOSE
 
@@ -55,8 +60,9 @@ static void * keep_alive_thread(void * cx);
 static void print_and_check_settings(void);
 static void print_and_check_check_variables(void);
 static bool is_status_okay(void);
-static void get_status(bool *arg_okay, bool *arg_calibrated, double *arg_curr_loc_mm, 
-                       char *arg_status_str, double *arg_voltage);
+static void get_status(bool *arg_okay, bool *arg_calibrated, 
+                       double *arg_curr_loc_mm, double *tgt_loc_mm, 
+                       double *arg_voltage, char *arg_status_str);
 static char * operation_state_str(int op_state);
 static char * error_status_str(int err_stat);
 
@@ -114,6 +120,8 @@ void xrail_exit(void)
 
 void xrail_cal_move(double mm)
 {
+    mm = -mm;
+
     if (calibrated) {
         ERROR("already calibrated\n");
         return;
@@ -124,6 +132,10 @@ void xrail_cal_move(double mm)
     }
     if (!at_tgt_pos()) {
         ERROR("not at_tgt_pos\n");
+        return;
+    }
+    if (fabs(mm) > 1) {
+        ERROR("mm %f too large\n", mm);
         return;
     }
 
@@ -153,8 +165,15 @@ void xrail_cal_complete(void)
 
 void xrail_goto_location(double mm, bool wait)
 {
+    mm = -mm;
+
     if (!calibrated) {
         ERROR("not calibrated\n");
+        return;
+    }
+
+    if (fabs(mm) > MAX_MM) {
+        ERROR("mm %f too large\n", mm);
         return;
     }
 
@@ -172,9 +191,11 @@ bool xrail_reached_location(void)
     return at_tgt_pos();
 }
 
-void xrail_get_status(bool *okay, bool *calibrated, double *curr_loc_mm, char *status_str, double *voltage)
+void xrail_get_status(bool *okay, bool *calibrated, 
+                      double *curr_loc_mm, double *tgt_loc_mm, 
+                      double *voltage, char *status_str)
 {
-    get_status(okay, calibrated, curr_loc_mm, status_str, voltage);
+    get_status(okay, calibrated, curr_loc_mm, tgt_loc_mm, voltage, status_str);
 }
 
 // -----------------  TIC PRIMARY SUPPORT ROUTINES  ----------------------
@@ -210,22 +231,34 @@ static void goto_tgt_pos(bool wait)
     ERR_CHK(tic_set_target_position(handle, tgt_pos));
 
     if (wait) {
-        #define DELAY_US   100000
-        #define TIMEOUT_US 5000000
-        int curr_pos, usec=0;
+        #define DELAY_SECS  0.1
+        int curr_pos;
+        double timeout_secs=0, secs=0;
         while (true) {
             curr_pos = get_curr_pos();
             if (curr_pos == tgt_pos) {
                 break;
             }
-            if (usec > TIMEOUT_US) {
-                ERROR("failed to reach tgt_pos %d, curr_pos=%d\n", tgt_pos, curr_pos);
-                ERROR("clearing calibrated\n");
-                calibrated = false;
+            if (timeout_secs == 0) {
+                timeout_secs = (double)abs(tgt_pos - curr_pos) / (200 * 32) + 3;
+                INFO("timeout secs %f\n", timeout_secs);
+            }
+            if (secs > timeout_secs) {
+                ERROR("failed to reach tgt_pos %d, curr_pos=%d timeout_secs=%.1f\n", 
+                      tgt_pos, curr_pos, timeout_secs);
+
+                ERROR("deenergizing\n");
+                ERR_CHK(tic_enter_safe_start(handle));
+                ERR_CHK(tic_deenergize(handle));
+
+                if (calibrated) {
+                    ERROR("clearing calibrated\n");
+                    calibrated = false;
+                }
                 break;
             }
-            usleep(DELAY_US);
-            usec += DELAY_US;
+            usleep(DELAY_SECS * 1000000);
+            secs += DELAY_SECS;
         }
     }
 }
@@ -394,12 +427,13 @@ static bool is_status_okay(void)
 {
     bool okay;
 
-    get_status(&okay, NULL, NULL, NULL, NULL);
+    get_status(&okay, NULL, NULL, NULL, NULL, NULL);
     return okay;
 }
 
-static void get_status(bool *arg_okay, bool *arg_calibrated, double *arg_curr_loc_mm, 
-                       char *arg_status_str, double *arg_voltage)
+static void get_status(bool *arg_okay, bool *arg_calibrated, 
+                       double *arg_curr_loc_mm, double *arg_tgt_loc_mm, 
+                       double *arg_voltage, char *arg_status_str)
 {
     tic_variables *variables = NULL;
     bool okay;
@@ -423,6 +457,10 @@ static void get_status(bool *arg_okay, bool *arg_calibrated, double *arg_curr_lo
             var_vin_voltage >= MIN_VIN_VOLTAGE && var_vin_voltage <= MAX_VIN_VOLTAGE);
 
     if (!okay && calibrated) {
+        ERROR("deenergizing\n");
+        ERR_CHK(tic_enter_safe_start(handle));
+        ERR_CHK(tic_deenergize(handle));
+
         ERROR("clearing calibrated\n");
         calibrated = false;
     }
@@ -436,13 +474,16 @@ static void get_status(bool *arg_okay, bool *arg_calibrated, double *arg_curr_lo
     if (arg_curr_loc_mm) {
         *arg_curr_loc_mm = CALIBRATED_POS_TO_MM(var_current_position);
     }
-    if (arg_status_str) {
-        sprintf(arg_status_str, "%s - %s",
-                operation_state_str(var_operation_state),
-                error_status_str(var_error_status));
+    if (arg_tgt_loc_mm) {
+        *arg_tgt_loc_mm = CALIBRATED_POS_TO_MM(tgt_pos);
     }
     if (arg_voltage) {
         *arg_voltage = (double)var_vin_voltage / 1000;
+    }
+    if (arg_status_str) {
+        sprintf(arg_status_str, "%s/%s",
+                operation_state_str(var_operation_state),
+                error_status_str(var_error_status));
     }
 }
 
