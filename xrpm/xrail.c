@@ -257,7 +257,7 @@ static void goto_tgt_pos(bool wait)
                 }
                 break;
             }
-            usleep(DELAY_SECS * 1000000);
+            my_usleep(DELAY_SECS * 1000000);
             secs += DELAY_SECS;
         }
     }
@@ -284,7 +284,7 @@ static void * keep_alive_thread(void * cx)
 {
     while (true) {
         ERR_CHK(tic_reset_command_timeout(handle));
-        usleep(COMMAND_TIMEOUT_MS * 1000 / 2);
+        my_usleep(COMMAND_TIMEOUT_MS * 1000 / 2);
     }
     return NULL;
 }
