@@ -116,3 +116,17 @@ char * time2str(char * str, int64_t us, bool gmt, bool display_ms, bool display_
     return str;
 }
 
+void my_usleep(uint64_t us)
+{
+    struct timespec ts, rem;
+    int rc;
+
+    ts.tv_sec = (us / 1000000);
+    ts.tv_nsec = (us % 1000000) * 1000;
+    while (true) {
+        if (nanosleep(&ts,&rem) == 0) {
+            break;
+        }
+        ts = rem;
+    }
+}
