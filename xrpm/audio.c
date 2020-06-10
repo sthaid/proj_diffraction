@@ -4,6 +4,14 @@
 #include <netinet/in.h>
 
 //
+// notes
+// - XXX add notes on amixer to get and set volume
+// - add this to /etc/rc.local
+//     # start festival
+//     /usr/bin/festival --server >/var/log/festival.log 2>&1 &
+//
+
+//
 // defines
 //
 
@@ -63,8 +71,6 @@ void audio_say_text(char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(say_str, sizeof(say_str), fmt, ap);
     va_end(ap);
-
-    INFO("saying '%s'\n", say_str);
 
     len = sprintf(cmd, "(SayText \"%s\")\n", say_str);
     ret = write(sd, cmd, len);
