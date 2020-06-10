@@ -1,6 +1,8 @@
 #ifndef __DRA_GPIO_H__
 #define __DRA_GPIO_H__
 
+// reference: https://elinux.org/RPi_GPIO_Code_Samples#Direct_register_access
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -9,6 +11,9 @@
 
 #define PIN_MODE_INPUT   1
 #define PIN_MODE_OUTPUT  2
+
+#define PULL_UP   1
+#define PULL_DOWN 2
 
 volatile unsigned int *gpio_regs;
 
@@ -58,24 +63,34 @@ static inline int gpio_read(int pin)
 
 static inline void set_gpio_pin_mode(int pin, int mode)
 {
-    int mask, value;
-
     switch (mode) {
     case PIN_MODE_INPUT:
-        mask  = (7 << ((pin % 10) * 3));
-        value = 0;
-        gpio_regs[pin/10] = (gpio_regs[pin/10] & ~mask) | value;
+        gpio_regs[pin/10] &= ~(7 << ((pin % 10) * 3));
         break;
     case PIN_MODE_OUTPUT:
-        mask  = (7 << ((pin % 10) * 3));
-        value = (1 << ((pin % 10) * 3));
-        gpio_regs[pin/10] = (gpio_regs[pin/10] & ~mask) | value;
+        gpio_regs[pin/10] &= ~(7 << ((pin % 10) * 3));
+        gpio_regs[pin/10] |=  (1 << ((pin % 10) * 3));
         break;
     default:
         printf("ERROR: %s: invalid mode %d\n", __func__, mode);
         exit(1);
         break;
     }
+}
+
+// XXX not working
+static inline void set_gpio_pull_mode(int pin, int pull_mode)
+{
+    #define GPIO_PULL      gpio_regs[37]
+    #define GPIO_PULLCLK0  gpio_regs[38]
+
+    GPIO_PULL = (pull_mode == PULL_UP ? 2 : 0);
+    usleep(10000);
+
+    GPIO_PULLCLK0 = (1 << pin);
+    usleep(10000);
+    GPIO_PULL = 0;
+    GPIO_PULLCLK0 = 0;
 }
 
 #endif
