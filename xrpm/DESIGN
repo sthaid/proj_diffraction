@@ -6,6 +6,9 @@ unsigned long ?    uint64_t
 
 
 
+# start festival
+/usr/bin/festival --server >/var/log/festival.log 2>&1 &
+
 
 
 ===============================================
