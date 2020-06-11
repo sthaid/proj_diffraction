@@ -3,6 +3,8 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#include <sys/resource.h>
+
 // variables
 
 static int unit_test_thread_cmd;
@@ -10,7 +12,6 @@ static bool unit_test_thread_stop_req;
 
 // prototypes
 
-static void sigint_handler(int signum);
 static void * unit_test_thread(void *cx);
 
 // -----------------  UNIT TEST  -----------------------------------
@@ -32,18 +33,26 @@ int main(int argc, char **argv)
 
     char *s=NULL, s1[1000], *x, *tok[100];
     int max_tok;
-    struct sigaction act;
+    struct rlimit rl;
+    sigset_t set;
 
-    // register for SIGINT
-    memset(&act, 0, sizeof(act));
-    act.sa_handler = sigint_handler;
-    sigaction(SIGINT, &act, NULL);
+    // set resource limti to allow core dumps
+    rl.rlim_cur = RLIM_INFINITY;
+    rl.rlim_max = RLIM_INFINITY;
+    setrlimit(RLIMIT_CORE, &rl);
 
-    // init other files
+    // block signal SIGINT
+    sigemptyset(&set);
+    sigaddset(&set,SIGINT);
+    pthread_sigmask(SIG_BLOCK, &set, NULL);
+
+    // init files
     utils_init();
     audio_init();
-    // XXX init sipm, and exit
+    sipm_init();
     xrail_init();
+
+    // init is complete
     INFO("INITIALIZATION COMPLETE\n");
 
     // loop, read and process user's commands
@@ -89,16 +98,21 @@ int main(int argc, char **argv)
             }
         } else if (strcmp(tok[0], "xr") == 0) {
             // process xrail commands
+            // - xr             # get status
             // - xr cal +       # cal move 1 mm right
             // - xr cal -       # cal move 1 mm left
             // - xr cal done    # cal complete
             // - xr goto <mm>   # goto location
-            // - xr test        # goto -25, +25, home
-            // - xr             # return status
+            // - xr test1       # goto -25, +25, home
+            // - xr test2       # goto -25, +25, home in 0.1mm steps
             double mm, curr_loc_mm, tgt_loc_mm, voltage;
             bool okay, cal;
             char status_str[1000];
-            if (max_tok == 3 && strcmp(tok[1], "cal") == 0 && strcmp(tok[2], "+") == 0) {
+            if (max_tok == 1) {
+                xrail_get_status(&okay, &cal, &curr_loc_mm, &tgt_loc_mm, &voltage, status_str);
+                printf("xr: okay=%d cal=%d curr_loc_mm=%.2f tgt_loc_mm=%.2f voltage=%.1f status='%s'\n",
+                       okay, cal, curr_loc_mm, tgt_loc_mm, voltage, status_str);
+            } else if (max_tok == 3 && strcmp(tok[1], "cal") == 0 && strcmp(tok[2], "+") == 0) {
                 xrail_cal_move(1);
             } else if (max_tok == 3 && strcmp(tok[1], "cal") == 0 && strcmp(tok[2], "-") == 0) {
                 xrail_cal_move(-1);
@@ -110,10 +124,22 @@ int main(int argc, char **argv)
                 START_UNIT_TEST_THREAD(1);
             } else if (max_tok == 2 && strcmp(tok[1], "test2") == 0) {
                 START_UNIT_TEST_THREAD(2);
-            } else if (max_tok == 1) {
-                xrail_get_status(&okay, &cal, &curr_loc_mm, &tgt_loc_mm, &voltage, status_str);
-                printf("xr: okay=%d cal=%d curr_loc_mm=%.2f tgt_loc_mm=%.2f voltage=%.1f status='%s'\n",
-                       okay, cal, curr_loc_mm, tgt_loc_mm, voltage, status_str);
+            } else {
+                printf("invalid %s subcommand '%s'\n", tok[0], tok[1]);
+            }
+        } else if (strcmp(tok[0], "pm") == 0) {
+            // process sipm commands
+            // - pm     # get sipm pulse_rate and stats
+            if (max_tok == 1) {
+                START_UNIT_TEST_THREAD(3);
+            } else {
+                printf("invalid %s subcommand '%s'\n", tok[0], tok[1]);
+            }
+        } else if (strcmp(tok[0], "xrpm") == 0) {
+            // process xrail/sipm commands
+            // - xrpm   # XXX tbd descr
+            if (max_tok == 1) {
+                START_UNIT_TEST_THREAD(4);
             } else {
                 printf("invalid %s subcommand '%s'\n", tok[0], tok[1]);
             }
@@ -133,9 +159,19 @@ int main(int argc, char **argv)
         }
     }
 
-    // call other file exit routines
+    // clean up and exit
     INFO("TERMINATING\n");
+
+    if (unit_test_thread_cmd != 0) {
+        unit_test_thread_stop_req = true;
+        INFO("waiting for unit_test_thread to finish\n");
+        while (unit_test_thread_cmd != 0) {
+            my_usleep(1000000);
+        }
+    }
+
     xrail_exit();
+    sipm_exit();
     audio_exit();
     utils_exit();
 
@@ -143,30 +179,69 @@ int main(int argc, char **argv)
     return 0;
 }
 
-static void sigint_handler(int signum)
-{
-}
-
+// XXX ensure calibrated when needed
 static void * unit_test_thread(void *cx)
 {
     #define CHECK_STOP_REQ \
         do { \
             if (unit_test_thread_stop_req) { \
                 printf("unit_test_thread stopping\n"); \
+                unit_test_thread_cmd = 0; \
                 return NULL; \
             } \
         } while (0)
 
     if (unit_test_thread_cmd == 1) {
-        xrail_goto_location(-25, true); CHECK_STOP_REQ;
-        xrail_goto_location(+25, true); CHECK_STOP_REQ;
-        xrail_goto_location(0,   true); CHECK_STOP_REQ;
+        xrail_goto_location(-25, true); 
+        CHECK_STOP_REQ;
+        xrail_goto_location(+25, true); 
+        CHECK_STOP_REQ;
+        xrail_goto_location(0,   true); 
+        CHECK_STOP_REQ;
     } else if (unit_test_thread_cmd == 2) {
         double mm;
         for (mm = -25; mm <= 25; mm += .1) {
-            xrail_goto_location(mm, true); CHECK_STOP_REQ;
-            usleep(1000000);
+            xrail_goto_location(mm, true); 
+            my_usleep(1000000);
+            CHECK_STOP_REQ;
         }
+        xrail_goto_location(0, true);
+    } else if (unit_test_thread_cmd == 3) {
+        int pulse_rate, gpio_read_rate, gpio_read_and_analyze_rate;
+        while (true) {
+            sipm_get_rate(&pulse_rate, &gpio_read_rate, &gpio_read_and_analyze_rate);
+            printf("pm: pulse_rate=%.1f K  gpio_read_rate=%.1f M  gpio_read_and_analyze_rate=%.1f M\n",
+                   (double)pulse_rate/1000,
+                   (double)gpio_read_rate/1000000,
+                   (double)gpio_read_and_analyze_rate/1000000);
+            audio_say_text("%d", (pulse_rate+500)/1000);
+            my_usleep(1000000);
+            CHECK_STOP_REQ;
+        }
+    } else if (unit_test_thread_cmd == 4) {
+        double mm;
+        int pulse_rate, gpio_read_rate, gpio_read_and_analyze_rate;
+        for (mm = -25; mm <= 25; mm += .1) {
+            // move xrail to location mm
+            xrail_goto_location(mm, true); 
+
+            // sleep 1 second to allow sipm code to collect data at this location
+            my_usleep(1000000);
+
+            // query sipm to get the pulse rate
+            sipm_get_rate(&pulse_rate, &gpio_read_rate, &gpio_read_and_analyze_rate);
+            printf("xrpm: mm=%.1f  pulse_rate=%.1f K  gpio_read_rate=%.1f M  gpio_read_and_analyze_rate=%.1f M\n",
+                   mm,
+                   (double)pulse_rate/1000,
+                   (double)gpio_read_rate/1000000,
+                   (double)gpio_read_and_analyze_rate/1000000);
+            audio_say_text("%d", (pulse_rate+500)/1000);
+
+            // check for request to stop this run
+            CHECK_STOP_REQ;
+        }
+
+        // reset xrail to home location
         xrail_goto_location(0, true);
     } else {
         FATAL("invalid unit_test_thread_cmd %d\n", unit_test_thread_cmd);
