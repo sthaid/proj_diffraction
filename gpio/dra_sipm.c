@@ -10,8 +10,8 @@
 //      Refer to Typical Application for
 //      Pulse Stretcher Circuit / Monostable Multivrator
 // - Raspberry Pi 4 4GB 
-//      The Pulse Strectcher output connected to GPIO_PIN 26
-// - This test program, which reads the GPIO 26 value in a tight loop,
+//      The Pulse Strectcher output connected to GPIO_INPUT_PIN
+// - This test program, which reads the GPIO_INPUT_PIN value in a tight loop,
 //   and post processes the data to determine the pulse rate.
 //   Refer to comments in the PARSE_PULSE macro for how the gpio values
 //   are processed to determine the pulse rate.
@@ -118,7 +118,8 @@
 #include <util_misc.h>
 
 // defines
-#define GPIO_PIN  26
+#define GPIO_INPUT_PIN       20
+#define GPIO_OUTPUT_LED_PIN  21
 
 #define GPIO_STRUCT_MAGIC  0x227755aa
 
@@ -175,9 +176,12 @@ int main(int argc, char **argv)
         }
     }
 
-    // init dra_gpio capability
+    // init gpio, and set pin mode
     rc = gpio_init();
     gpio_hw_access_initialized = (rc == 0);
+    if (gpio_hw_access_initialized) {
+        set_gpio_pin_mode(GPIO_INPUT_PIN, PIN_MODE_INPUT);
+    }
 
     // register for SIGALRM, and SIGINT
     memset(&act, 0, sizeof(act));
@@ -341,7 +345,7 @@ void read_gpio(char *duration_secs_str, bool verbose, double *gpio_read_rate_ret
 
         for (v32 = 0, i = 0; i < 32; i++) {
             v32 <<= 1;
-            v32 |= gpio_read(GPIO_PIN);
+            v32 |= gpio_read(GPIO_INPUT_PIN);
         }
 
         gpio.data[max_data++] = v32;

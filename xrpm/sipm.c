@@ -5,11 +5,11 @@
 // defines
 //
 
+#define GPIO_INPUT_PIN        20
+
 #define GPIO_READ_INTVL_US    100000    // 100ms
 #define MAX_GPIO_DATA_BUFFER  10000000  // 10 million
 #define MAX_SIPM              20        // 2 secs of history in 100 ms chunks
-
-#define GPIO_PIN              26
 
 //
 // typedes
@@ -26,9 +26,9 @@ typedef struct {
 // variables
 //
 
-sipm_t sipm[MAX_SIPM];
-int    sipm_count;
-bool   sigalrm_rcvd;
+sipm_t        sipm[MAX_SIPM];
+int           sipm_count;
+volatile bool sigalrm_rcvd;
 
 unsigned int gpio_data_buffer[MAX_GPIO_DATA_BUFFER];
 
@@ -52,7 +52,6 @@ static int count_consecutive_one(void);
 void sipm_init(void)
 {
     int rc;
-    struct sigaction act;
     pthread_t tid;
 
     // init dra_gpio capability
@@ -60,11 +59,7 @@ void sipm_init(void)
     if (rc != 0) {
         FATAL("gpio_init failed\n");
     }
-
-    // register for SIGALRM
-    memset(&act, 0, sizeof(act));
-    act.sa_handler = sigalrm_handler;
-    sigaction(SIGALRM, &act, NULL);
+    set_gpio_pin_mode(GPIO_INPUT_PIN, PIN_MODE_INPUT);
 
     // create sipm_thread
     pthread_create(&tid, NULL, sipm_thread, NULL);
@@ -96,7 +91,7 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
 
     // if sipm_count < MAX_SIPM then wait
     while (sipm_count < MAX_SIPM) {
-        usleep(1000);
+        my_usleep(1000);
     }
 
     // acquire mutex so that sipm_count will not change 
@@ -153,9 +148,17 @@ static void * sipm_thread(void *cs)
 {
     int rc;
     struct sched_param sched_param;
+    struct sigaction act;
 
-    // set realtime
-    sched_param.sched_priority = 50;  // XXX check this using ps
+    // register for SIGALRM
+    memset(&act, 0, sizeof(act));
+    act.sa_handler = sigalrm_handler;
+    sigaction(SIGALRM, &act, NULL);
+
+    // set realtime prio
+    // note: to verify rtprio, use:
+    //   ps -eLo rtprio,comm | grep xrpm
+    sched_param.sched_priority = 50;
     rc = pthread_setschedparam(pthread_self(), SCHED_FIFO, &sched_param);
     if (rc != 0) {
         ERROR("pthread_setschedparam, %s\n", strerror(rc));
@@ -177,8 +180,13 @@ static void * sipm_thread(void *cs)
         // - pulse_count
         analyze_sipm(x);
 
-        // short sleep because this thread is running at realtime prio
-        usleep(5000);
+        // update sipm_count
+        pthread_mutex_lock(&mutex);
+        sipm_count++;
+        pthread_mutex_unlock(&mutex);
+
+        // 5 ms sleep because this thread is running at realtime prio
+        my_usleep(5000);
     }
 
     return NULL;
@@ -204,7 +212,7 @@ static void read_sipm(sipm_t *x)
 
         for (v32 = 0, i = 0; i < 32; i++) {
             v32 <<= 1;
-            v32 |= gpio_read(GPIO_PIN);
+            v32 |= gpio_read(GPIO_INPUT_PIN);
         }
 
         gpio_data_buffer[max_data++] = v32;

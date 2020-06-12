@@ -4,6 +4,9 @@
 
 #define MAX_CNT 10000000  // 10 million
 
+#define GPIO_INPUT_PIN       20
+#define GPIO_OUTPUT_LED_PIN  21
+
 int main(int argc, char **argv)
 {
     unsigned long cnt, cnt_v_set;
@@ -14,8 +17,7 @@ int main(int argc, char **argv)
     if (gpio_init() != 0) {
         return 1;
     }
-
-    set_gpio_pin_mode(25, PIN_MODE_INPUT);
+    set_gpio_pin_mode(GPIO_INPUT_PIN, PIN_MODE_INPUT);
 
     cnt_v_set = 0;
     start_us = microsec_timer();

@@ -13,7 +13,8 @@
 // - real time ?
 
 // defines
-#define GPIO_PIN  26
+#define GPIO_INPUT_PIN       20
+#define GPIO_OUTPUT_LED_PIN  21
 
 // variables
 volatile bool done;
@@ -34,6 +35,7 @@ int main(int argc, char **argv)
     if (gpio_init() != 0) {
         return 1;
     }
+    set_gpio_pin_mode(GPIO_INPUT_PIN, PIN_MODE_INPUT);
 
     // register for SIGALRM
     memset(&act, 0, sizeof(act));
@@ -79,7 +81,7 @@ void get_pulse_rate(unsigned int intvl_us, double *gpio_read_rate, double *pulse
     start_us = microsec_timer();
     while (!done) {
         // read gpio input
-        v = gpio_read(GPIO_PIN);
+        v = gpio_read(GPIO_INPUT_PIN);
         read_cnt++;
 
         // if detected rising edge then increment pulse_cnt
