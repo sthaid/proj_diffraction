@@ -81,7 +81,7 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
 {
     uint64_t one_sec_ago_us;
     uint64_t analyze_start_us = 0;
-    uint64_t analyze_end_us;
+    uint64_t analyze_end_us = 0;
     int      pulse_count;
     int      gpio_read_count;
     int      gpio_read_duration_us;
@@ -122,8 +122,8 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
 
     // the above code should always set analyze_start_us;
     // if not it is a fatal error
-    if (analyze_start_us == 0) {
-        FATAL("analyze_start_us equals zero\n");
+    if (analyze_start_us == 0 || analyze_end_us == 0) {
+        FATAL("analyze_start/end_us equals zero\n");
     }
 
     // convert durations to seconds (double)
