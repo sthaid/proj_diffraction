@@ -808,6 +808,27 @@ GPIO Access - T Type Expansion Board
 Wifi setup, 
 - use raspi-config   password 'e s'
 - confirm SSID using iwgetid
+- https://www.raspberrypi.org/documentation/configuration/wireless/wireless-cli.md
+- /etc/wpa_supplicant/wpa_supplicant.conf
+
+Audio & Text-To-Speech
+- web sites
+  . http://raspberrypi-aa.github.io/session3/audio.html#:~:text=To%20change%20the%20volume%2C%20run,Route%20or%20Playback%20Switch%20controls.
+  . https://elinux.org/RPi_Text_to_Speech_(Speech_Synthesis)
+  . http://www.cstr.ed.ac.uk/projects/festival/manual/festival_7.html#SEC20
+- packeages needed to use festival text-to-speech
+  . sudo apt-get install mplayer
+  . sudo apt-get install festival
+- running festival as a startup service
+  . festival --server  # Run in server mode waiting for clients of server_port (1314)
+  . /etc/rc.local
+      # start festival
+      /usr/bin/festival --server >/var/log/festival.log 2>&1 &
+- notes
+  . use "amixer controls" to get list of control names
+  . example of 'amixer'
+      sudo amixer set PCM Playback Volume 90%
+      sudo amixer get PCM Playback Volume
 
 PVC Pipe Sizes
 --------------
