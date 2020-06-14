@@ -1,6 +1,17 @@
-#include "common.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <time.h>
+#include <inttypes.h>
 
-FILE *logfp;
+#include "utils.h"
+
+static FILE *logfp;
 
 // -----------------  INIT & EXIT  --------------------------------------
 
@@ -116,6 +127,7 @@ char * time2str(char * str, int64_t us, bool gmt, bool display_ms, bool display_
     return str;
 }
 
+// XXX do I still want this routine
 void my_usleep(uint64_t us)
 {
     struct timespec ts, rem;

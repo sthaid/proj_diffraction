@@ -1,5 +1,21 @@
-#include "common.h"
-#include "rpi_gpio.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <time.h>
+#include <inttypes.h>
+
+#include <signal.h>
+#include <pthread.h>
+#include <sys/time.h>
+
+#include "sipm.h"
+#include "utils.h"
+#include "gpio.h"
 
 //
 // defines
@@ -150,7 +166,7 @@ static void * sipm_thread(void *cs)
     struct sched_param sched_param;
     struct sigaction act;
 
-    // register for SIGALRM
+    // register for SIGALRM  XXX dont use this
     memset(&act, 0, sizeof(act));
     act.sa_handler = sigalrm_handler;
     sigaction(SIGALRM, &act, NULL);

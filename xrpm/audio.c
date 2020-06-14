@@ -1,14 +1,27 @@
-#include "common.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <time.h>
+#include <inttypes.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#include "audio.h"
+#include "utils.h"
+
+// XXX need a thread to read from the sd and discard
+
 //
 // notes
-// - XXX add notes on amixer to get and set volume
-// - add this to /etc/rc.local
-//     # start festival
-//     /usr/bin/festival --server >/var/log/festival.log 2>&1 &
+// - to auto start festival on raspberry pi - add this to /etc/rc.local
+//   # start festival
+//   /usr/bin/festival --server >/var/log/festival.log 2>&1 &
 //
 
 //
@@ -27,8 +40,6 @@ static int  sd = -1;
 
 // -----------------  INIT / EXIT  ----------------------------------------
 
-// XXX need a thread to read from the sd and discard
-
 void audio_init(void)
 {
     int rc;
@@ -40,7 +51,9 @@ void audio_init(void)
     sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
     sd = socket(AF_INET, SOCK_STREAM, 0);
-    // XXX check sd
+    if (sd == -1) {
+        FATAL("failed to create socket, %s\n",strerror(errno));
+    }
     rc = connect(sd, (struct sockaddr *)&sin, sizeof(sin));
 
     if (rc < 0) {

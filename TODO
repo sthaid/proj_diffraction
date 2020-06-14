@@ -851,3 +851,9 @@ GPIO 3.3v -------->|--------220ohm-------- GND
 Anode, 
 Longer pin
 
+Git
+---
+
+git config --global core.editor vim
+git config --global -l
+

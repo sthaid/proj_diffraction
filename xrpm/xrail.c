@@ -1,8 +1,20 @@
-// XXX will this work if we start with power off?
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <time.h>
+#include <inttypes.h>
 
-#include "common.h"
+#include <pthread.h>
+#include <math.h>
+#include <tic.h>   // from /usr/local/include/libpololu-tic-1//tic.h
 
-#include <tic.h>
+#include "xrail.h"
+#include "utils.h"
 
 //
 // defines
@@ -13,8 +25,8 @@
 #define MAX_VIN_VOLTAGE 24000
 
 // these both return double, and can only be used when calibrated
-#define CALIBRATED_MM_TO_POS(_mm)       (home_pos + (double)(_mm) * (200 * 32 / 5)) 
-#define CALIBRATED_POS_TO_MM(_tgt_pos)  (((double)(_tgt_pos) - home_pos) / (200 * 32 / 5))
+#define CALIBRATED_MM_TO_POS(_mm)   (home_pos - (double)(_mm) * (200 * 32 / 5))
+#define CALIBRATED_POS_TO_MM(_pos)  (((double)home_pos - (_pos)) / (200 * 32 / 5))
 
 // execute tic routine and FATAL error if it fails
 #define ERR_CHK(statement) \
@@ -36,7 +48,14 @@
 //#define VERBOSE
 
 //
-// typedes
+// notes
+// - If xrail_init is called with out of range input voltage the xrail_init
+//   will call ERROR and not FATAL; howver to correct the problem the program
+//   needs to be restarted.
+//   
+
+//
+// typedefs
 //
 
 //
@@ -47,6 +66,7 @@ static tic_handle * handle;
 static bool         calibrated;
 static int          tgt_pos;
 static int          home_pos;
+static bool         initial_vin_okay;
 
 //
 // prototypes
@@ -83,6 +103,12 @@ void xrail_init(void)
     // print some settings and variables, and validate
     print_and_check_settings();
     print_and_check_check_variables();
+
+    // return if voltage is not okay; this allows for testing
+    // without applying voltage to the stepper motor
+    if (!initial_vin_okay) {
+        return;
+    }
 
     // create thread to periodically reset command timeout
     if (COMMAND_TIMEOUT_MS != 0) {
@@ -165,8 +191,6 @@ void xrail_cal_complete(void)
 
 void xrail_goto_location(double mm, bool wait)
 {
-    mm = -mm;
-
     if (!calibrated) {
         ERROR("not calibrated\n");
         return;
@@ -415,6 +439,8 @@ static void print_and_check_check_variables(void)
     if (vin_voltage < MIN_VIN_VOLTAGE || vin_voltage > MAX_VIN_VOLTAGE) {
         ERROR("variable vin_voltage=%d out of range %d to %d\n",
               vin_voltage, MIN_VIN_VOLTAGE, MAX_VIN_VOLTAGE);
+    } else {
+        initial_vin_okay = true;
     }
 
     tic_variables_free(variables);

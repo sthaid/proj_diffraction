@@ -1,15 +1,52 @@
+checkin so far
+	modified:   ../.gitignore   NEED TO REVIST LATER
+	modified:   ../TODO          OKA
+	modified:   DESIGN            OKAY
+	modified:   audio.c
+	modified:   main.c
+	modified:   sipm.c
+	modified:   utils.c
+	modified:   xrail.c
+
+
+rename main to main_ut
+update sipm.c to not use SIGALRM, 
+  - test mode for gpio.h ?
+fix mm and test
+
+-------
+
+possible network problems when running from the laptop
+- should I be using haid or _EXT,  or haid1 or haid1_EXT
+
+Alarm Clock error
+- maybe don't use alarm signal for timing
+
+Xr readback sign error
+
+move audio to ctlr
+
+ctlr will make connection, to client to get the sipm rates data
+
+save unit test code, with option to run on either ctlr or ds
+
+write curses code
+
+
+-------
+
 review this file and make a TODO SECTION
 
 --------
 
 unsigned long ?    uint64_t
 
-
-
 # start festival
 /usr/bin/festival --server >/var/log/festival.log 2>&1 &
 
+-----
 
+later get rid of this file  ???
 
 ===============================================
 TITLE: TODO    

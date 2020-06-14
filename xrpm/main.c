@@ -1,14 +1,33 @@
-#include "common.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <time.h>
+#include <inttypes.h>
 
+#include <signal.h>
+#include <pthread.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-
 #include <sys/resource.h>
+
+#include "audio.h"
+#include "xrail.h"
+#include "sipm.h"
+#include "utils.h"
 
 // variables
 
 static int unit_test_thread_cmd;
 static bool unit_test_thread_stop_req;
+
+static bool  audio_test_enabled;
+static bool  sipm_test_enabled;
+static bool  xrail_test_enabled;
 
 // prototypes
 
@@ -32,9 +51,12 @@ int main(int argc, char **argv)
         } while (0)
 
     char *s=NULL, s1[1000], *x, *tok[100];
-    int max_tok;
+    int max_tok, i;
     struct rlimit rl;
     sigset_t set;
+
+    // use line bufferring
+    setlinebuf(stdout);
 
     // set resource limti to allow core dumps
     rl.rlim_cur = RLIM_INFINITY;
@@ -46,11 +68,38 @@ int main(int argc, char **argv)
     sigaddset(&set,SIGINT);
     pthread_sigmask(SIG_BLOCK, &set, NULL);
 
+    // parse args
+    if (argc == 1) {
+        printf("usage: %s [audio] [xrail] [sipm]\n", argv[0]);
+        return 1;
+    }
+    for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "audio") == 0) {
+            audio_test_enabled = true;
+            printf("audio_test : enabled\n");
+        } else if (strcmp(argv[i], "xrail") == 0) {
+            xrail_test_enabled = true;
+            printf("xrail_test : enabled\n");
+        } else if (strcmp(argv[i], "sipm") == 0) {
+            sipm_test_enabled = true;
+            printf("sipm_test  : enabled\n");
+        } else {
+            printf("ERROR: invalid arg '%s'\n", argv[0]);
+            return 1;
+        }
+    }
+
     // init files
     utils_init();
-    audio_init();
-    sipm_init();
-    xrail_init();
+    if (audio_test_enabled) {
+        audio_init();
+    }
+    if (sipm_test_enabled) {
+        sipm_init();
+    }
+    if (xrail_test_enabled) {
+        xrail_init();
+    }
 
     // init is complete
     INFO("INITIALIZATION COMPLETE\n");
@@ -80,7 +129,7 @@ int main(int argc, char **argv)
         add_history(s);
 
         // process the cmd
-        if (strcmp(tok[0], "au") == 0) {
+        if (audio_test_enabled && strcmp(tok[0], "au") == 0) {
             // process audio commands
             // - au incr
             // - au decr
@@ -96,7 +145,7 @@ int main(int argc, char **argv)
             } else {
                 printf("invalid %s subcommand '%s'\n", tok[0], tok[1]);
             }
-        } else if (strcmp(tok[0], "xr") == 0) {
+        } else if (xrail_test_enabled && strcmp(tok[0], "xr") == 0) {
             // process xrail commands
             // - xr             # get status
             // - xr cal +       # cal move 1 mm right
@@ -127,7 +176,7 @@ int main(int argc, char **argv)
             } else {
                 printf("invalid %s subcommand '%s'\n", tok[0], tok[1]);
             }
-        } else if (strcmp(tok[0], "pm") == 0) {
+        } else if (sipm_test_enabled && strcmp(tok[0], "pm") == 0) {
             // process sipm commands
             // - pm     # get sipm pulse_rate and stats
             if (max_tok == 1) {
@@ -135,9 +184,10 @@ int main(int argc, char **argv)
             } else {
                 printf("invalid %s subcommand '%s'\n", tok[0], tok[1]);
             }
-        } else if (strcmp(tok[0], "xrpm") == 0) {
+        } else if (sipm_test_enabled && xrail_test_enabled && strcmp(tok[0], "xrpm") == 0) {
             // process xrail/sipm commands
-            // - xrpm   # XXX tbd descr
+            // - xrpm   # move xrail in 1mm increments and get sipm_pulse_rate 
+            //          # at each increment
             if (max_tok == 1) {
                 START_UNIT_TEST_THREAD(4);
             } else {
@@ -170,16 +220,21 @@ int main(int argc, char **argv)
         }
     }
 
-    xrail_exit();
-    sipm_exit();
-    audio_exit();
+    if (xrail_test_enabled) {
+        xrail_exit();
+    }
+    if (sipm_test_enabled) {
+        sipm_exit();
+    }
+    if (audio_test_enabled) {
+        audio_exit();
+    }
     utils_exit();
 
     // done
     return 0;
 }
 
-// XXX ensure calibrated when needed
 static void * unit_test_thread(void *cx)
 {
     #define CHECK_STOP_REQ \
@@ -191,14 +246,14 @@ static void * unit_test_thread(void *cx)
             } \
         } while (0)
 
-    if (unit_test_thread_cmd == 1) {
+    if (xrail_test_enabled && unit_test_thread_cmd == 1) {
         xrail_goto_location(-25, true); 
         CHECK_STOP_REQ;
         xrail_goto_location(+25, true); 
         CHECK_STOP_REQ;
         xrail_goto_location(0,   true); 
         CHECK_STOP_REQ;
-    } else if (unit_test_thread_cmd == 2) {
+    } else if (xrail_test_enabled && unit_test_thread_cmd == 2) {
         double mm;
         for (mm = -25; mm <= 25; mm += .1) {
             xrail_goto_location(mm, true); 
@@ -206,21 +261,25 @@ static void * unit_test_thread(void *cx)
             CHECK_STOP_REQ;
         }
         xrail_goto_location(0, true);
-    } else if (unit_test_thread_cmd == 3) {
+    } else if (sipm_test_enabled && unit_test_thread_cmd == 3) {
         int pulse_rate, gpio_read_rate, gpio_read_and_analyze_rate;
+        int count=0;
         while (true) {
             sipm_get_rate(&pulse_rate, &gpio_read_rate, &gpio_read_and_analyze_rate);
             printf("pm: pulse_rate=%.1f K  gpio_read_rate=%.1f M  gpio_read_and_analyze_rate=%.1f M\n",
                    (double)pulse_rate/1000,
                    (double)gpio_read_rate/1000000,
                    (double)gpio_read_and_analyze_rate/1000000);
-            audio_say_text("%d", (pulse_rate+500)/1000);
+            if (audio_test_enabled && ((++count % 5) == 0)) {
+                audio_say_text("%d", (pulse_rate+500)/1000);
+            }
             my_usleep(1000000);
             CHECK_STOP_REQ;
         }
-    } else if (unit_test_thread_cmd == 4) {
+    } else if (xrail_test_enabled && sipm_test_enabled && unit_test_thread_cmd == 4) {
         double mm;
         int pulse_rate, gpio_read_rate, gpio_read_and_analyze_rate;
+        int count=0;
         for (mm = -25; mm <= 25; mm += .1) {
             // move xrail to location mm
             xrail_goto_location(mm, true); 
@@ -235,7 +294,9 @@ static void * unit_test_thread(void *cx)
                    (double)pulse_rate/1000,
                    (double)gpio_read_rate/1000000,
                    (double)gpio_read_and_analyze_rate/1000000);
-            audio_say_text("%d", (pulse_rate+500)/1000);
+            if (audio_test_enabled && ((++count % 5) == 0)) {
+                audio_say_text("%d", (pulse_rate+500)/1000);
+            }
 
             // check for request to stop this run
             CHECK_STOP_REQ;
