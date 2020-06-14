@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     }
 
     // init files
-    utils_init();
+    utils_init("unit_test.log");
     if (audio_test_enabled) {
         audio_init();
     }

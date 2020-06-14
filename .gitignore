@@ -4,4 +4,6 @@ ds
 my_tic_test
 rate
 ifsim
+unit_test
+unit_test.log
 zz_delete

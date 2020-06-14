@@ -17,7 +17,7 @@
     } while (0)
 
 // utils.c
-void utils_init(void);
+void utils_init(char *log_filename);
 void utils_exit(void);
 void logmsg(char * lvl, const char * func, char * fmt, ...) __attribute__ ((format (printf, 3, 4)));
 uint64_t microsec_timer(void);

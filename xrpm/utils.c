@@ -15,9 +15,9 @@ static FILE *logfp;
 
 // -----------------  INIT & EXIT  --------------------------------------
 
-void utils_init(void)
+void utils_init(char *log_filename)
 {
-    logfp = fopen("xrpm.log", "a");
+    logfp = fopen(log_filename, "a");
     if (logfp == NULL) {
         fprintf(stderr, "failed to open xrpm.log, %s\n", strerror(errno));
         exit(1);
