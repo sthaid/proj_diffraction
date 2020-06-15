@@ -1,26 +1,12 @@
-  (use "git restore --staged <file>..." to unstage)
-	new file:   main_ctlr.c
-	new file:   main_sipm_server.c
+run sipm collect as an autos start service
 
-	modified:   ../.gitignore             okay
-	modified:   ../gpio/dra_gpio.h        okay
-	modified:   ../util/util_misc.c     Restored
-	modified:   DESIGN                    okay
-	modified:   Makefile                   okay
-	modified:   audio.c                    okay
-	modified:   main_unit_test.c          okay
-	modified:   sipm.c                    okay
-	modified:   sipm.h                    okay
-	modified:   utils.c                   okay
-	modified:   utils.h                   okay
-	modified:   xrail.c                   okay
+dont run sipm collection if there is not a client
 
+-------------------
 
+get festival working on ctlr rpi
 
-update sipm.c to not use SIGALRM, 
-- test mode for gpio.h ?
-
-test mm fix
+-------------------
 
 write service pgm for sipm
 - main_sipm_service
@@ -44,7 +30,6 @@ ctlr will make connection, to client to get the sipm rates data
 save unit test code, with option to run on either ctlr or ds
 
 write curses code
-
 
 -------
 
@@ -130,36 +115,38 @@ sipm notes:
 TITLE: TEXT TO SPEECH
 ===============================================
 
-- The Raspberry Pi supports both audio output over either HDMI (default) or 
-  the 3.5mm audio jack (headphone jack).
-  - How do I enable analogue audio output for my Raspberry Pi?
-    . Navigate to your screen.
-    . Select "Manage Screen".
-    . Select "Advanced".
-    . Set "Audio Output" to "3.5mm jack".
-    . Press "Save".
+- Overview
+  - Use raspi-config : Advanced : Audio => to select headphones
+  - I had to disconnect HDMI to get the headphones to work
 
-- http://raspberrypi-aa.github.io/session3/audio.html#:~:text=To%20change%20the%20volume%2C%20run,Route%20or%20Playback%20Switch%20controls.
-- https://elinux.org/RPi_Text_to_Speech_(Speech_Synthesis)
+- Web sites
+  - https://elinux.org/RPi_Text_to_Speech_(Speech_Synthesis)
+  - http://raspberrypi-aa.github.io/session3/audio.html#:~:text=To%20change%20the%20volume%2C%20run,Route%20or%20Playback%20Switch%20controls.
 
 - packeages needed:
-    sudo apt-get install mplayer
-    sudo apt-get install festival
+  - sudo apt-get install mplayer
+  - sudo apt-get install festival
 
-- run festival as a startup service
-   festival --server
-       Run in server mode waiting for clients of server_port (1314)
+- run festival as a startup service, by adding this to /etc/rc.local;
+  it will listen on port 1314
+    # start festival
+    /usr/bin/festival --server >/var/log/festival.log 2>&1 &
+  To test this, use 'nc 127.0.0.1. 1314', and enter
+    (SayText "hello")
 
-- using nc
-     It is quite simple to build a very basic client/server model using nc.  On one console,
-     start nc listening on a specific port for a connection.  For example:
-           $ nc -l 1234
-     nc is now listening on port 1234 for a connection.  On a second console (or a second
-     machine), connect to the machine and port being listened on:
-           $ nc 127.0.0.1 1234
+- misc audio related cmds
+  - aplay -l                             # lists playback devices
+  - amixer controls                      # list controls
+  - amixer cset numid=1 90%              # sets volume
+  - amixer set PCM Playback Volume 90%   # sets volume
 
-- rpi audio volume control
-     sudo amixer cset numid=1 90%
+- notes on using nc
+  - It is quite simple to build a very basic client/server model using nc.  On one console,
+    start nc listening on a specific port for a connection.  For example:
+          $ nc -l 1234
+  - nc is now listening on port 1234 for a connection.  On a second console (or a second
+    machine), connect to the machine and port being listened on:
+          $ nc 127.0.0.1 1234
 
 ===============================================
 TITLE: GNUPLOT 
