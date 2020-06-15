@@ -7,13 +7,18 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#include <inttypes.h>
-
-#include <signal.h>
+#include <math.h>
 #include <pthread.h>
+#include <inttypes.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <sys/resource.h>
+#include <signal.h>
 
 #include "audio.h"
 #include "xrail.h"
@@ -33,7 +38,7 @@ static bool  xrail_test_enabled;
 
 static void * unit_test_thread(void *cx);
 
-// -----------------  UNIT TEST  -----------------------------------
+// -----------------  MAIN - UNIT TEST  ------------------------------
 
 int main(int argc, char **argv)
 {
@@ -54,9 +59,6 @@ int main(int argc, char **argv)
     int max_tok, i;
     struct rlimit rl;
     sigset_t set;
-
-    // use line bufferring
-    setlinebuf(stdout);
 
     // set resource limti to allow core dumps
     rl.rlim_cur = RLIM_INFINITY;

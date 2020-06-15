@@ -1,6 +1,11 @@
 #ifndef __DRA_GPIO_H__
 #define __DRA_GPIO_H__
 
+// enable this for unit testing on non raspberry pi systems
+//#define USE_GPIO_STUBS
+
+#ifndef USE_GPIO_STUBS
+
 // reference: https://elinux.org/RPi_GPIO_Code_Samples#Direct_register_access
 
 #include <stdio.h>
@@ -12,8 +17,8 @@
 #define PIN_MODE_INPUT   1
 #define PIN_MODE_OUTPUT  2
 
-#define PULL_UP   1
-#define PULL_DOWN 2
+#define PULL_UP          1
+#define PULL_DOWN        2
 
 volatile unsigned int *gpio_regs;
 
@@ -92,5 +97,20 @@ static inline void set_gpio_pull_mode(int pin, int pull_mode)
     GPIO_PULL = 0;
     GPIO_PULLCLK0 = 0;
 }
+
+#else // USE_GPIO_STUBS
+
+#define PIN_MODE_INPUT   1
+#define PIN_MODE_OUTPUT  2
+#define PULL_UP          1
+#define PULL_DOWN        2
+
+static inline int gpio_init(void) { return 0; }
+static inline void gpio_write(int pin, int value) {}
+static inline int gpio_read(int pin) { return 0; }
+static inline void set_gpio_pin_mode(int pin, int mode) {}
+static inline void set_gpio_pull_mode(int pin, int pull_mode) {}
+
+#endif
 
 #endif

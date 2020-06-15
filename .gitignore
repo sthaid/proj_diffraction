@@ -6,4 +6,7 @@ rate
 ifsim
 unit_test
 unit_test.log
-zz_delete
+sipm_server
+sipm_server.log
+ctlr
+ctlr.log

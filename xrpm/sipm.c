@@ -7,11 +7,13 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#include <inttypes.h>
-
-#include <signal.h>
+#include <math.h>
 #include <pthread.h>
-#include <sys/time.h>
+#include <inttypes.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
 
 #include "sipm.h"
 #include "utils.h"
@@ -42,22 +44,24 @@ typedef struct {
 // variables
 //
 
-sipm_t        sipm[MAX_SIPM];
-int           sipm_count;
-volatile bool sigalrm_rcvd;
+static sipm_t            sipm[MAX_SIPM];
+static int               sipm_count;
 
-unsigned int gpio_data_buffer[MAX_GPIO_DATA_BUFFER];
+static unsigned int      gpio_data_buffer[MAX_GPIO_DATA_BUFFER];
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t   mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static volatile bool     read_sipm_done;
+static pthread_barrier_t read_sipm_set_done_barrier;
 
 //
 // prototypes
 //
 
-static void sigalrm_handler(int signum);
 static void * sipm_thread(void *cs);
 static void read_sipm(sipm_t *x);
 static void analyze_sipm(sipm_t *x);
+static void * read_sipm_set_done_thread(void *cs);
 static void count_consecutive_reset(sipm_t *x);
 static bool count_consecutive_is_at_eod(void);
 static int count_consecutive_zero(void);
@@ -77,18 +81,15 @@ void sipm_init(void)
     }
     set_gpio_pin_mode(GPIO_INPUT_PIN, PIN_MODE_INPUT);
 
-    // create sipm_thread
+    // pthread initializations
+    pthread_barrier_init(&read_sipm_set_done_barrier, NULL, 2);
     pthread_create(&tid, NULL, sipm_thread, NULL);
+    pthread_create(&tid, NULL, read_sipm_set_done_thread, NULL);
 }
 
 void sipm_exit(void)
 {
     // nothing needed
-}
-
-static void sigalrm_handler(int signum)
-{
-    sigalrm_rcvd = true;
 }
 
 // -----------------  APIS  -----------------------------------------------
@@ -164,12 +165,6 @@ static void * sipm_thread(void *cs)
 {
     int rc;
     struct sched_param sched_param;
-    struct sigaction act;
-
-    // register for SIGALRM  XXX dont use this
-    memset(&act, 0, sizeof(act));
-    act.sa_handler = sigalrm_handler;
-    sigaction(SIGALRM, &act, NULL);
 
     // set realtime prio
     // note: to verify rtprio, use:
@@ -210,19 +205,17 @@ static void * sipm_thread(void *cs)
 
 static void read_sipm(sipm_t *x)
 {
-    struct itimerval new_value, old_value;
     int max_data;
 
-    // set interval timer, which will set the sigalrm_rcvd flag after 100 ms interval
-    memset(&new_value, 0, sizeof(new_value));
-    new_value.it_value.tv_sec  = GPIO_READ_INTVL_US / 1000000;
-    new_value.it_value.tv_usec = GPIO_READ_INTVL_US % 1000000;
-    setitimer(ITIMER_REAL, &new_value, &old_value);
+    // clear the read_sipm_done flag, and set the barrier;
+    // this will cause the read_sipm_done flag to be set to true in 100 ms
+    read_sipm_done = false;
+    pthread_barrier_wait(&read_sipm_set_done_barrier);
 
-    // loop until sigalrm_rcvd
+    // loop while read_sipm_done is false
     max_data = 0;
     x->start_us = microsec_timer();
-    while (!sigalrm_rcvd) {
+    while (!read_sipm_done) {
         int i;
         unsigned int v32;
 
@@ -231,13 +224,14 @@ static void read_sipm(sipm_t *x)
             v32 |= gpio_read(GPIO_INPUT_PIN);
         }
 
-        gpio_data_buffer[max_data++] = v32;
+        if (max_data < MAX_GPIO_DATA_BUFFER) { // XXX temp
+            gpio_data_buffer[max_data++] = v32;
+        }
     }
     x->end_us = microsec_timer();
     x->max_data = max_data;
 
-    // clear sigalrm_rcvd
-    sigalrm_rcvd = false;
+    // XXX INFO("DURATION %d us\n", (int)(x->end_us - x->start_us));
 }
 
 static void analyze_sipm(sipm_t *x)
@@ -283,6 +277,17 @@ static void analyze_sipm(sipm_t *x)
     }
 
     x->pulse_count = pulse_count;
+}
+
+static void *read_sipm_set_done_thread(void *cx)
+{
+    while (true) {
+        pthread_barrier_wait(&read_sipm_set_done_barrier);
+        usleep(100000);
+        read_sipm_done = true;
+    }
+
+    return NULL;
 }
 
 // -----------------  COUNT CONSECUTICE BITS OF GPIO.DATA  -------------

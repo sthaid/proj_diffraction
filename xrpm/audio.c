@@ -7,10 +7,13 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <math.h>
+#include <pthread.h>
 #include <inttypes.h>
-
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
 
 #include "audio.h"
 #include "utils.h"
@@ -46,19 +49,20 @@ void audio_init(void)
     struct sockaddr_in sin;
 
     // connect to festival text-to-speech service
+// XXX use getsockaddr here too
     sin.sin_family      = AF_INET;
     sin.sin_port        = htons(FESTIVAL_PORT);
     sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
     sd = socket(AF_INET, SOCK_STREAM, 0);
     if (sd == -1) {
         FATAL("failed to create socket, %s\n",strerror(errno));
     }
     rc = connect(sd, (struct sockaddr *)&sin, sizeof(sin));
-
     if (rc < 0) {
         FATAL("connect to festival failed, %s\n", strerror(errno));
     }
+
+// XXX tcp no delay
 
     // set initial volume
     audio_set_volume(90);

@@ -1,8 +1,31 @@
+  (use "git restore --staged <file>..." to unstage)
+	new file:   main_ctlr.c
+	new file:   main_sipm_server.c
+
+	modified:   ../.gitignore             okay
+	modified:   ../gpio/dra_gpio.h        okay
+	modified:   ../util/util_misc.c     Restored
+	modified:   DESIGN                    okay
+	modified:   Makefile                   okay
+	modified:   audio.c                    okay
+	modified:   main_unit_test.c          okay
+	modified:   sipm.c                    okay
+	modified:   sipm.h                    okay
+	modified:   utils.c                   okay
+	modified:   utils.h                   okay
+	modified:   xrail.c                   okay
+
+
 
 update sipm.c to not use SIGALRM, 
-  - test mode for gpio.h ?
+- test mode for gpio.h ?
 
 test mm fix
+
+write service pgm for sipm
+- main_sipm_service
+- and write a quick test pgm to try it out, which will
+   later become main_ctlr.c
 
 -------
 

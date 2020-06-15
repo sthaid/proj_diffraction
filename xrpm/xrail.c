@@ -7,10 +7,14 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#include <inttypes.h>
-
-#include <pthread.h>
 #include <math.h>
+#include <pthread.h>
+#include <inttypes.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+
 #include <tic.h>   // from /usr/local/include/libpololu-tic-1//tic.h
 
 #include "xrail.h"
