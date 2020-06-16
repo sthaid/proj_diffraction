@@ -35,7 +35,7 @@ sipm_server: $(SRC_SIPM_SERVER:.c=.o)
 	$(CC) -pthread -o $@ $(SRC_SIPM_SERVER:.c=.o)
 
 ctlr: $(SRC_CTLR:.c=.o)
-	$(CC) -pthread -o $@ $(SRC_CTLR:.c=.o)
+	$(CC) -pthread -lncurses -o $@ $(SRC_CTLR:.c=.o)
 
 -include $(DEP)
 

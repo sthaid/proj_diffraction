@@ -1,3 +1,4 @@
+// XXX use common file
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -15,6 +16,8 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 
+#include <curses.h>
+
 #include "sipm.h"
 #include "utils.h"
 #include "audio.h"
@@ -27,33 +30,125 @@
 // variables
 //
 
+static WINDOW * window;
+
 //
 // prototypes
 //
 
-void test(void);
+void update_display(int maxy, int maxx);
+int input_handler(int input_char);
 
-// ------------------------------------------------------------
+void curses_init(void);
+void curses_exit(void);
+void curses_runtime(void (*update_display)(int maxy, int maxx), int (*input_handler)(int input_char));
+
+//void test(void);
+
+// -----------------  MAIN  --------------------------------------------------
 
 int main(int argc, char **argv)
 {
     // init files
     utils_init("ctlr.log");
     audio_init();
-
-    // init is complete
     INFO("INITIALIZATION COMPLETE\n");
 
-    // test
-    test();
+    // runtime uses curses
+    curses_init();
+    curses_runtime(update_display, input_handler);
+    curses_exit();
 
     // clean up and exit
     INFO("TERMINATING\n");
     audio_exit();
     utils_exit();
+
+#if 0
+    // test
+    test();
+#endif
+
     return 0;
 }
 
+// -----------------  CURSES HANDLERS  ---------------------------------------
+
+static int update_count, char_count;
+
+void update_display(int maxy, int maxx)
+{
+    int row = maxy / 2;
+    int col = maxx / 2;
+
+    update_count++;
+
+    mvprintw(row, col, "maxy=%d maxx=%d chars=%d updates=%d", 
+            maxy, maxx, char_count, update_count);
+}
+
+int input_handler(int input_char)
+{
+    if (input_char == 'q') {
+        return -1;
+    }
+
+    char_count++;
+    return 0;
+}
+
+// -----------------  CURSES WRAPPER  ----------------------------------------
+
+void curses_init(void)
+{
+    // init curses
+    window = initscr();
+    cbreak();
+    noecho();
+    nodelay(window,TRUE);
+    keypad(window,TRUE);
+}
+
+void curses_exit(void)
+{
+    endwin();
+}
+
+void curses_runtime(void (*update_display)(int maxy, int maxx), int (*input_handler)(int input_char))
+{
+    int input_char, maxy, maxx;
+
+    while (true) {
+        // erase display, and
+        // get current screen size
+        erase();
+        getmaxyx(window, maxy, maxx);
+
+        // update the display
+        update_display(maxy, maxx);
+
+        // put the cursor back to the origin, and
+        // refresh display
+        move(0,0);
+        refresh();
+
+        // process character inputs
+        input_char = getch();
+        if (input_char == KEY_RESIZE) {
+            // do nothing
+        } else if (input_char != ERR) {
+            if (input_handler(input_char) != 0) {
+                return;
+            }
+        } else {
+            usleep(100000);
+        }
+    }
+}
+
+// -----------------  TBD  ---------------------------------------------------
+
+#if 0
 void test(void)
 {
     msg_request_t      msg_req;
@@ -129,3 +224,4 @@ void test(void)
         sleep(1);
     }
 }
+#endif
