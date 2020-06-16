@@ -154,7 +154,7 @@ void test(void)
     msg_request_t      msg_req;
     msg_response_t     msg_resp;
     uint64_t           start_us, duration_us;
-    int                len, optval, rc, seq_num=0, sfd;
+    int                len, optval, rc, seq_num=0, sfd, count;
     struct sockaddr_in sin;
 
     // connect to sipm_server
@@ -181,6 +181,7 @@ void test(void)
 
     // get pulse_rate from sipm_server
     // XXX comments
+    count = 0;
     while (true) {
         start_us = microsec_timer();
 
@@ -219,7 +220,10 @@ void test(void)
                msg_resp.get_rate.gpio_read_rate / 1000000,
                msg_resp.get_rate.gpio_read_and_analyze_rate / 1000000);
 
-        // XXX LATER test audio too
+        // test audio too
+        if ((count++ % 5) == 0) {
+            audio_say_text("%d", msg_resp.get_rate.pulse_rate/1000);
+        }
 
         sleep(1);
     }
