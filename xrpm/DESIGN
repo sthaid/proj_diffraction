@@ -135,10 +135,11 @@ TITLE: TEXT TO SPEECH
     (SayText "hello")
 
 - misc audio related cmds
-  - aplay -l                             # lists playback devices
-  - amixer controls                      # list controls
-  - amixer cset numid=1 90%              # sets volume
-  - amixer set PCM Playback Volume 90%   # sets volume
+  - aplay -l                                   # lists playback devices
+  - amixer controls                            # list controls
+  - amixer cset numid=1 90%                    # sets volume
+  - amixer set PCM Playback Volume 90%         # sets volume on rpi 4
+  - amixer set Headphone Playback Volume 90%   # sets volume on rpi 3
 
 - notes on using nc
   - It is quite simple to build a very basic client/server model using nc.  On one console,
