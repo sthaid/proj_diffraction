@@ -1,20 +1,4 @@
-// XXX use common file
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <time.h>
-#include <math.h>
-#include <pthread.h>
-#include <inttypes.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <arpa/inet.h>
+#include "common_includes.h"
 
 #include <curses.h>
 
@@ -43,16 +27,21 @@ void curses_init(void);
 void curses_exit(void);
 void curses_runtime(void (*update_display)(int maxy, int maxx), int (*input_handler)(int input_char));
 
-//void test(void);
+void *test_thread(void *cx);
 
 // -----------------  MAIN  --------------------------------------------------
 
 int main(int argc, char **argv)
 {
+    pthread_t tid;
+
     // init files
     utils_init("ctlr.log");
     audio_init();
     INFO("INITIALIZATION COMPLETE\n");
+
+    // create threads
+    pthread_create(&tid, NULL, test_thread, NULL);
 
     // runtime uses curses
     curses_init();
@@ -63,11 +52,6 @@ int main(int argc, char **argv)
     INFO("TERMINATING\n");
     audio_exit();
     utils_exit();
-
-#if 0
-    // test
-    test();
-#endif
 
     return 0;
 }
@@ -119,12 +103,11 @@ void curses_runtime(void (*update_display)(int maxy, int maxx), int (*input_hand
     int input_char, maxy, maxx;
 
     while (true) {
-        // erase display, and
-        // get current screen size
+        // erase display
         erase();
-        getmaxyx(window, maxy, maxx);
 
         // update the display
+        getmaxyx(window, maxy, maxx);
         update_display(maxy, maxx);
 
         // put the cursor back to the origin, and
@@ -148,8 +131,7 @@ void curses_runtime(void (*update_display)(int maxy, int maxx), int (*input_hand
 
 // -----------------  TBD  ---------------------------------------------------
 
-#if 0
-void test(void)
+void *test_thread(void *cx)
 {
     msg_request_t      msg_req;
     msg_response_t     msg_resp;
@@ -191,13 +173,13 @@ void test(void)
         len = do_send(sfd, &msg_req, sizeof(msg_req));
         if (len != sizeof(msg_req)) {
             ERROR("do_send ret=%d, %s\n", len, strerror(errno));
-            return;
+            return NULL;
         }
 
         len = do_recv(sfd, &msg_resp, sizeof(msg_resp));
         if (len != sizeof(msg_resp)) {
             ERROR("do_recv ret=%d, %s\n", len, strerror(errno));
-            return;
+            return NULL;
         }
 
         if (msg_resp.magic != MSG_RESP_MAGIC ||
@@ -209,11 +191,12 @@ void test(void)
                   msg_resp.id,
                   msg_resp.seq_num,
                   seq_num);
-            return;
+            return NULL;
         }
 
         duration_us = microsec_timer() - start_us;
 
+        // XXX do something about this print
         printf("dur_us=%d pulse_rate=%d K gpio_read_rte=%d M gpio_read_and_analyze_rate=%d M\n",
                (int)duration_us,
                msg_resp.get_rate.pulse_rate / 1000,
@@ -225,7 +208,6 @@ void test(void)
             audio_say_text("%d", msg_resp.get_rate.pulse_rate/1000);
         }
 
-        sleep(1);
+        usleep(500000);
     }
 }
-#endif

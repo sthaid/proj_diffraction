@@ -1,3 +1,4 @@
+
 run sipm collect as an autos start service
 
 dont run sipm collection if there is not a client
@@ -140,6 +141,19 @@ TITLE: TEXT TO SPEECH
   - amixer cset numid=1 90%                    # sets volume
   - amixer set PCM Playback Volume 90%         # sets volume on rpi 4
   - amixer set Headphone Playback Volume 90%   # sets volume on rpi 3
+
+
+// XXXX update this stuff later ..
+[DS haid@ds ~]$ sudo amixer controls | grep "Playback Volume"
+numid=1,iface=MIXER,name='PCM Playback Volume'
+
+[CTLR haid@raspberrypi ~]$ sudo amixer controls | grep "Playback Volume"
+numid=1,iface=MIXER,name='Headphone Playback Volume'
+
+[HOME haid@home xrpm]$ amixer controls | grep "Playback Volume"
+numid=3,iface=MIXER,name='Master Playback Volume'
+   XXX BUT CANT USE SUDO XXX
+
 
 - notes on using nc
   - It is quite simple to build a very basic client/server model using nc.  On one console,
