@@ -20,7 +20,7 @@ typedef struct {
     int id;
     int seq_num;
     union {
-        struct {
+        struct get_rate_s {
             int pulse_rate;
             int gpio_read_rate;
             int gpio_read_and_analyze_rate;
