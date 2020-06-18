@@ -121,11 +121,11 @@ int main(int argc, char **argv)
             // - au decr
             // - au test ...
             if (max_tok == 2 && strcmp(tok[1], "incr") == 0) {
-                int vol = audio_change_volume(5);
-                audio_say_text("volume is now %d pecent", vol);
+                audio_change_volume(5);
+                audio_say_text("volume is now %d pecent", audio_get_volume());
             } else if (max_tok == 2 && strcmp(tok[1], "decr") == 0) {
-                int vol = audio_change_volume(-5);
-                audio_say_text("volume is now %d pecent", vol);
+                audio_change_volume(-5);
+                audio_say_text("volume is now %d pecent", audio_get_volume());
             } else if (max_tok == 2 && strcmp(tok[1], "test") == 0) {
                 audio_say_text("open the pod bay doors Hal");
             } else {

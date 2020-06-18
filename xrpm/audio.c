@@ -101,10 +101,9 @@ void audio_set_volume(int volume_arg)
     system(cmd);
 }
 
-int audio_change_volume(int delta)
+void audio_change_volume(int delta)
 {
     audio_set_volume(volume+delta);
-    return volume;
 }
 
 int audio_get_volume(void)
@@ -121,8 +120,12 @@ void audio_set_mute(bool mute_arg)
     mute = mute_arg;
 }
 
-
 bool audio_get_mute(void)
 {
     return mute;
+}
+
+void audio_toggle_mute(void)
+{
+    mute = !mute;
 }
