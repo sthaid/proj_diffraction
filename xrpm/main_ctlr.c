@@ -27,6 +27,20 @@
      (x) == XRAIL_CTRL_CMD_CAL_COMPLETE          ? "CAL_COMPLETE"          : \
      (x) == XRAIL_CTRL_CMD_TEST                  ? "TEST"                  : \
                                                    "????")
+
+#define COLOR_PAIR_RED 1
+
+//
+// typedefs
+//
+
+typedef struct {
+    uint64_t time_us;
+    uint64_t duration_us;
+    int      pulse_rate;
+    int      gpio_read_rate;
+    int      gpio_read_and_analyze_rate;
+} sipm_status_t;
  
 //
 // variables
@@ -38,6 +52,8 @@ static int sipm_pulse_rate_history[MAX_SIPM_PULSE_RATE_HISTORY];
 static int max_sipm_pulse_rate_history;
 
 static char xrail_status_str[200];
+
+static sipm_status_t sipm_status;
 
 //
 // prototypes
@@ -118,31 +134,37 @@ static void update_display(int maxy, int maxx)
     // xxx more
     mvprintw(1, 0, "AUDIO: v V m 1");
     mvprintw(2, 0, "XRAIL: + - c <esc> 2");
-    mvprintw(3, 0, "QUIT:  q");
+    mvprintw(4, 0, "QUIT:  q");
 
     // display status section
     // xxx more
     mvprintw(1, 30, "AUDIO: %d%% %s", audio_get_volume(), audio_get_mute() ? "MUTED" : "");
     mvprintw(2, 30, "XRAIL: %s", xrail_status_str);
+    mvprintw(3, 30, "SIPM:  pulse=%0.1fK gpio=%0.1fM analyze=%0.1fM dur=%dms",
+             sipm_status.pulse_rate / 1000.,
+             sipm_status.gpio_read_rate / 1000000.,
+             sipm_status.gpio_read_and_analyze_rate / 1000000.,
+             sipm_status.duration_us / 1000);
 
     // display alert for 3 secs
-    // xxx do we need to clear this
     if (microsec_timer() - alert_msg_time_us < 3000000) {
+        attron(COLOR_PAIR(COLOR_PAIR_RED));
         mvprintw(10, 0, "%s", alert_msg);
+        attroff(COLOR_PAIR(COLOR_PAIR_RED));
     }
 }
 
 // return -1 to exit pgm
 static int input_handler(int input_char)
 {
-    INFO("CHAR 0x%x\n", input_char); //xxx
+    //INFO("CHAR 0x%x\n", input_char); //xxx
 
     switch (input_char) {
     // audio:
     //  v : volume down
     //  V : volume up
     //  m : toggle mute
-    //  1 : audio test   xxx use ctrl1
+    //  1 : audio test
     case 'v':
         audio_change_volume(-5, true);
         break;
@@ -161,7 +183,7 @@ static int input_handler(int input_char)
     //  -     : cal move 1 mm to left
     //  c     : cal done
     //  <esc> : cancel xrail_cmd
-    //  2     : xrail test  xxx use ctrl2
+    //  2     : xrail test
     case '+':
         xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_CAL_MOVE_PLUS_ONE_MM);
         break;
@@ -171,7 +193,7 @@ static int input_handler(int input_char)
     case 'c':
         xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_CAL_COMPLETE);
         break;
-    case 27:  // xxx define
+    case 27:  // ESC
         xrail_local_cancel_ctrl_cmd();
         break;
     case '2':
@@ -181,6 +203,9 @@ static int input_handler(int input_char)
     // xxx test
     case KEY_F(0) ... KEY_F(12):
         INFO("GOT FUNC KEY %d\n", input_char-KEY_F(0));
+        break;
+    case '9':
+        display_alert("ALERT TEST");
         break;
 
     // terminate pgm:
@@ -216,6 +241,11 @@ static void display_alert(char *fmt, ...)
 static void curses_init(void)
 {
     window = initscr();
+
+    start_color();
+    use_default_colors();
+    init_pair(COLOR_PAIR_RED, COLOR_RED, -1);
+
     cbreak();
     noecho();
     nodelay(window,TRUE);
@@ -309,21 +339,16 @@ static void sipm_local_exit(void)
 
 static void *sipm_data_collection_thread(void *cx)
 {
-    uint64_t          thread_start_us, delay_us;
+    uint64_t          delay_us, duration_us;
     uint64_t          get_rate_start_us, get_rate_complete_us;
     int               rc, idx;
     struct get_rate_s get_rate;
 
-    #define TIME_NOW_US  (microsec_timer() - thread_start_us)
-
     // Every 500ms request sipm data from sipm_server.
     // Store the pulse_rate data collected sipm_pulse_rate[], indexed by seconds.
-    // Store the latest pulse_rate, and other info, so it can be displayed and used by
-    //  the xxx thread.
+    // Store the latest pulse_rate, and other info.
 
     // xxx enable real time
-
-    thread_start_us = microsec_timer();
 
     while (true) {
         // if terminate requested then return
@@ -332,21 +357,22 @@ static void *sipm_data_collection_thread(void *cx)
         }
 
         // sleep until next 500ms time boundary
-        delay_us = 500000 - (TIME_NOW_US % 500000);
+        delay_us = 500000 - (microsec_timer() % 500000);
         usleep(delay_us);
 
         // request data from sipm_server
-        get_rate_start_us = TIME_NOW_US;
+        get_rate_start_us = microsec_timer();
         rc = sipm_server_get_rate(&get_rate);
         if (rc != 0) {
             FATAL("sipm_server_get_rate failed\n");
         }
-        get_rate_complete_us = TIME_NOW_US;
+        get_rate_complete_us = microsec_timer();
+        duration_us = get_rate_complete_us - get_rate_start_us;
 
         // warn if the sipm_server_get_rate took a long time
-        if (get_rate_complete_us - get_rate_start_us > 200000) {
-            INFO("sipm_server_get_rate long duration %0.2f secs\n",
-                 (get_rate_complete_us - get_rate_start_us) / 1000000.);
+        //INFO("xxx duration = %0.3f secs\n", duration_us / 1000000.);
+        if (duration_us > 200000) {
+            INFO("sipm_server_get_rate long duration %0.3f secs\n", duration_us / 1000000.);
         }
 
         // store the pulse_rate in sipm_pulse_rate
@@ -358,7 +384,11 @@ static void *sipm_data_collection_thread(void *cx)
         max_sipm_pulse_rate_history = idx+1;
 
         // store the latest_sipm_data
-        // XXX tbd  store and display sipm data
+        sipm_status.time_us                    = get_rate_start_us;
+        sipm_status.duration_us                = get_rate_complete_us - get_rate_start_us;
+        sipm_status.pulse_rate                 = get_rate.pulse_rate;
+        sipm_status.gpio_read_rate             = get_rate.gpio_read_rate;
+        sipm_status.gpio_read_and_analyze_rate = get_rate.gpio_read_and_analyze_rate;
     }
 
     return NULL;

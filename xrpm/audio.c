@@ -142,11 +142,11 @@ void audio_set_mute(bool mute_arg, bool say)
     if (mute) {
         mute = false;
         if (say) {
-            audio_say_text("un-muting");
+            audio_say_text("un-muted");
         }
     } else {
         if (say) {
-            audio_say_text("muting");
+            audio_say_text("muted");
         }
         mute = true;
     }

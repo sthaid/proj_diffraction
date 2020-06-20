@@ -3,11 +3,14 @@
 #include "utils.h"
 
 static FILE *logfp;
+static uint64_t prog_start_us;
 
 // -----------------  INIT & EXIT  --------------------------------------
 
 void utils_init(char *log_filename)
 {
+    struct timespec ts;
+
     if (strcmp(log_filename, "stdout") == 0) {
         logfp = stdout;
     } else {
@@ -22,6 +25,10 @@ void utils_init(char *log_filename)
 
     fprintf(logfp, "\n\n");
     INFO("STARTING\n");
+
+    clock_gettime(CLOCK_MONOTONIC,&ts);
+    prog_start_us = (((uint64_t)ts.tv_sec * 1000000) + ((uint64_t)ts.tv_nsec / 1000));
+    INFO("xxx microsec_timer %ld\n", microsec_timer());
 }
 
 void utils_exit(void)
@@ -74,7 +81,7 @@ uint64_t microsec_timer(void)
     struct timespec ts;
 
     clock_gettime(CLOCK_MONOTONIC,&ts);
-    return  ((uint64_t)ts.tv_sec * 1000000) + ((uint64_t)ts.tv_nsec / 1000);
+    return (((uint64_t)ts.tv_sec * 1000000) + ((uint64_t)ts.tv_nsec / 1000)) - prog_start_us;
 }
 
 uint64_t get_real_time_us(void)
