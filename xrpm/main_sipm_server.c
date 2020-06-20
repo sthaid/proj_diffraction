@@ -140,9 +140,9 @@ static void process_client_messages(int sfd)
             msg_resp.magic = MSG_RESP_MAGIC;
             msg_resp.id = MSGID_GET_RATE;
             msg_resp.seq_num = msg_req.seq_num;
-            msg_resp.get_rate.pulse_rate = pulse_rate;
-            msg_resp.get_rate.gpio_read_rate = gpio_read_rate;
-            msg_resp.get_rate.gpio_read_and_analyze_rate = gpio_read_and_analyze_rate;
+            msg_resp.response_data.get_rate.pulse_rate = pulse_rate;
+            msg_resp.response_data.get_rate.gpio_read_rate = gpio_read_rate;
+            msg_resp.response_data.get_rate.gpio_read_and_analyze_rate = gpio_read_and_analyze_rate;
             break; }
         default:
             ERROR("invalid msg_req.id %d\n", msg_req.id);

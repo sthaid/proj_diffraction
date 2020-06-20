@@ -93,7 +93,7 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
 
     // if sipm_count < MAX_SIPM then wait
     while (sipm_count < MAX_SIPM) {
-        my_usleep(1000);
+        usleep(1000);
     }
 
     // acquire mutex so that sipm_count will not change 
@@ -182,7 +182,7 @@ static void * sipm_thread(void *cs)
         pthread_mutex_unlock(&mutex);
 
         // 5 ms sleep because this thread is running at realtime prio
-        my_usleep(5000);
+        usleep(5000);
     }
 
     return NULL;
@@ -209,14 +209,12 @@ static void read_sipm(sipm_t *x)
             v32 |= gpio_read(GPIO_INPUT_PIN);
         }
 
-        if (max_data < MAX_GPIO_DATA_BUFFER) { // XXX temp
+        if (max_data < MAX_GPIO_DATA_BUFFER) { // xxx temp  need this for GPIO_UNIT_TEST
             gpio_data_buffer[max_data++] = v32;
         }
     }
     x->end_us = microsec_timer();
     x->max_data = max_data;
-
-    // XXX INFO("DURATION %d us\n", (int)(x->end_us - x->start_us));
 }
 
 static void analyze_sipm(sipm_t *x)
@@ -229,7 +227,7 @@ static void analyze_sipm(sipm_t *x)
     sum_cnt0 += count_consecutive_zero();
 
     while (true) {
-        // XXX more comments in here
+        // xxx more comments in here
         // First look for consecutive 1s followed by consecutive 0s.
         // If there are few consecutive 0s following the consecutive 1s then 
         //  these 0s are not considered the end of the pulse, instead they are considered

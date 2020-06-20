@@ -19,13 +19,13 @@ typedef struct {
     int magic;
     int id;
     int seq_num;
-    union {
+    union response_data_u {
         struct get_rate_s {
             int pulse_rate;
             int gpio_read_rate;
             int gpio_read_and_analyze_rate;
         } get_rate;
-    };
+    } response_data;
 } msg_response_t;
 
 // prototypes

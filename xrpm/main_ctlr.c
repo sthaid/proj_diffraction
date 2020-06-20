@@ -21,12 +21,12 @@
 #define XRAIL_CTRL_CMD_TEST                    4
 
 #define XRAIL_CTRL_CMD_STR(x) \
-    ((x) == XRAIL_CTRL_CMD_NONE                  ? "XXX" : \
-     (x) == XRAIL_CTRL_CMD_CAL_MOVE_PLUS_ONE_MM  ? "XXX" : \
-     (x) == XRAIL_CTRL_CMD_CAL_MOVE_MINUS_ONE_MM ? "XXX" : \
-     (x) == XRAIL_CTRL_CMD_CAL_COMPLETE          ? "XXX" : \
-     (x) == XRAIL_CTRL_CMD_TEST                  ? "XXX" : \
-                                                   "XXX")
+    ((x) == XRAIL_CTRL_CMD_NONE                  ? "NONE"                  : \
+     (x) == XRAIL_CTRL_CMD_CAL_MOVE_PLUS_ONE_MM  ? "CAL_MOVE_PLUS_ONE_MM"  : \
+     (x) == XRAIL_CTRL_CMD_CAL_MOVE_MINUS_ONE_MM ? "CAL_MOVE_MINUS_ONE_MM" : \
+     (x) == XRAIL_CTRL_CMD_CAL_COMPLETE          ? "CAL_COMPLETE"          : \
+     (x) == XRAIL_CTRL_CMD_TEST                  ? "TEST"                  : \
+                                                   "????")
  
 //
 // variables
@@ -36,6 +36,8 @@ static WINDOW * window;
 
 static int sipm_pulse_rate_history[MAX_SIPM_PULSE_RATE_HISTORY];
 static int max_sipm_pulse_rate_history;
+
+static char xrail_status_str[200];
 
 //
 // prototypes
@@ -55,7 +57,7 @@ static void sipm_local_exit(void);
 static void xrail_local_init(void);
 static void xrail_local_exit(void);
 static void xrail_local_issue_ctrl_cmd(int cmd);
-static void xrail_local_cancel_ctrl_cmd(int cmd);
+static void xrail_local_cancel_ctrl_cmd(void);
 
 // -----------------  MAIN  --------------------------------------------------
 
@@ -85,7 +87,7 @@ int main(int argc, char **argv)
     INFO("INITIALIZATION COMPLETE\n");
 
     // xxx temp
-    while (true) pause();
+    //while (true) pause();
 
     // runtime using curses
     curses_init();
@@ -107,51 +109,78 @@ int main(int argc, char **argv)
 
 // -----------------  CURSES HANDLERS  ---------------------------------------
 
-// XXX  temp, work these 
-static int update_count, char_count;
-
 static char     alert_msg[100];
 static uint64_t alert_msg_time_us;
 
 static void update_display(int maxy, int maxx)
 {
-    int row = maxy / 2;
-    int col = maxx / 2;
+    // display help section, at top left
+    // xxx more
+    mvprintw(1, 0, "AUDIO: v V m 1");
+    mvprintw(2, 0, "XRAIL: + - c <esc> 2");
+    mvprintw(3, 0, "QUIT:  q");
 
-    update_count++;
+    // display status section
+    // xxx more
+    mvprintw(1, 30, "AUDIO: %d%% %s", audio_get_volume(), audio_get_mute() ? "MUTED" : "");
+    mvprintw(2, 30, "XRAIL: %s", xrail_status_str);
 
-    mvprintw(0, 0, "maxy=%d maxx=%d chars=%d updates=%d", 
-            maxy, maxx, char_count, update_count);
-
+    // display alert for 3 secs
+    // xxx do we need to clear this
     if (microsec_timer() - alert_msg_time_us < 3000000) {
-        mvprintw(1, 0, "%s", alert_msg);
+        mvprintw(10, 0, "%s", alert_msg);
     }
-
-    // XXX sipm value
-
-    // XXX xrail status
 }
 
 // return -1 to exit pgm
 static int input_handler(int input_char)
 {
+    INFO("CHAR 0x%x\n", input_char); //xxx
+
     switch (input_char) {
     // audio:
-    // - v : volume down
-    // - ^ : volume up
-    // - m : toggle mute
-    // - a : audio test 
+    //  v : volume down
+    //  V : volume up
+    //  m : toggle mute
+    //  1 : audio test   xxx use ctrl1
     case 'v':
-        audio_change_volume(-5);
+        audio_change_volume(-5, true);
         break;
-    case '^':
-        audio_change_volume(5);
+    case 'V':
+        audio_change_volume(5, true);
         break;
     case 'm':
-        audio_toggle_mute();
+        audio_toggle_mute(true);
         break;
-    case 'a':
+    case '1':
         audio_say_text("Open the pod bay doors Hal.");
+        break;
+
+    // xrail:
+    //  +     : cal move 1 mm to right
+    //  -     : cal move 1 mm to left
+    //  c     : cal done
+    //  <esc> : cancel xrail_cmd
+    //  2     : xrail test  xxx use ctrl2
+    case '+':
+        xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_CAL_MOVE_PLUS_ONE_MM);
+        break;
+    case '-':
+        xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_CAL_MOVE_MINUS_ONE_MM);
+        break;
+    case 'c':
+        xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_CAL_COMPLETE);
+        break;
+    case 27:  // xxx define
+        xrail_local_cancel_ctrl_cmd();
+        break;
+    case '2':
+        xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_TEST);
+        break;
+
+    // xxx test
+    case KEY_F(0) ... KEY_F(12):
+        INFO("GOT FUNC KEY %d\n", input_char-KEY_F(0));
         break;
 
     // terminate pgm:
@@ -160,7 +189,7 @@ static int input_handler(int input_char)
         return -1;
         break;
 
-    // ignore all others xxx maybe warning
+    // ignore all others
     default:
         break;
     }
@@ -240,6 +269,7 @@ static bool sipm_local_terminate;
 // prototypes
 static void * sipm_data_collection_thread(void *cx);
 static int sipm_server_get_rate(struct get_rate_s *get_rate);
+static int sipm_server_request(int req_id, union response_data_u *response_data);
 
 static void sipm_local_init(void)
 {
@@ -328,14 +358,23 @@ static void *sipm_data_collection_thread(void *cx)
         max_sipm_pulse_rate_history = idx+1;
 
         // store the latest_sipm_data
-        // XXX tbd
+        // XXX tbd  store and display sipm data
     }
 
     return NULL;
 }
 
-// xxx may want a common messageing routine
 static int sipm_server_get_rate(struct get_rate_s *get_rate)
+{
+    int rc;
+    union response_data_u response_data;
+
+    rc = sipm_server_request(MSGID_GET_RATE, &response_data);
+    *get_rate = response_data.get_rate;
+    return rc;
+}
+
+static int sipm_server_request(int req_id, union response_data_u *response_data)
 {
     msg_request_t      msg_req;
     msg_response_t     msg_resp;
@@ -343,8 +382,10 @@ static int sipm_server_get_rate(struct get_rate_s *get_rate)
 
     static int         seq_num;
 
+    memset(response_data, 0, sizeof(*response_data));
+
     msg_req.magic   = MSG_REQ_MAGIC;
-    msg_req.id      = MSGID_GET_RATE;
+    msg_req.id      = req_id;
     msg_req.seq_num = ++seq_num;
     len = do_send(sipm_server_sd, &msg_req, sizeof(msg_req));
     if (len != sizeof(msg_req)) {
@@ -359,7 +400,7 @@ static int sipm_server_get_rate(struct get_rate_s *get_rate)
     }
 
     if (msg_resp.magic != MSG_RESP_MAGIC ||
-        msg_resp.id != MSGID_GET_RATE ||
+        msg_resp.id != req_id ||
         msg_resp.seq_num != seq_num)
     {
         ERROR("invalid msg_resp %d %d %d, exp_seq_num=%d\n",
@@ -370,35 +411,35 @@ static int sipm_server_get_rate(struct get_rate_s *get_rate)
         return -1;
     }
 
-    *get_rate = msg_resp.get_rate;
+    *response_data = msg_resp.response_data;
     return 0;
 }
 
 // -----------------  XRAIL CONTROL & STATUS  --------------------------------
 
-static pthread_t xrail_ctrl_thread_id;
-static pthread_t xrail_status_thread_id;
+static pthread_t xrail_local_ctrl_thread_id;
+static pthread_t xrail_local_status_thread_id;
 static bool      xrail_local_terminate;
 static bool      xrail_calibrated;
 static int       xrail_ctrl_cmd;
 static bool      xrail_ctrl_cmd_cancel;
 
-static void * xrail_ctrl_thread(void *cx);
-static void * xrail_status_thread(void *cx);
+static void * xrail_local_ctrl_thread(void *cx);
+static void * xrail_local_status_thread(void *cx);
 
 static void xrail_local_init(void)
 {
     // create the xrail control and status threads
-    pthread_create(&xrail_ctrl_thread_id, NULL, xrail_ctrl_thread, NULL);
-    pthread_create(&xrail_status_thread_id, NULL, xrail_status_thread, NULL);
+    pthread_create(&xrail_local_ctrl_thread_id, NULL, xrail_local_ctrl_thread, NULL);
+    pthread_create(&xrail_local_status_thread_id, NULL, xrail_local_status_thread, NULL);
 }
 
 static void xrail_local_exit(void)
 {
     // cause the xrail ctrl and status threads to exit
     xrail_local_terminate = true;
-    pthread_join(xrail_ctrl_thread_id, NULL);
-    pthread_join(xrail_status_thread_id, NULL);
+    pthread_join(xrail_local_ctrl_thread_id, NULL);
+    pthread_join(xrail_local_status_thread_id, NULL);
 }
 
 static void xrail_local_issue_ctrl_cmd(int cmd)
@@ -410,7 +451,7 @@ static void xrail_local_issue_ctrl_cmd(int cmd)
     }
 
     // check if the cmd is valid for current state of xrail_calibrated
-    // XXX
+    // xxx
 
     // issue the cmd
     xrail_ctrl_cmd_cancel = false;
@@ -418,12 +459,12 @@ static void xrail_local_issue_ctrl_cmd(int cmd)
     xrail_ctrl_cmd = cmd;
 }
 
-static void xrail_local_cancel_ctrl_cmd(int cmd)
+static void xrail_local_cancel_ctrl_cmd(void)
 {
     xrail_ctrl_cmd_cancel = true;
 }
 
-static void * xrail_ctrl_thread(void *cx)
+static void * xrail_local_ctrl_thread(void *cx)
 {
     #define CHECK_FOR_CANCEL_REQ \
         do { \
@@ -443,6 +484,8 @@ static void * xrail_ctrl_thread(void *cx)
             usleep(1000);
             continue;
         }
+
+        INFO("xxx STARTING %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
 
         // switch on the cmd
         switch (xrail_ctrl_cmd) {
@@ -471,9 +514,12 @@ static void * xrail_ctrl_thread(void *cx)
             break;
         }
 
+        INFO("xxx DONE %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
+
 cancel:
         // if cancelled then issue message
         if (xrail_ctrl_cmd_cancel) {
+            INFO("xxx CANCELED %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
             display_alert("%s is cancelled", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
         }
 
@@ -484,11 +530,11 @@ cancel:
     return NULL;
 }
 
-static void * xrail_status_thread(void *cx)
+static void * xrail_local_status_thread(void *cx)
 {
     bool okay, calibrated;
     double curr_loc_mm, tgt_loc_mm, voltage;
-    char status_str[200];
+    char status_str[100];
 
     // get the xrail status
     while (true) {
@@ -497,12 +543,20 @@ static void * xrail_status_thread(void *cx)
             return NULL;
         }
 
-        // xxx
+        // get xrail status
         xrail_get_status(&okay, &calibrated, &curr_loc_mm, &tgt_loc_mm, &voltage, status_str);
 
-        // XXX publish strings, and display them
+        // publish xrail strings 
+        if (!okay) {
+            sprintf(xrail_status_str, "NOT-OKAY: V=%0.1f, %s", voltage, status_str);
+        } else if (!calibrated) {
+            sprintf(xrail_status_str, "NOT-CALIBRATED");
+        } else {
+            sprintf(xrail_status_str, "%0.1f", curr_loc_mm);
+        }
 
         // one sec sleep
+        // xxx maybe more often
         sleep(1);
     }
 
@@ -510,38 +564,3 @@ static void * xrail_status_thread(void *cx)
 }
 
 
-#if 0
-// -----------------  TBD  ---------------------------------------------------
-
-void *test_thread(void *cx)
-{
-    uint64_t           start_us, duration_us;
-    int                len, optval, rc, seq_num=0, sfd, count;
-
-
-
-    // get pulse_rate from sipm_server
-    // XXX comments
-    count = 0;
-    while (true) {
-        start_us = microsec_timer();
-
-
-        duration_us = microsec_timer() - start_us;
-
-        // XXX do something about this print
-        printf("dur_us=%d pulse_rate=%d K gpio_read_rte=%d M gpio_read_and_analyze_rate=%d M\n",
-               (int)duration_us,
-               msg_resp.get_rate.pulse_rate / 1000,
-               msg_resp.get_rate.gpio_read_rate / 1000000,
-               msg_resp.get_rate.gpio_read_and_analyze_rate / 1000000);
-
-        // test audio too
-        if ((count++ % 5) == 0) {
-            audio_say_text("%d", msg_resp.get_rate.pulse_rate/1000);
-        }
-
-        usleep(500000);
-    }
-}
-#endif

@@ -121,10 +121,10 @@ int main(int argc, char **argv)
             // - au decr
             // - au test ...
             if (max_tok == 2 && strcmp(tok[1], "incr") == 0) {
-                audio_change_volume(5);
+                audio_change_volume(5, true);
                 audio_say_text("volume is now %d pecent", audio_get_volume());
             } else if (max_tok == 2 && strcmp(tok[1], "decr") == 0) {
-                audio_change_volume(-5);
+                audio_change_volume(-5, true);
                 audio_say_text("volume is now %d pecent", audio_get_volume());
             } else if (max_tok == 2 && strcmp(tok[1], "test") == 0) {
                 audio_say_text("open the pod bay doors Hal");
@@ -202,7 +202,7 @@ int main(int argc, char **argv)
         unit_test_thread_stop_req = true;
         INFO("waiting for unit_test_thread to finish\n");
         while (unit_test_thread_cmd != 0) {
-            my_usleep(1000000);
+            usleep(1000000);
         }
     }
 
@@ -243,7 +243,7 @@ static void * unit_test_thread(void *cx)
         double mm;
         for (mm = -25; mm <= 25; mm += .1) {
             xrail_goto_location(mm, true); 
-            my_usleep(1000000);
+            usleep(1000000);
             CHECK_STOP_REQ;
         }
         xrail_goto_location(0, true);
@@ -259,7 +259,7 @@ static void * unit_test_thread(void *cx)
             if (audio_test_enabled && ((++count % 5) == 0)) {
                 audio_say_text("%d", (pulse_rate+500)/1000);
             }
-            my_usleep(1000000);
+            usleep(1000000);
             CHECK_STOP_REQ;
         }
     } else if (xrail_test_enabled && sipm_test_enabled && unit_test_thread_cmd == 4) {
@@ -271,7 +271,7 @@ static void * unit_test_thread(void *cx)
             xrail_goto_location(mm, true); 
 
             // sleep 1 second to allow sipm code to collect data at this location
-            my_usleep(1000000);
+            usleep(1000000);
 
             // query sipm to get the pulse rate
             sipm_get_rate(&pulse_rate, &gpio_read_rate, &gpio_read_and_analyze_rate);

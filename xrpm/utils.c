@@ -122,7 +122,8 @@ char * time2str(char * str, int64_t us, bool gmt, bool display_ms, bool display_
     return str;
 }
 
-// XXX do I still want this routine
+#if 0
+// xxx do I still want this routine
 void my_usleep(uint64_t us)
 {
     struct timespec ts, rem;
@@ -136,6 +137,7 @@ void my_usleep(uint64_t us)
         ts = rem;
     }
 }
+#endif
 
 // -----------------  NETWORKING  ---------------------------------------
 

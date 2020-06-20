@@ -1,9 +1,14 @@
 #include "common_includes.h"
 
-#include <tic.h>   // from /usr/local/include/libpololu-tic-1//tic.h
-
 #include "xrail.h"
 #include "utils.h"
+
+// define this for testing without the xrail
+#define USE_XRAIL_STUBS
+
+#ifndef USE_XRAIL_STUBS
+
+#include <tic.h>   // from /usr/local/include/libpololu-tic-1//tic.h
 
 //
 // defines
@@ -133,10 +138,8 @@ void xrail_exit(void)
 
 // -----------------  APIS  -----------------------------------------------
 
-void xrail_cal_move(double mm)
+void xrail_cal_move(double delta_mm)
 {
-    mm = -mm;
-
     if (calibrated) {
         ERROR("already calibrated\n");
         return;
@@ -149,12 +152,12 @@ void xrail_cal_move(double mm)
         ERROR("not at_tgt_pos\n");
         return;
     }
-    if (fabs(mm) > 1) {
-        ERROR("mm %f too large\n", mm);
+    if (fabs(delta_mm) > 1) {
+        ERROR("delta_mm %f too large\n", delta_mm);
         return;
     }
 
-    tgt_pos = get_curr_pos() + mm * (200 * 32 / 5);
+    tgt_pos = get_curr_pos() - delta_mm * (200 * 32 / 5);
     goto_tgt_pos(true);
 }
 
@@ -204,11 +207,11 @@ bool xrail_reached_location(void)
     return at_tgt_pos();
 }
 
-void xrail_get_status(bool *okay, bool *calibrated, 
+void xrail_get_status(bool *okay, bool *calibrated_arg, 
                       double *curr_loc_mm, double *tgt_loc_mm, 
                       double *voltage, char *status_str)
 {
-    get_status(okay, calibrated, curr_loc_mm, tgt_loc_mm, voltage, status_str);
+    get_status(okay, calibrated_arg, curr_loc_mm, tgt_loc_mm, voltage, status_str);
 }
 
 // -----------------  TIC PRIMARY SUPPORT ROUTINES  ----------------------
@@ -270,7 +273,7 @@ static void goto_tgt_pos(bool wait)
                 }
                 break;
             }
-            my_usleep(DELAY_SECS * 1000000);
+            usleep(DELAY_SECS * 1000000);
             secs += DELAY_SECS;
         }
     }
@@ -297,7 +300,7 @@ static void * keep_alive_thread(void * cx)
 {
     while (true) {
         ERR_CHK(tic_reset_command_timeout(handle));
-        my_usleep(COMMAND_TIMEOUT_MS * 1000 / 2);
+        usleep(COMMAND_TIMEOUT_MS * 1000 / 2);
     }
     return NULL;
 }
@@ -537,3 +540,67 @@ static char * error_status_str(int err_stat)
     return str;
 }    
 
+#else   // USE_XRAI_STUBS
+
+static bool   calibrated;
+static double curr_loc_mm;
+static double tgt_loc_mm;
+
+void xrail_init(void)
+{
+}
+
+void xrail_exit(void)
+{
+}
+
+void xrail_cal_move(double delta_mm)
+{
+    curr_loc_mm += delta_mm;
+    tgt_loc_mm = curr_loc_mm;
+}
+
+void xrail_cal_complete(void)
+{
+    calibrated = 1;
+}
+
+void xrail_goto_location(double mm, bool wait)
+{
+    tgt_loc_mm = mm;
+
+    if (tgt_loc_mm == curr_loc_mm) {
+        return;
+    }
+
+    while (true) {
+        if (tgt_loc_mm > curr_loc_mm) {
+            curr_loc_mm += 1;
+            if (curr_loc_mm >= tgt_loc_mm) {
+                curr_loc_mm = tgt_loc_mm;
+                return;
+            }
+        } else {
+            curr_loc_mm -= 1;
+            if (curr_loc_mm <= tgt_loc_mm) {
+                curr_loc_mm = tgt_loc_mm;
+                return;
+            }
+        }
+        usleep(100000);
+    }
+}
+
+void xrail_get_status(bool *okay_arg, bool *calibrated_arg, 
+                      double *curr_loc_mm_arg, double *tgt_loc_mm_arg, 
+                      double *voltage_arg, char *status_str_arg)
+{
+    *okay_arg        = true;
+    *calibrated_arg  = calibrated;
+    *curr_loc_mm_arg = curr_loc_mm;
+    *tgt_loc_mm_arg  = tgt_loc_mm;
+    *voltage_arg     = 20.17;
+    strcpy(status_str_arg, "sim-status-okay");
+}
+
+#endif
