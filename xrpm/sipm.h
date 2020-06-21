@@ -8,6 +8,8 @@
 
 #define MSGID_GET_RATE 1
 
+#define SIPM_SERVER_NAME  "ds"
+
 // typedefs
 typedef struct {
     int magic;
