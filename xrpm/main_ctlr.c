@@ -97,6 +97,13 @@ static void xrail_local_exit(void);
 static void xrail_local_issue_ctrl_cmd(int cmd);
 static void xrail_local_cancel_ctrl_cmd(void);
 
+// XXX TODO
+// - test on ctlr 
+// - test the xrail test
+// - add code to move the xrail and gather the sipm data, make this graph 2,3,4
+//   . title could be the time
+// - run this at night, might use downstairs laptop to view output in real time
+
 // -----------------  MAIN  --------------------------------------------------
 
 int main(int argc, char **argv)
@@ -149,8 +156,6 @@ static uint64_t alert_msg_time_us;
 
 static void update_display(int maxy, int maxx)
 {
-    //xxx some defines in here
-
     // display help section, at top left
     mvprintw(0, 0, "--- HELP ---");
     mvprintw(1, 0, "AUDIO: v V m 1");
@@ -172,7 +177,7 @@ static void update_display(int maxy, int maxx)
              sipm_status.gpio_read_and_analyze_rate / 1000000.,
              sipm_status.duration_us / 1000);
 
-    // display alert for 5 secs
+    // display alert status for 5 secs
     if (microsec_timer() - alert_msg_time_us < 5000000) {
         attron(COLOR_PAIR(COLOR_PAIR_RED));
         mvprintw(4, 42, "%s", alert_msg);
@@ -239,13 +244,6 @@ static int input_handler(int input_char)
         break; }
     case KEY_LEFT: case KEY_RIGHT:
         curr_graph->start_idx += (input_char == KEY_LEFT ? 1 : -1);
-#if 0
-        if (curr_graph->start_idx < 0) {
-            curr_graph->start_idx = 0;
-        } else if (curr_graph->start_idx > *curr_graph->max_values-1) {
-            curr_graph->start_idx = *curr_graph->max_values-1;
-        }
-#endif
         curr_graph->track_end = false;
         break;
     case KEY_HOME:
@@ -306,7 +304,7 @@ static void graph_create(char *name, char *x_units, int *values, int *max_values
     graph_t *g = NULL;
     int i;
 
-    // xxx comment why not using 0
+    // not using 0 so that the graph idx corresponds to keyboard function key
     for (i = 1; i < MAX_GRAPH; i++) {
         if (graph[i].exists == false) {
             g = &graph[i];
@@ -342,15 +340,28 @@ static void display_current_graph(int maxy, int maxx)
     int      x, y, idx;
     char     c, str[100];
 
-    #define NUM_Y_TOP              6  // includes xxx tbd  (graph title included)   //   6
-    #define NUM_Y_GRAPH_TOTAL      (maxy - NUM_Y_TOP)                               //  34
-    #define NUM_Y_GRAPH_NEGATIVE   4                                                //   4
-    #define NUM_Y_GRAPH_POSITIVE   (NUM_Y_GRAPH_TOTAL - NUM_Y_GRAPH_NEGATIVE)       //  30
+    #define NUM_Y_TOP              6
+    #define NUM_Y_GRAPH_TOTAL      (maxy - NUM_Y_TOP)
+    #define NUM_Y_GRAPH_NEGATIVE   4
+    #define NUM_Y_GRAPH_POSITIVE   (NUM_Y_GRAPH_TOTAL - NUM_Y_GRAPH_NEGATIVE)
 
-    // xxx testing 40 x 100  expand on this comment
-    // xxx document display layout someplace
+    // initial tested using 40 x 100 window  (maxy=40 maxx=100):
+    //   NUM_Y_TOP            =  6
+    //   NUM_Y_GRAPH_TOTAL    = 34
+    //   NUM_Y_GRAPH_NEGATIVE =  4
+    //   NUM_Y_GRAPH_POSITIVE = 30
+
+    // display layout:
+    // - rows 0..4
+    //   . HELP on the left
+    //   . STATUS on the right; ALERT status is the last row of status
+    // - row 5 currently unused
+    // - rows 6..maxy-1
+    //   . the bottom 4 rows are graph values below y_offset;
+    //     these rows are alos used to display the Title, and the x-range
+    //   . the rows above the bottom 4 are for graph values >= y_offset
+    
     // xxx comments needed in here
-    //xxx maybe change name of y_span to y_positive_span
 
     if (g == NULL) {
         return;
@@ -460,13 +471,12 @@ static void curses_runtime(void (*update_display)(int maxy, int maxx), int (*inp
         // process character inputs
         input_char = getch();
         if (input_char == KEY_RESIZE) {
-            // loop around and redraw display
+            // immedeate redraw display
         } else if (input_char != ERR) {
             if (input_handler(input_char) != 0) {
                 return;
             }
         } else {
-            // xxx sleep duration, and sleep with recent kbd input
             usleep(100000);
         }
     }
@@ -531,16 +541,25 @@ static void sipm_local_exit(void)
 
 static void *sipm_data_collection_thread(void *cx)
 {
-    uint64_t          delay_us, duration_us;
-    uint64_t          get_rate_start_us, get_rate_complete_us;
-    int               rc, idx;
-    struct get_rate_s get_rate;
+    uint64_t           delay_us, duration_us;
+    uint64_t           get_rate_start_us, get_rate_complete_us;
+    int                rc, idx;
+    struct sched_param sched_param;
+    struct get_rate_s  get_rate;
 
     // Every 500ms request sipm data from sipm_server.
     // Store the pulse_rate data collected sipm_pulse_rate[], indexed by seconds.
     // Store the latest pulse_rate, and other info.
 
-    // XXX xxx enable real time
+    // set realtime prio
+    // notes: 
+    // - to verify rtprio:  ps -eLo rtprio,comm | grep ctlr
+    // - to run on Fedora:  sudo LD_LIBRARY_PATH=:/usr/local/lib ./ctlr
+    sched_param.sched_priority = 50;
+    rc = pthread_setschedparam(pthread_self(), SCHED_FIFO, &sched_param);
+    if (rc != 0) {
+        ERROR("pthread_setschedparam, %s\n", strerror(rc));
+    }
 
     while (true) {
         // if terminate requested then return
@@ -673,6 +692,8 @@ static void xrail_local_exit(void)
 
 static void xrail_local_issue_ctrl_cmd(int cmd)
 {
+    bool cmd_okay;
+
     // if a cmd is in progress then it is an error
     if (xrail_ctrl_cmd != XRAIL_CTRL_CMD_NONE) {
         display_alert("%s is in progress", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
@@ -680,7 +701,19 @@ static void xrail_local_issue_ctrl_cmd(int cmd)
     }
 
     // check if the cmd is valid for current state of xrail_calibrated
-    // XXX xxx
+    if (!xrail_calibrated) {
+        cmd_okay = (cmd == XRAIL_CTRL_CMD_CAL_MOVE_PLUS_ONE_MM ||
+                    cmd == XRAIL_CTRL_CMD_CAL_MOVE_MINUS_ONE_MM ||
+                    cmd == XRAIL_CTRL_CMD_CAL_COMPLETE);
+    } else {
+        cmd_okay = (cmd == XRAIL_CTRL_CMD_TEST);
+    }
+    if (!cmd_okay) {
+        ERROR("xrail cmd %s invalid when %s\n",
+              XRAIL_CTRL_CMD_STR(cmd),
+              !xrail_calibrated "not calibrated" : "calibrated");
+        return;
+    }
 
     // issue the cmd
     xrail_ctrl_cmd_cancel = false;
@@ -783,11 +816,9 @@ static void * xrail_local_status_thread(void *cx)
         }
 
         // one sec sleep
-        // xxx maybe more often
         sleep(1);
     }
 
     return NULL;
 }
-
 
