@@ -30,6 +30,8 @@
 
 #define COLOR_PAIR_RED 1
 
+#define MAX_GRAPH (4+1)
+
 //
 // typedefs
 //
@@ -41,19 +43,31 @@ typedef struct {
     int      gpio_read_rate;
     int      gpio_read_and_analyze_rate;
 } sipm_status_t;
+
+typedef struct {
+    bool  exists;
+    char *name;
+    int  *values;
+    int  *max_values;
+    int   start_idx;
+    int   y_offset;
+    int   y_span;
+} graph_t;
  
 //
 // variables
 //
 
-static WINDOW * window;
+static WINDOW      * window;
 
-static int sipm_pulse_rate_history[MAX_SIPM_PULSE_RATE_HISTORY];
-static int max_sipm_pulse_rate_history;
+static int           sipm_pulse_rate_history[MAX_SIPM_PULSE_RATE_HISTORY];
+static int           max_sipm_pulse_rate_history;
 
-static char xrail_status_str[200];
-
+static char          xrail_status_str[200];
 static sipm_status_t sipm_status;
+
+static graph_t       graph[MAX_GRAPH];
+static graph_t     * curr_graph;
 
 //
 // prototypes
@@ -62,6 +76,9 @@ static sipm_status_t sipm_status;
 static void update_display(int maxy, int maxx);
 static int input_handler(int input_char);
 static void display_alert(char *msg, ...) __attribute__ ((format (printf, 1, 2)));
+
+static void graph_create(char *name, int *values, int *max_values, int start_idx, int y_offset, int y_span);
+static void display_current_graph(int maxy, int maxx);
 
 static void curses_init(void);
 static void curses_exit(void);
@@ -76,6 +93,8 @@ static void xrail_local_issue_ctrl_cmd(int cmd);
 static void xrail_local_cancel_ctrl_cmd(void);
 
 // -----------------  MAIN  --------------------------------------------------
+
+// XXX enforce minimum screen size of 24 rows and 100 columns,  just on startup
 
 int main(int argc, char **argv)
 {
@@ -102,9 +121,6 @@ int main(int argc, char **argv)
 
     INFO("INITIALIZATION COMPLETE\n");
 
-    // xxx temp
-    //while (true) pause();
-
     // runtime using curses
     curses_init();
     curses_runtime(update_display, input_handler);
@@ -123,7 +139,7 @@ int main(int argc, char **argv)
     return 0;
 }
 
-// -----------------  CURSES HANDLERS  ---------------------------------------
+// -----------------  CURSES DISPLAY AND INPUT HANDLER ROUTINES  -------------
 
 static char     alert_msg[100];
 static uint64_t alert_msg_time_us;
@@ -131,13 +147,18 @@ static uint64_t alert_msg_time_us;
 static void update_display(int maxy, int maxx)
 {
     // display help section, at top left
-    // xxx more
+    mvprintw(0, 0, "--- HELP ---");
     mvprintw(1, 0, "AUDIO: v V m 1");
     mvprintw(2, 0, "XRAIL: + - c <esc> 2");
+    mvprintw(3, 0, "GPAPH: %s%s%s%s",
+             graph[1].exists ? "F1 " : "",
+             graph[2].exists ? "F2 " : "",
+             graph[3].exists ? "F3 " : "",
+             graph[4].exists ? "F4 " : "");
     mvprintw(4, 0, "QUIT:  q");
 
     // display status section
-    // xxx more
+    mvprintw(0, 30, "--- STATUS ---");
     mvprintw(1, 30, "AUDIO: %d%% %s", audio_get_volume(), audio_get_mute() ? "MUTED" : "");
     mvprintw(2, 30, "XRAIL: %s", xrail_status_str);
     mvprintw(3, 30, "SIPM:  pulse=%0.1fK gpio=%0.1fM analyze=%0.1fM dur=%dms",
@@ -149,16 +170,17 @@ static void update_display(int maxy, int maxx)
     // display alert for 3 secs
     if (microsec_timer() - alert_msg_time_us < 3000000) {
         attron(COLOR_PAIR(COLOR_PAIR_RED));
-        mvprintw(10, 0, "%s", alert_msg);
+        mvprintw(5, 0, "%s", alert_msg);
         attroff(COLOR_PAIR(COLOR_PAIR_RED));
     }
+
+    // display the current graph
+    display_current_graph(maxy, maxx);
 }
 
 // return -1 to exit pgm
 static int input_handler(int input_char)
 {
-    //INFO("CHAR 0x%x\n", input_char); //xxx
-
     switch (input_char) {
     // audio:
     //  v : volume down
@@ -200,10 +222,18 @@ static int input_handler(int input_char)
         xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_TEST);
         break;
 
-    // xxx test
-    case KEY_F(0) ... KEY_F(12):
-        INFO("GOT FUNC KEY %d\n", input_char-KEY_F(0));
-        break;
+    // graph select
+    //  F1 ... F4 : select graph 1 through 4
+    case KEY_F(1) ... KEY_F(4): {
+        int func_key = input_char-KEY_F(0);
+        if (graph[func_key].exists) {
+            curr_graph = &graph[func_key];
+            INFO("selecting graph %d, '%s'\n", func_key, curr_graph->name);
+        }
+        break; }
+
+    // tests that don't appear in help section of window
+    //  9  : display test alert
     case '9':
         display_alert("ALERT TEST");
         break;
@@ -236,6 +266,103 @@ static void display_alert(char *fmt, ...)
     // xxx update display now
 }
 
+// xxx where should this be in this file?
+static void graph_create(char *name, int *values, int *max_values, int start_idx, int y_offset, int y_span)
+{
+    graph_t *g = NULL;
+    int i;
+
+    // xxx comment why not using 0
+    for (i = 1; i < MAX_GRAPH; i++) {
+        if (graph[i].exists == false) {
+            g = &graph[i];
+            break;
+        }
+    }
+
+    if (g == NULL) {
+        ERROR("all graphs are already in use\n");
+        return;
+    }
+
+    g->exists      = true;
+    g->name        = name;
+    g->values      = values;
+    g->max_values  = max_values;
+    g->start_idx   = start_idx;
+    g->y_offset    = y_offset;
+    g->y_span      = y_span;
+
+    if (curr_graph == NULL) {
+        curr_graph = g;
+    }
+}
+
+// xxx testing 40 x 100
+// xxx still need to work on the graphing controls
+static void display_current_graph(int maxy, int maxx)
+{
+    graph_t *g = curr_graph;
+    int      x, y, idx;
+    char     c;
+
+    #define NUM_Y_TOP              6  // includes xxx tbd  (graph title included)
+    #define NUM_Y_GRAPH_TOTAL      (maxy - NUM_Y_TOP)
+    #define NUM_Y_GRAPH_NEGATIVE   4
+    #define NUM_Y_GRAPH_POSITIVE   (NUM_Y_GRAPH_TOTAL - NUM_Y_GRAPH_NEGATIVE)
+
+    if (g == NULL) {
+        return;
+    }
+
+    // xxx document display layout someplace
+
+    // xxx comments needed in here
+
+    mvprintw(NUM_Y_TOP-1, maxx/2-strlen(g->name)/2, "%s", g->name);
+
+    move(maxy-NUM_Y_GRAPH_NEGATIVE-1, 0);
+    for (idx = 0; idx < maxx; idx++) {
+        addch('_');
+    }
+
+    if (true) { // xxx tracking, need some sort of control
+        g->start_idx = *g->max_values - maxx;
+        if (g->start_idx < 0) {
+            g->start_idx = 0;
+        }
+    }
+
+    for (x = 0; x < maxx; x++) {
+        idx = g->start_idx + x;
+        if (idx < 0) continue;
+        if (idx >= *g->max_values) break;
+
+        if (g->values[idx] == 0) continue;
+
+        //xxx maybe change name of y_span to y_positive_span
+        y = NUM_Y_GRAPH_NEGATIVE + 
+            (int)( (g->values[idx] - g->y_offset) / 
+                   ((double)g->y_span / NUM_Y_GRAPH_POSITIVE) );
+        if (g->values[idx] < g->y_offset) {
+            y--;
+        }
+
+        c = 'x';
+        if (y < 0) {
+            y = 0;
+            c = 'v';
+        } else if (y > (NUM_Y_GRAPH_TOTAL - 1)) {
+            y = (NUM_Y_GRAPH_TOTAL - 1);
+            c = '^';
+        }
+
+        y = (maxy-1) - y;
+
+        mvprintw(y, x, "%c", c);
+    }
+}
+
 // -----------------  CURSES WRAPPER  ----------------------------------------
 
 static void curses_init(void)
@@ -260,13 +387,21 @@ static void curses_exit(void)
 static void curses_runtime(void (*update_display)(int maxy, int maxx), int (*input_handler)(int input_char))
 {
     int input_char, maxy, maxx;
+    int maxy_last=0, maxx_last=0;
 
     while (true) {
         // erase display
         erase();
 
-        // update the display
+        // get window size, and print whenever it changes
         getmaxyx(window, maxy, maxx);
+        if (maxy != maxy_last || maxx != maxx_last) {
+            INFO("maxy=%d maxx=%d\n", maxy, maxx);
+            maxy_last = maxy;
+            maxx_last = maxx;
+        }
+
+        // update the display
         update_display(maxy, maxx);
 
         // put the cursor back to the origin, and
@@ -306,7 +441,7 @@ static void sipm_local_init(void)
     int optval, rc;
     struct sockaddr_in sin;
 
-    // connect to sipm_server xxx hardcoded name here
+    // connect to sipm_server xxx hardcoded name here - solve with a define in sipm.h 
     rc = getsockaddr("ds", SIPM_SERVER_PORT, &sin);
     if (rc != 0) {
         FATAL("getsockaddr failed\n");
@@ -329,6 +464,14 @@ static void sipm_local_init(void)
 
     // create sipm_data_collection_thread
     pthread_create(&sipm_data_collection_thread_id, NULL, sipm_data_collection_thread, NULL);
+
+    // create the SIPM_PULSE_RATE graph
+    graph_create("SIPM_PULSE_RATE",
+                 sipm_pulse_rate_history,
+                 &max_sipm_pulse_rate_history,
+                 0,         // start_idx
+                 20000,     // y_offset
+                 10000);    // y_span
 }
 
 static void sipm_local_exit(void)
@@ -370,7 +513,7 @@ static void *sipm_data_collection_thread(void *cx)
         duration_us = get_rate_complete_us - get_rate_start_us;
 
         // warn if the sipm_server_get_rate took a long time
-        //INFO("xxx duration = %0.3f secs\n", duration_us / 1000000.);
+        //INFO("duration = %0.3f secs\n", duration_us / 1000000.);
         if (duration_us > 200000) {
             INFO("sipm_server_get_rate long duration %0.3f secs\n", duration_us / 1000000.);
         }
@@ -379,7 +522,11 @@ static void *sipm_data_collection_thread(void *cx)
         idx = get_rate_start_us / 1000000;
         //INFO("STORING SIPM_PULSE_RATE idx=%d  value=%d  start_sec=%0.1f\n", 
         //     idx, get_rate.pulse_rate, get_rate_start_us/1000000.);
+#if 0 //xxx TESTING
         sipm_pulse_rate_history[idx] = get_rate.pulse_rate;
+#else
+        sipm_pulse_rate_history[idx] = idx * 333.3333 + 18000;
+#endif
         __sync_synchronize();
         max_sipm_pulse_rate_history = idx+1;
 
@@ -515,9 +662,8 @@ static void * xrail_local_ctrl_thread(void *cx)
             continue;
         }
 
-        INFO("xxx STARTING %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
-
         // switch on the cmd
+        //INFO("STARTING %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
         switch (xrail_ctrl_cmd) {
         case XRAIL_CTRL_CMD_CAL_MOVE_PLUS_ONE_MM:
             xrail_cal_move(1);
@@ -543,13 +689,12 @@ static void * xrail_local_ctrl_thread(void *cx)
             FATAL("invalid xrail_ctrl_cmd %d\n", xrail_ctrl_cmd);
             break;
         }
-
-        INFO("xxx DONE %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
+        //INFO("DONE %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
 
 cancel:
         // if cancelled then issue message
         if (xrail_ctrl_cmd_cancel) {
-            INFO("xxx CANCELED %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
+            //INFO("CANCELED %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
             display_alert("%s is cancelled", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
         }
 
