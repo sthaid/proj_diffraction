@@ -1,4 +1,6 @@
-// audio.c
+#ifndef __AUDIO_H__
+#define __AUDIO_H__
+
 void audio_init(void);
 void audio_exit(void);
 
@@ -11,3 +13,5 @@ int audio_get_volume(void);
 void audio_toggle_mute(bool say);
 void audio_set_mute(bool mute, bool say);
 bool audio_get_mute(void);
+
+#endif

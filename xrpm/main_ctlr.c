@@ -711,7 +711,7 @@ static void xrail_local_issue_ctrl_cmd(int cmd)
     if (!cmd_okay) {
         ERROR("xrail cmd %s invalid when %s\n",
               XRAIL_CTRL_CMD_STR(cmd),
-              !xrail_calibrated "not calibrated" : "calibrated");
+              !xrail_calibrated ? "not calibrated" : "calibrated");
         return;
     }
 

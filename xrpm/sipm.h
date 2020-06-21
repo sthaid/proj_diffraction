@@ -1,14 +1,14 @@
-// XXX review hdr files for #ifdef at top
+#ifndef __SIPM_H__
+#define __SIPM_H__
 
 // defines
-#define SIPM_SERVER_PORT 9100
+#define SIPM_SERVER_NAME  "ds"
+#define SIPM_SERVER_PORT  9100
 
 #define MSG_REQ_MAGIC  123
 #define MSG_RESP_MAGIC 456
 
 #define MSGID_GET_RATE 1
-
-#define SIPM_SERVER_NAME  "ds"
 
 // typedefs
 typedef struct {
@@ -34,3 +34,5 @@ typedef struct {
 void sipm_init(void);
 void sipm_exit(void);
 void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_analyze_rate);
+
+#endif

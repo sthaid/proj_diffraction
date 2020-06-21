@@ -28,7 +28,6 @@ void utils_init(char *log_filename)
 
     clock_gettime(CLOCK_MONOTONIC,&ts);
     prog_start_us = (((uint64_t)ts.tv_sec * 1000000) + ((uint64_t)ts.tv_nsec / 1000));
-    INFO("xxx microsec_timer %ld\n", microsec_timer());
 }
 
 void utils_exit(void)
@@ -129,9 +128,7 @@ char * time2str(char * str, int64_t us, bool gmt, bool display_ms, bool display_
     return str;
 }
 
-#if 0
-// xxx do I still want this routine
-void my_usleep(uint64_t us)
+void usleep_restart(uint64_t us)
 {
     struct timespec ts, rem;
 
@@ -144,7 +141,6 @@ void my_usleep(uint64_t us)
         ts = rem;
     }
 }
-#endif
 
 // -----------------  NETWORKING  ---------------------------------------
 
