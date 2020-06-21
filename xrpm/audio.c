@@ -27,6 +27,9 @@
 
 #define FESTIVAL_PORT  1314
 
+// define this when testing on Fedora
+//#define FEDORA_AMIXER
+
 //
 // variables
 //
@@ -112,7 +115,11 @@ void audio_set_volume(int volume_arg, bool say)
     audio_set_mute(false, say);
 
     // use system to run amixer and set the volume
+#ifdef FEDORA_AMIXER
     sprintf(cmd, "amixer set Master Playback Volume %d%% >/dev/null 2>&1", volume);
+#else  // Raspberry Pi
+    sprintf(cmd, "sudo amixer set Headphone Playback Volume %d%% >/dev/null 2>&1", volume);
+#endif
     system(cmd);
 
     // say the new volume
