@@ -841,9 +841,9 @@ static void * xrail_local_ctrl_thread(void *cx)
                     CHECK_FOR_CANCEL_REQ;
                 }
                 t3 = microsec_timer();
-                INFO("xxx %ld  %ld\n",
-                     (t2 - t1) / 1000,
-                     (t3 - t2) / 1000);
+                INFO("xxx %d  %d\n",
+                     (int)((t2 - t1) / 1000),
+                     (int)((t3 - t2) / 1000));
                     
                 // store the sipm pulse rate in the sipm_go_pulse_rate array
                 sipm_go_pulse_rate[idx] = sipm_status.pulse_rate;
