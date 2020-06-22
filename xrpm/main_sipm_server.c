@@ -23,7 +23,7 @@ static void process_client_messages(int sfd);
 int main(int argc, char **argv)
 {
     // init files
-    utils_init("sipm_server.log");
+    utils_init("/home/haid/proj_diffraction/xrpm/sipm_server.log");
     sipm_init();
 
     // init is complete

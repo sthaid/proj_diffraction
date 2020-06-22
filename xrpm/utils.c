@@ -16,7 +16,7 @@ void utils_init(char *log_filename)
     } else {
         logfp = fopen(log_filename, "a");
         if (logfp == NULL) {
-            fprintf(stderr, "failed to open xrpm.log, %s\n", strerror(errno));
+            fprintf(stderr, "failed to open %s, %s\n", log_filename, strerror(errno));
             exit(1);
         }
     }
