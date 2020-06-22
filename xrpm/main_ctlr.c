@@ -13,18 +13,23 @@
 //
 
 #define MAX_SIPM_PULSE_RATE_HISTORY  1000000
+#define MAX_SIPM_GO_PULSE_RATE       1000
 
 #define XRAIL_CTRL_CMD_NONE                    0
 #define XRAIL_CTRL_CMD_CAL_MOVE_PLUS_ONE_MM    1
 #define XRAIL_CTRL_CMD_CAL_MOVE_MINUS_ONE_MM   2
 #define XRAIL_CTRL_CMD_CAL_COMPLETE            3
-#define XRAIL_CTRL_CMD_TEST                    4
+#define XRAIL_CTRL_CMD_GOTO_HOME               4
+#define XRAIL_CTRL_CMD_GO                      5
+#define XRAIL_CTRL_CMD_TEST                    6
 
 #define XRAIL_CTRL_CMD_STR(x) \
     ((x) == XRAIL_CTRL_CMD_NONE                  ? "NONE"                  : \
      (x) == XRAIL_CTRL_CMD_CAL_MOVE_PLUS_ONE_MM  ? "CAL_MOVE_PLUS_ONE_MM"  : \
      (x) == XRAIL_CTRL_CMD_CAL_MOVE_MINUS_ONE_MM ? "CAL_MOVE_MINUS_ONE_MM" : \
      (x) == XRAIL_CTRL_CMD_CAL_COMPLETE          ? "CAL_COMPLETE"          : \
+     (x) == XRAIL_CTRL_CMD_GOTO_HOME             ? "GOTO_HOME"             : \
+     (x) == XRAIL_CTRL_CMD_GO                    ? "GO"                    : \
      (x) == XRAIL_CTRL_CMD_TEST                  ? "TEST"                  : \
                                                    "????")
 
@@ -38,11 +43,12 @@
 //
 
 typedef struct {
-    uint64_t time_us;
     uint64_t duration_us;
     int      pulse_rate;
     int      gpio_read_rate;
     int      gpio_read_and_analyze_rate;
+    int      request_cnt;
+    int      response_cnt;
 } sipm_status_t;
 
 typedef struct {
@@ -67,6 +73,9 @@ static WINDOW      * window;
 
 static int           sipm_pulse_rate_history[MAX_SIPM_PULSE_RATE_HISTORY];
 static int           max_sipm_pulse_rate_history;
+
+static int           sipm_go_pulse_rate[MAX_SIPM_GO_PULSE_RATE];  //xxx name
+static int           max_sipm_go_pulse_rate;
 
 static char          xrail_status_str[200];
 static sipm_status_t sipm_status;
@@ -98,11 +107,17 @@ static void xrail_local_issue_ctrl_cmd(int cmd);
 static void xrail_local_cancel_ctrl_cmd(void);
 
 // XXX TODO
-// - test on ctlr 
+// - quit help
+// - x axis start and end values
+// - review timing of get_rate, why is the response usually so quick?
 // - test the xrail test
-// - add code to move the xrail and gather the sipm data, make this graph 2,3,4
-//   . title could be the time
 // - run this at night, might use downstairs laptop to view output in real time
+// - total review
+//
+// DONE
+// - test on ctlr 
+// - make errors alerts
+// - add code to move the xrail and gather the sipm data
 
 // -----------------  MAIN  --------------------------------------------------
 
@@ -121,14 +136,31 @@ int main(int argc, char **argv)
     sigaddset(&set,SIGINT);
     pthread_sigmask(SIG_BLOCK, &set, NULL);
 
-    // init 
+    // init other files, and
+    // init local functions
     utils_init("ctlr.log");
     audio_init();
     xrail_init();
-
     sipm_local_init();
     xrail_local_init();
 
+    // create graphs
+    graph_create("PULSE_RATE VS TIME",
+                 "SECS",
+                 sipm_pulse_rate_history,
+                 &max_sipm_pulse_rate_history,
+                 0,         // start_idx
+                 20000,     // y_offset
+                 10000);    // y_span
+    graph_create("PULSE_RATE VS SENSOR_LOC",
+                 ".1MM", 
+                 sipm_go_pulse_rate,
+                 &max_sipm_go_pulse_rate,
+                 0,         // start_idx
+                 20000,     // y_offset
+                 10000);    // y_span
+
+    // init is now complete
     INFO("INITIALIZATION COMPLETE\n");
 
     // runtime using curses
@@ -136,16 +168,15 @@ int main(int argc, char **argv)
     curses_runtime(update_display, input_handler);
     curses_exit();
 
-    // clean up and exit
+    // clean up and exit:
+    // - exit local functions
+    // - exit other files
     INFO("TERMINATING\n");
-
     xrail_local_exit();
     sipm_local_exit();
-
     xrail_exit();
     audio_exit();
     utils_exit();
-
     return 0;
 }
 
@@ -158,14 +189,15 @@ static void update_display(int maxy, int maxx)
 {
     // display help section, at top left
     mvprintw(0, 0, "--- HELP ---");
-    mvprintw(1, 0, "AUDIO: v V m 1");
-    mvprintw(2, 0, "XRAIL: F7 F8 c <ESC> 2");
+    mvprintw(1, 0, "AUDIO: v V m");
+    mvprintw(2, 0, "XRAIL: F7 F8 c h g <ESC>");
     mvprintw(3, 0, "GPAPH: %s%s%s%sARROWS + - HOME END r",
              graph[1].exists ? "F1 " : "",
              graph[2].exists ? "F2 " : "",
              graph[3].exists ? "F3 " : "",
              graph[4].exists ? "F4 " : "");
-    mvprintw(4, 0, "QUIT:  q");
+    mvprintw(4, 0, "TESTS: 1-AUDIO 2-XRAIL 3-ALERT");
+    mvprintw(5, 0, "QUIT:  q");
 
     // display status section
     mvprintw(0, 42, "--- STATUS ---");
@@ -196,7 +228,6 @@ static int input_handler(int input_char)
     //  v : volume down
     //  V : volume up
     //  m : toggle mute
-    //  1 : audio test
     case 'v':
         audio_change_volume(-5, true);
         break;
@@ -206,16 +237,14 @@ static int input_handler(int input_char)
     case 'm':
         audio_toggle_mute(true);
         break;
-    case '1':
-        audio_say_text("Open the pod bay doors Hal.");
-        break;
 
     // xrail:
     //  F7    : cal move 1 mm to left
     //  F8    : cal move 1 mm to right
     //  c     : cal done
+    //  h     : goto home
+    //  g     : go - move xrail and collect sipm data
     //  <esc> : cancel xrail_cmd
-    //  2     : xrail test
     case KEY_F(7):
         xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_CAL_MOVE_MINUS_ONE_MM);
         break;
@@ -225,16 +254,22 @@ static int input_handler(int input_char)
     case 'c':
         xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_CAL_COMPLETE);
         break;
+    case 'h':
+        xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_GOTO_HOME);
+        break;
+    case 'g':
+        xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_GO);
+        break;
     case 27:  // ESC
         xrail_local_cancel_ctrl_cmd();
         break;
-    case '2':
-        xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_TEST);
-        break;
 
     // graph:
-    //  F1 ... F4 : select graph 1 through 4
-    //  left,right arrows:  x range select
+    //  F1 ... F4                    : select graph 1 through 4
+    //  left,right arrows, home, end : x range select
+    //  up,down arrows               : adjust y_offset
+    //  +,-                          : adjust y_span
+    //  r                            : reset y_offset and y_span
     case KEY_F(1) ... KEY_F(4): {
         int func_key = input_char-KEY_F(0);
         if (graph[func_key].exists) {
@@ -243,7 +278,7 @@ static int input_handler(int input_char)
         }
         break; }
     case KEY_LEFT: case KEY_RIGHT:
-        curr_graph->start_idx += (input_char == KEY_LEFT ? 1 : -1);
+        curr_graph->start_idx += (input_char == KEY_RIGHT ? 1 : -1);
         curr_graph->track_end = false;
         break;
     case KEY_HOME:
@@ -254,7 +289,7 @@ static int input_handler(int input_char)
         curr_graph->track_end = true;
         break;
     case KEY_UP: case KEY_DOWN:
-        curr_graph->y_offset += (input_char == KEY_DOWN ? 100 : -100);
+        curr_graph->y_offset += (input_char == KEY_UP ? 100 : -100);
         break;
     case '+': case '-':
         curr_graph->y_span += (input_char == '+' ? 100 : -100);
@@ -267,9 +302,17 @@ static int input_handler(int input_char)
         curr_graph->y_span = curr_graph->y_span_orig;
         break;
 
-    // tests that don't appear in help 
-    //  9  : display test alert
-    case '9':
+    // tests
+    //  1 : audio
+    //  2 : xrail motion
+    //  3 : display test alert
+    case '1':
+        audio_say_text("Open the pod bay doors Hal.");
+        break;
+    case '2':
+        xrail_local_issue_ctrl_cmd(XRAIL_CTRL_CMD_TEST);
+        break;
+    case '3':
         display_alert("ALERT TEST");
         break;
 
@@ -296,6 +339,8 @@ static void display_alert(char *fmt, ...)
     vsnprintf(alert_msg, sizeof(alert_msg), fmt, ap);
     va_end(ap);
 
+    ERROR("ALERT: %s\n", alert_msg);
+
     alert_msg_time_us = microsec_timer();
 }
 
@@ -313,7 +358,7 @@ static void graph_create(char *name, char *x_units, int *values, int *max_values
     }
 
     if (g == NULL) {
-        ERROR("all graphs are already in use\n");
+        display_alert("all graphs are already in use\n");
         return;
     }
 
@@ -522,15 +567,6 @@ static void sipm_local_init(void)
 
     // create sipm_data_collection_thread
     pthread_create(&sipm_data_collection_thread_id, NULL, sipm_data_collection_thread, NULL);
-
-    // create the SIPM_PULSE_RATE graph
-    graph_create("SIPM_PULSE_RATE",
-                 "SECS",
-                 sipm_pulse_rate_history,
-                 &max_sipm_pulse_rate_history,
-                 0,         // start_idx
-                 20000,     // y_offset
-                 10000);    // y_span
 }
 
 static void sipm_local_exit(void)
@@ -539,27 +575,29 @@ static void sipm_local_exit(void)
     pthread_join(sipm_data_collection_thread_id, NULL);
 }
 
+// XXX need an indication that the xrail thread is running
 static void *sipm_data_collection_thread(void *cx)
 {
-    uint64_t           delay_us, duration_us;
-    uint64_t           get_rate_start_us, get_rate_complete_us;
-    int                rc, idx;
-    struct sched_param sched_param;
+    uint64_t           delay_us, start_us, duration_us;
+    int                rc, sec;
     struct get_rate_s  get_rate;
 
     // Every 500ms request sipm data from sipm_server.
     // Store the pulse_rate data collected sipm_pulse_rate[], indexed by seconds.
     // Store the latest pulse_rate, and other info.
 
+#if 0
     // set realtime prio
     // notes: 
     // - to verify rtprio:  ps -eLo rtprio,comm | grep ctlr
     // - to run on Fedora:  sudo LD_LIBRARY_PATH=:/usr/local/lib ./ctlr
+    struct sched_param sched_param;
     sched_param.sched_priority = 50;
     rc = pthread_setschedparam(pthread_self(), SCHED_FIFO, &sched_param);
     if (rc != 0) {
-        ERROR("pthread_setschedparam, %s\n", strerror(rc));
+        display_alert("pthread_setschedparam, %s\n", strerror(rc));
     }
+#endif
 
     while (true) {
         // if terminate requested then return
@@ -571,42 +609,50 @@ static void *sipm_data_collection_thread(void *cx)
         delay_us = 500000 - (microsec_timer() % 500000);
         usleep(delay_us);
 
+        // bump up request_cnt
+        __sync_synchronize();
+        sipm_status.request_cnt++;
+        __sync_synchronize();
+
         // request data from sipm_server
-        get_rate_start_us = microsec_timer();
+        start_us = microsec_timer();
         rc = sipm_server_get_rate(&get_rate);
         if (rc != 0) {
             FATAL("sipm_server_get_rate failed\n");
         }
-        get_rate_complete_us = microsec_timer();
-        duration_us = get_rate_complete_us - get_rate_start_us;
+        duration_us = microsec_timer() - start_us;
 
         // warn if the sipm_server_get_rate took a long time
-        //INFO("duration = %0.3f secs\n", duration_us / 1000000.);
         if (duration_us > 200000) {
-            INFO("sipm_server_get_rate long duration %0.3f secs\n", duration_us / 1000000.);
+            display_alert("sipm_server_get_rate long duration %0.3f secs\n", duration_us / 1000000.);
         }
 
-        // store the pulse_rate in sipm_pulse_rate
-        idx = get_rate_start_us / 1000000;
-        //INFO("STORING SIPM_PULSE_RATE idx=%d  value=%d  start_sec=%0.1f\n", 
-        //     idx, get_rate.pulse_rate, get_rate_start_us/1000000.);
-#if 0 //xxx TESTING
-        sipm_pulse_rate_history[idx] = get_rate.pulse_rate;
-#else
-        //sipm_pulse_rate_history[idx] = idx * 333.3333 + 18000;
+#if 1
+        // unit test - XXX maybe move this to sipm_server 
         #define DEG2RAD(_x)  ((_x) * (M_PI / 180))
-        double x = DEG2RAD(idx*10);
-        sipm_pulse_rate_history[idx] = 25000 + 5000 * sin(x);
+        double x = start_us * (360. / 60000000.);
+        get_rate.pulse_rate = 25000 + 5000 * sin(DEG2RAD(x));
 #endif
-        __sync_synchronize();
-        max_sipm_pulse_rate_history = idx+1;
 
-        // store the latest_sipm_data
-        sipm_status.time_us                    = get_rate_start_us;
-        sipm_status.duration_us                = get_rate_complete_us - get_rate_start_us;
+        // store the pulse_rate in sipm_pulse_rate
+        sec = start_us / 1000000;
+        if (sipm_pulse_rate_history[sec] == 0) {
+            sipm_pulse_rate_history[sec] = get_rate.pulse_rate;
+            __sync_synchronize();
+            max_sipm_pulse_rate_history = sec+1;
+            __sync_synchronize();
+        }
+
+        // publish the latest sipm rate data in var sipm_status
+        sipm_status.duration_us                = duration_us;
         sipm_status.pulse_rate                 = get_rate.pulse_rate;
         sipm_status.gpio_read_rate             = get_rate.gpio_read_rate;
         sipm_status.gpio_read_and_analyze_rate = get_rate.gpio_read_and_analyze_rate;
+
+        // bump up response_cnt
+        __sync_synchronize();
+        sipm_status.response_cnt++;
+        __sync_synchronize();
     }
 
     return NULL;
@@ -637,13 +683,13 @@ static int sipm_server_request(int req_id, union response_data_u *response_data)
     msg_req.seq_num = ++seq_num;
     len = do_send(sipm_server_sd, &msg_req, sizeof(msg_req));
     if (len != sizeof(msg_req)) {
-        ERROR("do_send ret=%d, %s\n", len, strerror(errno));
+        display_alert("do_send ret=%d, %s\n", len, strerror(errno));
         return -1;
     }
 
     len = do_recv(sipm_server_sd, &msg_resp, sizeof(msg_resp));
     if (len != sizeof(msg_resp)) {
-        ERROR("do_recv ret=%d, %s\n", len, strerror(errno));
+        display_alert("do_recv ret=%d, %s\n", len, strerror(errno));
         return -1;
     }
 
@@ -651,7 +697,7 @@ static int sipm_server_request(int req_id, union response_data_u *response_data)
         msg_resp.id != req_id ||
         msg_resp.seq_num != seq_num)
     {
-        ERROR("invalid msg_resp %d %d %d, exp_seq_num=%d\n",
+        display_alert("invalid msg_resp %d %d %d, exp_seq_num=%d\n",
               msg_resp.magic,
               msg_resp.id,
               msg_resp.seq_num,
@@ -706,12 +752,14 @@ static void xrail_local_issue_ctrl_cmd(int cmd)
                     cmd == XRAIL_CTRL_CMD_CAL_MOVE_MINUS_ONE_MM ||
                     cmd == XRAIL_CTRL_CMD_CAL_COMPLETE);
     } else {
-        cmd_okay = (cmd == XRAIL_CTRL_CMD_TEST);
+        cmd_okay = (cmd == XRAIL_CTRL_CMD_TEST ||
+                    cmd == XRAIL_CTRL_CMD_GOTO_HOME ||
+                    cmd == XRAIL_CTRL_CMD_GO);
     }
     if (!cmd_okay) {
-        ERROR("xrail cmd %s invalid when %s\n",
-              XRAIL_CTRL_CMD_STR(cmd),
-              !xrail_calibrated ? "not calibrated" : "calibrated");
+        display_alert("xrail cmd %s invalid when %s\n",
+                      XRAIL_CTRL_CMD_STR(cmd),
+                      !xrail_calibrated ? "not calibrated" : "calibrated");
         return;
     }
 
@@ -748,7 +796,6 @@ static void * xrail_local_ctrl_thread(void *cx)
         }
 
         // switch on the cmd
-        //INFO("STARTING %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
         switch (xrail_ctrl_cmd) {
         case XRAIL_CTRL_CMD_CAL_MOVE_PLUS_ONE_MM:
             xrail_cal_move(1);
@@ -760,6 +807,9 @@ static void * xrail_local_ctrl_thread(void *cx)
             xrail_cal_complete();
             xrail_calibrated = true;
             break;
+        case XRAIL_CTRL_CMD_GOTO_HOME:
+            xrail_goto_location(0, true);
+            break;
         case XRAIL_CTRL_CMD_TEST:
             xrail_goto_location(0, true);
             CHECK_FOR_CANCEL_REQ;
@@ -770,16 +820,52 @@ static void * xrail_local_ctrl_thread(void *cx)
             xrail_goto_location(0, true);
             CHECK_FOR_CANCEL_REQ;
             break;
+        case XRAIL_CTRL_CMD_GO: {
+            double mm;
+            int idx, request_cnt;
+            uint64_t t1,t2,t3;  // xxx temp
+
+            for (mm = -25, idx = 0; mm <= 25; mm += .1, idx++) {
+                // goto mm
+                xrail_goto_location(mm, true);
+                CHECK_FOR_CANCEL_REQ;
+
+                // sleep 1.25 sec
+                usleep(1250000);
+                CHECK_FOR_CANCEL_REQ;
+
+                // wait for another request to be issued for sipm pulse rate, and
+                // for the response to that request to be received
+                request_cnt = sipm_status.request_cnt;
+                t1 = microsec_timer();
+                while (sipm_status.request_cnt == request_cnt) {
+                    usleep(1000);
+                    CHECK_FOR_CANCEL_REQ;
+                }
+                t2 = microsec_timer();
+                while (sipm_status.response_cnt == request_cnt) {
+                    usleep(1000);
+                    CHECK_FOR_CANCEL_REQ;
+                }
+                t3 = microsec_timer();
+                INFO("xxx %ld  %ld\n",
+                     (t2 - t1) / 1000,
+                     (t3 - t2) / 1000);
+                    
+                // store the sipm pulse rate in the sipm_go_pulse_rate array
+                sipm_go_pulse_rate[idx] = sipm_status.pulse_rate;
+                __sync_synchronize();
+                max_sipm_go_pulse_rate = idx + 1;
+            }
+            break; }
         default:
             FATAL("invalid xrail_ctrl_cmd %d\n", xrail_ctrl_cmd);
             break;
         }
-        //INFO("DONE %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
 
 cancel:
         // if cancelled then issue message
         if (xrail_ctrl_cmd_cancel) {
-            //INFO("CANCELED %s\n", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
             display_alert("%s is cancelled", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
         }
 
@@ -811,8 +897,10 @@ static void * xrail_local_status_thread(void *cx)
             sprintf(xrail_status_str, "NOT-OKAY: V=%0.1f, %s", voltage, status_str);
         } else if (!calibrated) {
             sprintf(xrail_status_str, "NOT-CALIBRATED");
-        } else {
+        } else if (xrail_ctrl_cmd == XRAIL_CTRL_CMD_NONE) {
             sprintf(xrail_status_str, "%0.1f", curr_loc_mm);
+        } else {
+            sprintf(xrail_status_str, "%0.1f - %s", curr_loc_mm, XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
         }
 
         // one sec sleep
