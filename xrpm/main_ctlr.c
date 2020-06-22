@@ -627,13 +627,6 @@ static void *sipm_data_collection_thread(void *cx)
             display_alert("sipm_server_get_rate long duration %0.3f secs\n", duration_us / 1000000.);
         }
 
-#if 1
-        // unit test - XXX maybe move this to sipm_server 
-        #define DEG2RAD(_x)  ((_x) * (M_PI / 180))
-        double x = start_us * (360. / 60000000.);
-        get_rate.pulse_rate = 25000 + 5000 * sin(DEG2RAD(x));
-#endif
-
         // store the pulse_rate in sipm_pulse_rate
         sec = start_us / 1000000;
         if (sipm_pulse_rate_history[sec] == 0) {
