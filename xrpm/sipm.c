@@ -31,6 +31,7 @@ typedef struct {
 
 static sipm_t            sipm[MAX_SIPM];
 static int               sipm_count;
+static uint64_t          sipm_get_rate_called_at_us;
 
 static unsigned int      gpio_data_buffer[MAX_GPIO_DATA_BUFFER];
 
@@ -91,8 +92,12 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
     double   gpio_read_duration_secs;
     double   analyze_duration_secs;
 
+    // keep track of when this call is made
+    sipm_get_rate_called_at_us = microsec_timer();
+
     // if sipm_count < MAX_SIPM then wait
     while (sipm_count < MAX_SIPM) {
+        sipm_get_rate_called_at_us = microsec_timer();
         usleep(1000);
     }
 
@@ -102,6 +107,7 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
     // starting at sipm_count-1, scan sipm entries until 
     // encounter an entry whose start time is earlier than 
     // 1 second ago
+    // XXX review this routine
     one_sec_ago_us = microsec_timer() - 1000000;
     pulse_count = 0;
     gpio_read_count = 0;
@@ -136,7 +142,12 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
     // - pulse_rate
     // - gpio_read_rate
     // - gpio_read_and_analyze_rate
+#if 1  // unit test
+    double x = microsec_timer() * ((2 * M_PI) / 60000000);
+    *pulse_rate = 25000 + 5000 * sin(x);
+#else
     *pulse_rate = pulse_count / gpio_read_duration_secs;
+#endif
     *gpio_read_rate = gpio_read_count / gpio_read_duration_secs;
     *gpio_read_and_analyze_rate = gpio_read_count / analyze_duration_secs;
 
@@ -162,7 +173,21 @@ static void * sipm_thread(void *cs)
 
     // loop forever
     while (true) {
-        sipm_t *x = &sipm[sipm_count % MAX_SIPM];
+        sipm_t *x;
+
+        // if sipm_get_rate has not been called recently then
+        // wait here until it is being called 
+        if (microsec_timer() - sipm_get_rate_called_at_us > 10000000) {
+            INFO("client is not active - stop collecting sipm values\n");
+            do {
+                sipm_count = 0;
+                usleep(100000);
+            } while (microsec_timer() - sipm_get_rate_called_at_us > 10000000);
+            INFO("client is active - start collecting sipm values\n");
+        }
+
+        // init ptr to the sipm struct to be used by the code below
+        x = &sipm[sipm_count % MAX_SIPM];
 
         // read sipm gpio bit for 100 ms;
         // this sets the following fields in sipm_t

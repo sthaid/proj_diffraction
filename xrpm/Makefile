@@ -37,7 +37,7 @@ unit_test: $(SRC_UNIT_TEST:.c=.o)
 	$(CC) -pthread -lreadline -lm -lpololu-tic-1 -o $@ $(SRC_UNIT_TEST:.c=.o)
 
 sipm_server: $(SRC_SIPM_SERVER:.c=.o)
-	$(CC) -pthread -o $@ $(SRC_SIPM_SERVER:.c=.o)
+	$(CC) -pthread -lm -o $@ $(SRC_SIPM_SERVER:.c=.o)
 
 ctlr: $(SRC_CTLR:.c=.o)
 	$(CC) -pthread -lncurses -lm -lpololu-tic-1 -o $@ $(SRC_CTLR:.c=.o)
