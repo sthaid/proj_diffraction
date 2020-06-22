@@ -107,17 +107,18 @@ static void xrail_local_issue_ctrl_cmd(int cmd);
 static void xrail_local_cancel_ctrl_cmd(void);
 
 // XXX TODO
-// - quit help
+// - review sipm.c routine to get pulse_rate
 // - x axis start and end values
-// - review timing of get_rate, why is the response usually so quick?
-// - test the xrail test
+// - run the xrail test
 // - run this at night, might use downstairs laptop to view output in real time
-// - total review
+// - full review
 //
 // DONE
 // - test on ctlr 
 // - make errors alerts
 // - add code to move the xrail and gather the sipm data
+// - quit help
+// - review timing of get_rate, why is the response usually so quick?
 
 // -----------------  MAIN  --------------------------------------------------
 
@@ -575,7 +576,6 @@ static void sipm_local_exit(void)
     pthread_join(sipm_data_collection_thread_id, NULL);
 }
 
-// XXX need an indication that the xrail thread is running
 static void *sipm_data_collection_thread(void *cx)
 {
     uint64_t           delay_us, start_us, duration_us;
@@ -816,7 +816,7 @@ static void * xrail_local_ctrl_thread(void *cx)
         case XRAIL_CTRL_CMD_GO: {
             double mm;
             int idx, request_cnt;
-            uint64_t t1,t2,t3;  // xxx temp
+            uint64_t t0,t1,t2,t3;  // xxx temp
 
             for (mm = -25, idx = 0; mm <= 25; mm += .1, idx++) {
                 // goto mm
@@ -824,6 +824,7 @@ static void * xrail_local_ctrl_thread(void *cx)
                 CHECK_FOR_CANCEL_REQ;
 
                 // sleep 1.25 sec
+                t0 = microsec_timer();
                 usleep(1250000);
                 CHECK_FOR_CANCEL_REQ;
 
@@ -841,7 +842,8 @@ static void * xrail_local_ctrl_thread(void *cx)
                     CHECK_FOR_CANCEL_REQ;
                 }
                 t3 = microsec_timer();
-                INFO("xxx %d  %d\n",
+                INFO("xxx %d  %d  %d\n",
+                     (int)((t1 - t0) / 1000),
                      (int)((t2 - t1) / 1000),
                      (int)((t3 - t2) / 1000));
                     
