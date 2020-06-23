@@ -618,7 +618,7 @@ static void *sipm_data_collection_thread(void *cx)
 
         // request data from sipm_server
         start_us = microsec_timer();
-        INFO("xxx start_us = %ld\n", start_us);
+        INFO("xxx start_us = %"PRId64"\n", start_us);
         rc = sipm_server_get_rate(&get_rate);
         if (rc != 0) {
             memset(&sipm_status, 0, sizeof(sipm_status));
