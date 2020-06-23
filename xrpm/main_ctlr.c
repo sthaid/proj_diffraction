@@ -47,8 +47,6 @@ typedef struct {
     int      pulse_rate;
     int      gpio_read_rate;
     int      gpio_read_and_analyze_rate;
-    int      request_cnt;
-    int      response_cnt;
 } sipm_status_t;
 
 typedef struct {
@@ -74,8 +72,8 @@ static WINDOW      * window;
 static int           sipm_pulse_rate_history[MAX_SIPM_PULSE_RATE_HISTORY];
 static int           max_sipm_pulse_rate_history;
 
-static int           sipm_go_pulse_rate[MAX_SIPM_GO_PULSE_RATE];  //xxx name
-static int           max_sipm_go_pulse_rate;
+static int           sipm_go_cmd_pulse_rate[MAX_SIPM_GO_PULSE_RATE];
+static int           max_sipm_go_cmd_pulse_rate;
 
 static char          xrail_status_str[200];
 static sipm_status_t sipm_status;
@@ -100,6 +98,7 @@ static void curses_runtime(void (*update_display)(int maxy, int maxx), int (*inp
 
 static void sipm_local_init(void);
 static void sipm_local_exit(void);
+static int sipm_server_get_rate(struct get_rate_s *get_rate);
 
 static void xrail_local_init(void);
 static void xrail_local_exit(void);
@@ -107,18 +106,7 @@ static void xrail_local_issue_ctrl_cmd(int cmd);
 static void xrail_local_cancel_ctrl_cmd(void);
 
 // XXX TODO
-// - review sipm.c routine to get pulse_rate
 // - x axis start and end values
-// - run the xrail test
-// - run this at night, might use downstairs laptop to view output in real time
-// - full review
-//
-// DONE
-// - test on ctlr 
-// - make errors alerts
-// - add code to move the xrail and gather the sipm data
-// - quit help
-// - review timing of get_rate, why is the response usually so quick?
 
 // -----------------  MAIN  --------------------------------------------------
 
@@ -155,8 +143,8 @@ int main(int argc, char **argv)
                  10000);    // y_span
     graph_create("PULSE_RATE VS SENSOR_LOC",
                  ".1MM", 
-                 sipm_go_pulse_rate,
-                 &max_sipm_go_pulse_rate,
+                 sipm_go_cmd_pulse_rate,
+                 &max_sipm_go_cmd_pulse_rate,
                  0,         // start_idx
                  20000,     // y_offset
                  10000);    // y_span
@@ -211,7 +199,9 @@ static void update_display(int maxy, int maxx)
              sipm_status.duration_us / 1000);
 
     // display alert status for 5 secs
-    if (microsec_timer() - alert_msg_time_us < 5000000) {
+    if ((alert_msg_time_us != 0) &&
+        (microsec_timer() - alert_msg_time_us < 5000000))
+    {
         attron(COLOR_PAIR(COLOR_PAIR_RED));
         mvprintw(4, 42, "%s", alert_msg);
         attroff(COLOR_PAIR(COLOR_PAIR_RED));
@@ -398,37 +388,43 @@ static void display_current_graph(int maxy, int maxx)
     //   NUM_Y_GRAPH_POSITIVE = 30
 
     // display layout:
-    // - rows 0..4
+    // - rows 0..5
     //   . HELP on the left
     //   . STATUS on the right; ALERT status is the last row of status
-    // - row 5 currently unused
     // - rows 6..maxy-1
     //   . the bottom 4 rows are graph values below y_offset;
     //     these rows are alos used to display the Title, and the x-range
     //   . the rows above the bottom 4 are for graph values >= y_offset
     
-    // xxx comments needed in here
-
+    // if no graph then just return
     if (g == NULL) {
         return;
     }
 
+    // draw a horizontal line which indicates the y_offset location
     move(maxy-NUM_Y_GRAPH_NEGATIVE-1, 0);
     for (idx = 0; idx < maxx; idx++) {
         addch('_');
     }
 
+    // if the graph is intended to be tracking the end of data then 
+    // adjust the graph's start_idx
     if (g->track_end) {
         g->start_idx = *g->max_values - maxx;
     }
 
+    // loop over x (columns)
     for (x = 0; x < maxx; x++) {
+        // convert x to idx
         idx = g->start_idx + x;
         if (idx < 0) continue;
         if (idx >= *g->max_values) break;
 
+        // if there is no value to display then continue
         if (g->values[idx] == 0) continue;
 
+        // convert the value to y (row), but the y value
+        // is currently referenced from the bottom of the window
         y = NUM_Y_GRAPH_NEGATIVE + 
             (int)( (g->values[idx] - g->y_offset) / 
                    ((double)g->y_span / NUM_Y_GRAPH_POSITIVE) );
@@ -436,6 +432,8 @@ static void display_current_graph(int maxy, int maxx)
             y--;
         }
 
+        // normally use the 'x' char to indicate the graph location;
+        // except when off the bottom or top of the graph, then use the 'v' or '^' chars
         c = 'x';
         if (y < 0) {
             y = 0;
@@ -445,16 +443,22 @@ static void display_current_graph(int maxy, int maxx)
             c = '^';
         }
 
+        // convert the y value to be referenced from the top of the window,
+        // this is what curses expects
         y = (maxy-1) - y;
 
+        // call curses to print the char
         mvprintw(y, x, "%c", c);
     }
 
+    // graph labeling will be in cyan
     attron(COLOR_PAIR(COLOR_PAIR_CYAN));
 
+    // label the y axis
     mvprintw(maxy-NUM_Y_GRAPH_NEGATIVE-1, 0, "%d", g->y_offset);
     mvprintw(maxy-NUM_Y_GRAPH_TOTAL, 0, "%d", g->y_offset+g->y_span);
 
+    // label the x axis
     mvprintw(maxy-3, 0, "%d", g->start_idx);
     sprintf(str, "%d", g->start_idx + maxx);
     mvprintw(maxy-3, maxx-strlen(str), "%s", str);
@@ -462,8 +466,10 @@ static void display_current_graph(int maxy, int maxx)
             maxx, g->x_units, (g->track_end ? " : TRACK_END" : ""));
     mvprintw(maxy-3, (maxx-strlen(str))/2, "%s", str);
 
+    // print the graph name
     mvprintw(maxy-1, (maxx-strlen(g->name))/2, "%s", g->name);
 
+    // restore default color attributes
     attroff(COLOR_PAIR(COLOR_PAIR_CYAN));
 }
 
@@ -582,9 +588,10 @@ static void *sipm_data_collection_thread(void *cx)
     int                rc, sec;
     struct get_rate_s  get_rate;
 
-    // Every 500ms request sipm data from sipm_server.
+    // Every 1 sec request sipm data from sipm_server.
     // Store the pulse_rate data collected sipm_pulse_rate[], indexed by seconds.
-    // Store the latest pulse_rate, and other info.
+    // Store the latest pulse_rate, and other info, to be printed by the 
+    //  update_display routine.
 
 #if 0
     // set realtime prio
@@ -605,20 +612,17 @@ static void *sipm_data_collection_thread(void *cx)
             return NULL;
         }
 
-        // sleep until next 500ms time boundary
-        delay_us = 500000 - (microsec_timer() % 500000);
+        // sleep until next 1 sec time boundary
+        delay_us = 1000000 - (microsec_timer() % 1000000);
         usleep(delay_us);
-
-        // bump up request_cnt
-        __sync_synchronize();
-        sipm_status.request_cnt++;
-        __sync_synchronize();
 
         // request data from sipm_server
         start_us = microsec_timer();
+        INFO("xxx start_us = %ld\n", start_us);
         rc = sipm_server_get_rate(&get_rate);
         if (rc != 0) {
-            FATAL("sipm_server_get_rate failed\n");
+            memset(&sipm_status, 0, sizeof(sipm_status));
+            continue;
         }
         duration_us = microsec_timer() - start_us;
 
@@ -629,23 +633,17 @@ static void *sipm_data_collection_thread(void *cx)
 
         // store the pulse_rate in sipm_pulse_rate
         sec = start_us / 1000000;
-        if (sipm_pulse_rate_history[sec] == 0) {
-            sipm_pulse_rate_history[sec] = get_rate.pulse_rate;
-            __sync_synchronize();
-            max_sipm_pulse_rate_history = sec+1;
-            __sync_synchronize();
-        }
+        sipm_pulse_rate_history[sec] = get_rate.pulse_rate;
+        __sync_synchronize();
+        max_sipm_pulse_rate_history = sec+1;
+        __sync_synchronize();
 
-        // publish the latest sipm rate data in var sipm_status
+        // publish the latest sipm rate data in var sipm_status,
+        // these values are printed by the update_display routine
         sipm_status.duration_us                = duration_us;
         sipm_status.pulse_rate                 = get_rate.pulse_rate;
         sipm_status.gpio_read_rate             = get_rate.gpio_read_rate;
         sipm_status.gpio_read_and_analyze_rate = get_rate.gpio_read_and_analyze_rate;
-
-        // bump up response_cnt
-        __sync_synchronize();
-        sipm_status.response_cnt++;
-        __sync_synchronize();
     }
 
     return NULL;
@@ -663,11 +661,14 @@ static int sipm_server_get_rate(struct get_rate_s *get_rate)
 
 static int sipm_server_request(int req_id, union response_data_u *response_data)
 {
-    msg_request_t      msg_req;
-    msg_response_t     msg_resp;
-    int                len;
+    msg_request_t          msg_req;
+    msg_response_t         msg_resp;
+    int                    len;
 
-    static int         seq_num;
+    static int             seq_num;
+    static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+    pthread_mutex_lock(&mutex);
 
     memset(response_data, 0, sizeof(*response_data));
 
@@ -677,12 +678,14 @@ static int sipm_server_request(int req_id, union response_data_u *response_data)
     len = do_send(sipm_server_sd, &msg_req, sizeof(msg_req));
     if (len != sizeof(msg_req)) {
         display_alert("do_send ret=%d, %s\n", len, strerror(errno));
+        pthread_mutex_unlock(&mutex);
         return -1;
     }
 
     len = do_recv(sipm_server_sd, &msg_resp, sizeof(msg_resp));
     if (len != sizeof(msg_resp)) {
         display_alert("do_recv ret=%d, %s\n", len, strerror(errno));
+        pthread_mutex_unlock(&mutex);
         return -1;
     }
 
@@ -695,10 +698,13 @@ static int sipm_server_request(int req_id, union response_data_u *response_data)
               msg_resp.id,
               msg_resp.seq_num,
               seq_num);
+        pthread_mutex_unlock(&mutex);
         return -1;
     }
 
     *response_data = msg_resp.response_data;
+
+    pthread_mutex_unlock(&mutex);
     return 0;
 }
 
@@ -814,43 +820,29 @@ static void * xrail_local_ctrl_thread(void *cx)
             CHECK_FOR_CANCEL_REQ;
             break;
         case XRAIL_CTRL_CMD_GO: {
-            double mm;
-            int idx, request_cnt;
-            uint64_t t0,t1,t2,t3;  // xxx temp
+            int idx, rc;
+            struct get_rate_s get_rate;
 
-            for (mm = -25, idx = 0; mm <= 25; mm += .1, idx++) {
+            for (idx = 0; idx < 501; idx++) {
                 // goto mm
+                double mm = -25 + idx * .1;
                 xrail_goto_location(mm, true);
                 CHECK_FOR_CANCEL_REQ;
 
                 // sleep 1.25 sec
-                t0 = microsec_timer();
                 usleep(1250000);
                 CHECK_FOR_CANCEL_REQ;
 
-                // wait for another request to be issued for sipm pulse rate, and
-                // for the response to that request to be received
-                request_cnt = sipm_status.request_cnt;
-                t1 = microsec_timer();
-                while (sipm_status.request_cnt == request_cnt) {
-                    usleep(1000);
-                    CHECK_FOR_CANCEL_REQ;
+                // get pulse rate
+                rc = sipm_server_get_rate(&get_rate);
+                if (rc != 0) {
+                    break;
                 }
-                t2 = microsec_timer();
-                while (sipm_status.response_cnt == request_cnt) {
-                    usleep(1000);
-                    CHECK_FOR_CANCEL_REQ;
-                }
-                t3 = microsec_timer();
-                INFO("xxx %d  %d  %d\n",
-                     (int)((t1 - t0) / 1000),
-                     (int)((t2 - t1) / 1000),
-                     (int)((t3 - t2) / 1000));
                     
-                // store the sipm pulse rate in the sipm_go_pulse_rate array
-                sipm_go_pulse_rate[idx] = sipm_status.pulse_rate;
+                // store the sipm pulse rate in the sipm_go_cmd_pulse_rate array
+                sipm_go_cmd_pulse_rate[idx] = get_rate.pulse_rate;
                 __sync_synchronize();
-                max_sipm_go_pulse_rate = idx + 1;
+                max_sipm_go_cmd_pulse_rate = idx + 1;
             }
             break; }
         default:

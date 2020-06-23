@@ -2,9 +2,9 @@
 #define __DRA_GPIO_H__
 
 // enable this for unit testing on non raspberry pi systems
-//#define USE_GPIO_STUBS
+//#define UNITTEST_USE_GPIO_STUBS
 
-#ifndef USE_GPIO_STUBS
+#ifndef UNITTEST_USE_GPIO_STUBS
 
 // reference: https://elinux.org/RPi_GPIO_Code_Samples#Direct_register_access
 
@@ -98,7 +98,7 @@ static inline void set_gpio_pull_mode(int pin, int pull_mode)
     GPIO_PULLCLK0 = 0;
 }
 
-#else // USE_GPIO_STUBS
+#else // UNITTEST_USE_GPIO_STUBS
 
 #define PIN_MODE_INPUT   1
 #define PIN_MODE_OUTPUT  2

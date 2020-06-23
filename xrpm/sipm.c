@@ -11,8 +11,11 @@
 #define GPIO_INPUT_PIN        20
 
 #define GPIO_READ_INTVL_US    100000    // 100ms
-#define MAX_GPIO_DATA_BUFFER  10000000  // 10 million
+#define MAX_GPIO_DATA_BUFFER  10000000  // 10 million, 320 million samples
 #define MAX_SIPM              20        // 2 secs of history in 100 ms chunks
+
+// define this to replace real sipm pulse_rate data with sine curve
+#define UNITTEST_SIPM_GET_RATE
 
 //
 // typedes
@@ -105,9 +108,7 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
     pthread_mutex_lock(&mutex);
 
     // starting at sipm_count-1, scan sipm entries until 
-    // encounter an entry whose start time is earlier than 
-    // 1 second ago
-    // XXX review this routine
+    // encounter an entry whose start time is earlier than 1 second ago
     one_sec_ago_us = microsec_timer() - 1000000;
     pulse_count = 0;
     gpio_read_count = 0;
@@ -115,40 +116,48 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
     for (i = sipm_count-1; i >= sipm_count-MAX_SIPM; i--) {
         sipm_t *x = &sipm[i % MAX_SIPM];
 
-        pulse_count           += x->pulse_count;
-        gpio_read_count       += (x->max_data * 32);
-        gpio_read_duration_us += (x->end_us - x->start_us);
+        if (x->start_us < one_sec_ago_us) {
+            break;
+        }
 
+        analyze_start_us = x->start_us;
         if (i == sipm_count-1) {
             analyze_end_us = x->end_us;
         }
-        if (x->start_us < one_sec_ago_us) {
-            analyze_start_us = x->start_us;
-            break;
-        }
-    }
 
-    // the above code should always set analyze_start_us;
-    // if not it is a fatal error
-    if (analyze_start_us == 0 || analyze_end_us == 0) {
-        FATAL("analyze_start/end_us equals zero\n");
+        pulse_count           += x->pulse_count;
+        gpio_read_count       += (x->max_data * 32);
+        gpio_read_duration_us += (x->end_us - x->start_us);
     }
 
     // convert durations to seconds (double)
     gpio_read_duration_secs = (double)gpio_read_duration_us / 1000000;
-    analyze_duration_secs      = (double)(analyze_end_us - analyze_start_us) / 1000000;
+    analyze_duration_secs   = (double)(analyze_end_us - analyze_start_us) / 1000000;
+    INFO("xxx gpio_read_duration_secs = %0.1f  analyze_duration_secs = %0.1f\n", 
+         gpio_read_duration_secs, analyze_duration_secs);
+
+    // avoid a possible divide by 0
+    if (gpio_read_duration_secs == 0 || analyze_duration_secs == 0) {
+        ERROR("gpio_read_duration_secs = %0.1f  analyze_duration_secs = %0.1f\n",
+              gpio_read_duration_secs, analyze_duration_secs);
+        *pulse_rate                 = 0;
+        *gpio_read_rate             = 0;
+        *gpio_read_and_analyze_rate = 0;
+        pthread_mutex_unlock(&mutex);
+        return;
+    }
 
     // calculate return values
     // - pulse_rate
     // - gpio_read_rate
     // - gpio_read_and_analyze_rate
-#if 1  // unit test
+#ifdef UNITTEST_SIPM_GET_RATE
     double x = microsec_timer() * ((2 * M_PI) / 60000000);
-    *pulse_rate = 25000 + 5000 * sin(x);
+    *pulse_rate                 = 25000 + 5000 * sin(x);
 #else
-    *pulse_rate = pulse_count / gpio_read_duration_secs;
+    *pulse_rate                 = pulse_count / gpio_read_duration_secs;
 #endif
-    *gpio_read_rate = gpio_read_count / gpio_read_duration_secs;
+    *gpio_read_rate             = gpio_read_count / gpio_read_duration_secs;
     *gpio_read_and_analyze_rate = gpio_read_count / analyze_duration_secs;
 
     // release mutex
@@ -177,12 +186,17 @@ static void * sipm_thread(void *cs)
 
         // if sipm_get_rate has not been called recently then
         // wait here until it is being called 
-        if (microsec_timer() - sipm_get_rate_called_at_us > 10000000) {
+        if ((microsec_timer() - sipm_get_rate_called_at_us > 10000000) ||
+            (sipm_get_rate_called_at_us == 0))
+        {
             INFO("client is not active - stop collecting sipm values\n");
             do {
+                pthread_mutex_lock(&mutex);
                 sipm_count = 0;
+                pthread_mutex_unlock(&mutex);
                 usleep(100000);
-            } while (microsec_timer() - sipm_get_rate_called_at_us > 10000000);
+            } while ((microsec_timer() - sipm_get_rate_called_at_us > 10000000) ||
+                     (sipm_get_rate_called_at_us == 0));
             INFO("client is active - start collecting sipm values\n");
         }
 
@@ -234,7 +248,7 @@ static void read_sipm(sipm_t *x)
             v32 |= gpio_read(GPIO_INPUT_PIN);
         }
 
-        if (max_data < MAX_GPIO_DATA_BUFFER) { // xxx temp  need this for GPIO_UNIT_TEST
+        if (max_data < MAX_GPIO_DATA_BUFFER) {
             gpio_data_buffer[max_data++] = v32;
         }
     }
@@ -248,15 +262,21 @@ static void analyze_sipm(sipm_t *x)
     int sum_cnt0=0, sum_cnt1=0;
     int pulse_count=0;
 
+    // this routine uses the count_consecutive routines to 
+    // determine the number of consecutive zeros and ones
     count_consecutive_reset(x);
+
+    // first count consectuve zeros, this will leave 
+    // count_consecutive pointing to the first one; 
+    // i.e. the begining of a pulse
     sum_cnt0 += count_consecutive_zero();
 
     while (true) {
-        // xxx more comments in here
-        // First look for consecutive 1s followed by consecutive 0s.
-        // If there are few consecutive 0s following the consecutive 1s then 
+        // A pulse is ideally a sequence of 1s terminated by a 0.
+        //         
+        // However, if there are few consecutive 0s following the consecutive 1s then 
         //  these 0s are not considered the end of the pulse, instead they are considered
-        //  to be part of the pulse. We allow for up to 4 short groups of consecutive
+        //  to be part of the pulse. This code allows for up to 4 short groups of consecutive
         //  0s to be considered part of the pulse.
         cnt1 = count_consecutive_one();
         cnt0 = count_consecutive_zero(); 
@@ -269,21 +289,27 @@ static void analyze_sipm(sipm_t *x)
             cnt0 = count_consecutive_zero();
         }
 
+        // for debug, keep track of the total number of 0s and 1s by summing
+        // the number of 0s and 1s in the pulse just found above
         sum_cnt0 += cnt0;
         sum_cnt1 += cnt1;
 
+        // if we're at the end of the data then break out of this loop
         if (count_consecutive_is_at_eod()) {
             break;
         }
 
+        // increment the number of pulses located
         pulse_count++;
     }
 
+    // debug check that all the 1s and 0s counted agrees with expected
     if (sum_cnt0 + sum_cnt1 != x->max_data * 32) {
         FATAL("BUG sum_cnt0=%d sum_cnt1=%d gpio.max_data=%d\n",
                sum_cnt0, sum_cnt1, x->max_data*32);
     }
 
+    // return the pulse_count in ths sipm_t arg
     x->pulse_count = pulse_count;
 }
 

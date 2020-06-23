@@ -4,9 +4,13 @@
 #include "utils.h"
 
 // define this for testing without the xrail
-#define USE_XRAIL_STUBS
+#define UNITTEST_USE_XRAIL_STUBS
 
-#ifndef USE_XRAIL_STUBS
+// use this to debug initialization settings and variables
+//#define UNITTEST_XRAIL_VERBOSE
+
+// if not UNITTEST_USE_XRAIL_STUBS ...
+#ifndef UNITTEST_USE_XRAIL_STUBS
 
 #include <tic.h>   // from /usr/local/include/libpololu-tic-1//tic.h
 
@@ -36,10 +40,7 @@
 #define COMMAND_TIMEOUT_MS 0
 
 // maximum absolute value location
-#define MAX_MM  25
-
-// use this for debug and test
-//#define VERBOSE
+#define MAX_MM  26.0
 
 //
 // notes
@@ -318,7 +319,7 @@ static void print_and_check_settings(void)
 
     ERR_CHK(tic_get_settings(handle, &settings));
 
-#ifdef VERBOSE
+#ifdef UNITTEST_XRAIL_VERBOSE
     INFO("SETTINGS ...\n");
     PRINT_SETTING(product);
     PRINT_SETTING(control_mode);
@@ -398,7 +399,7 @@ static void print_and_check_check_variables(void)
 
     ERR_CHK(tic_get_variables(handle, &variables, false));
 
-#ifdef VERBOSE
+#ifdef UNITTEST_XRAIL_VERBOSE
     INFO("VARIABLES ...\n");
     PRINT_VARIABLE(operation_state);
     PRINT_VARIABLE(energized);
@@ -540,7 +541,7 @@ static char * error_status_str(int err_stat)
     return str;
 }    
 
-#else   // USE_XRAI_STUBS
+#else   // UNITTEST_USE_XRAIL_STUBS
 
 static bool   calibrated;
 static double curr_loc_mm;

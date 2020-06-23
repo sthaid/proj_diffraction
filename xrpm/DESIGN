@@ -1,116 +1,27 @@
 
-run sipm collect as an autos start service
-
-dont run sipm collection if there is not a client
-
--------------------
-
-get festival working on ctlr rpi
-
--------------------
-
-write service pgm for sipm
-- main_sipm_service
-- and write a quick test pgm to try it out, which will
-   later become main_ctlr.c
-
--------
-
-possible network problems when running from the laptop
-- should I be using haid or _EXT,  or haid1 or haid1_EXT
-
-Alarm Clock error
-- maybe don't use alarm signal for timing
-
-Xr readback sign error
-
-move audio to ctlr
-
-ctlr will make connection, to client to get the sipm rates data
-
-save unit test code, with option to run on either ctlr or ds
-
-write curses code
-
--------
-
-review this file and make a TODO SECTION
-
---------
-
-unsigned long ?    uint64_t
-
-# start festival
-/usr/bin/festival --server >/var/log/festival.log 2>&1 &
-
------
-
-later get rid of this file  ???
-
 ===============================================
 TITLE: TODO    
 ===============================================
 
-unit test the xrail.c code
-- make a better unit test in main.c
+checkin and test what I have so far
+
+move main_unit_test to subdir
+
+main_ctlr.c   XXX x axis start values
+
+TESTING
+- run the xrail test
+- run this at night, might use downstairs laptop to view output in real time
+
+add gnu plot support
 
 check the -Wno in Makefile
 
-start festival on rpi at boot
-
-only build xrpm on rpi, and only build other pgms on fedora;
-- maybe get rid of top level makefile
-
-===============================================
-TITLE: TIC SETTINGS
-===============================================
-
-TBD
-
-===============================================
-TITLE: NEW PGM
-===============================================
-
-main.c
-- phase 1: unit test 
-- phase 2: curses implementation
-audio.c
-- audio_init
-- audio_exit
-- audio_say_text
-- audio_set_volume
-- audio_get_volume
-- audio_set_mute
-- audio_get_mute
-sipm.c
-- sipm_init
-- sipm_exit
-- sipm_get_rate
-- sipm_get_status
-xrail.c
-- xrail_init
-- xrail_exit - will return rail to home if it has been calibrated
-- xrail_cal_move_right
-- xrail_cal_move_left 
-- xrail_cal_set_home
-- xrail_set_pos
-- xrail_get_status
-
-curses commands
-- graph: left, right control cursor position
-         up, down, control zero point
-         ctrl up, down control y axis scale
-- audio: v, V volume control;  ^v toggle mute;  alt-v test
-- F1:  sipm graph,  when running this, audio will be on unless muted
-- F2:  xrail and sipm;  creates file that can be used by gnuplot
-- ESC: stop 
-
-executable name = xrpm
-
-
-sipm notes:
-- time the dra_sipm steps, and verify multi threads can work in sipm.c
-  DONE - with optimizatin 14ms;  else 200ms
+audio.c:// xxx may need a thread to read from the sd and discard
+gpio.h:// XXX not working
+main_ctlr.c:// XXX TODO
+main_ctlr.c:        INFO("xxx start_us = %ld\n", start_us);
+sipm.c:    INFO("xxx gpio_read_duration_secs = %0.1f  analyze_duration_secs = %0.1f\n", 
 
 ===============================================
 TITLE: TEXT TO SPEECH

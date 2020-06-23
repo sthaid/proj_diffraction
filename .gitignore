@@ -4,8 +4,6 @@ ds
 my_tic_test
 rate
 ifsim
-unit_test
-unit_test.log
 sipm_server
 sipm_server.log
 ctlr
