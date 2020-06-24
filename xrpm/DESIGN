@@ -3,7 +3,11 @@
 TITLE: TODO    
 ===============================================
 
+x axis end may be 1 too high
+
 add gnu plot support
+- when done, print the data file, OR
+  may need to first scale it and have a print key
 
 ---- NEED TO TEST THESE ----
 

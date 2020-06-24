@@ -781,9 +781,10 @@ static void xrail_local_cancel_ctrl_cmd(void)
 
 static void * xrail_local_ctrl_thread(void *cx)
 {
-    #define CHECK_FOR_CANCEL_REQ \
+    #define CHECK_FOR_CANCEL_REQ(cancel_code) \
         do { \
             if (xrail_ctrl_cmd_cancel || xrail_local_terminate) { \
+                cancel_code \
                 goto cancel; \
             } \
         } while (0)
@@ -817,27 +818,46 @@ static void * xrail_local_ctrl_thread(void *cx)
             break;
         case XRAIL_CTRL_CMD_TEST:
             xrail_goto_location(0, true);
-            CHECK_FOR_CANCEL_REQ;
+            CHECK_FOR_CANCEL_REQ();
             xrail_goto_location(-25, true);
-            CHECK_FOR_CANCEL_REQ;
+            CHECK_FOR_CANCEL_REQ();
             xrail_goto_location(25, true);
-            CHECK_FOR_CANCEL_REQ;
+            CHECK_FOR_CANCEL_REQ();
             xrail_goto_location(0, true);
-            CHECK_FOR_CANCEL_REQ;
+            CHECK_FOR_CANCEL_REQ();
             break;
         case XRAIL_CTRL_CMD_GO: {
             int idx, rc;
             struct get_rate_s get_rate;
+            FILE *fp;
+            char filename[200];
+            struct tm *tm;
+            time_t t;
 
+            // create file to contain the gnuplot data
+            t = time(NULL);
+            tm = localtime(&t);
+            sprintf(filename, "gnuplot_%04d_%02d_%02d_%02d_%02d_%02d.dat",
+                    tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday, 
+                    tm->tm_hour, tm->tm_min, tm->tm_sec);
+            fp = fopen(filename, "w");
+            if (fp == NULL) {
+                ERROR("failed to create '%s', %s\n", filename, strerror(errno));
+                break;
+            }
+            INFO("creating %s\n", filename);
+            
+            // loop, positioning the xrail from -25mm to +25mm in .1mm increments,
+            // and reading the pulse_rate at each position
             for (idx = 0; idx < 501; idx++) {
                 // goto mm
                 double mm = -25 + idx * .1;
                 xrail_goto_location(mm, true);
-                CHECK_FOR_CANCEL_REQ;
+                CHECK_FOR_CANCEL_REQ(fclose(fp); fp=NULL;);
 
                 // sleep 1.25 sec
                 usleep(1250000);
-                CHECK_FOR_CANCEL_REQ;
+                CHECK_FOR_CANCEL_REQ(fclose(fp); fp=NULL;);
 
                 // get pulse rate
                 rc = sipm_server_get_rate(&get_rate);
@@ -852,12 +872,16 @@ static void * xrail_local_ctrl_thread(void *cx)
                 max_sipm_go_cmd_pulse_rate = idx + 1;
 
                 // print and audio 
-                INFO("#%0.2f %.2f\n", mm, get_rate.pulse_rate/1000.);
+                fprintf(fp, "%0.2f %.2f\n", mm, get_rate.pulse_rate/1000.);
+                //INFO("#%0.2f %.2f\n", mm, get_rate.pulse_rate/1000.);
                 if ((idx % 3) == 0) {
                     audio_say_text("%.0f", get_rate.pulse_rate/1000.);
                 }
             }
 
+            // cleanup
+            fclose(fp);
+            fp = NULL;
             audio_say_text("done");
             xrail_goto_location(0, true);
             break; }
