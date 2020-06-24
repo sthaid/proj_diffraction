@@ -6,6 +6,12 @@ CFLAGS = -g -O2 \
          -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-clobbered -Werror \
          -I/usr/local/include/libpololu-tic-1
 
+#CFLAGS += -DUNITTEST_FEDORA_AUDIO
+#CFLAGS += -DUNITTEST_USE_XRAIL_STUBS
+#CFLAGS += -DUNITTEST_XRAIL_VERBOSE
+#CFLAGS += -DUNITTEST_SIPM_GET_RATE
+#CFLAGS += -DUNITTEST_USE_GPIO_STUBS
+
 SRC_SIPM_SERVER = main_sipm_server.c \
                   utils.c \
                   sipm.c 

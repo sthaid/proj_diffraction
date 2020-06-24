@@ -15,7 +15,7 @@
 #define MAX_SIPM              20        // 2 secs of history in 100 ms chunks
 
 // define this to replace real sipm pulse_rate data with sine curve
-#define UNITTEST_SIPM_GET_RATE
+//#define UNITTEST_SIPM_GET_RATE
 
 //
 // typedes
@@ -133,8 +133,8 @@ void sipm_get_rate(int *pulse_rate, int *gpio_read_rate, int *gpio_read_and_anal
     // convert durations to seconds (double)
     gpio_read_duration_secs = (double)gpio_read_duration_us / 1000000;
     analyze_duration_secs   = (double)(analyze_end_us - analyze_start_us) / 1000000;
-    INFO("xxx gpio_read_duration_secs = %0.1f  analyze_duration_secs = %0.1f\n", 
-         gpio_read_duration_secs, analyze_duration_secs);
+    //INFO("gpio_read_duration_secs = %0.1f  analyze_duration_secs = %0.1f\n", 
+    //     gpio_read_duration_secs, analyze_duration_secs);
 
     // avoid a possible divide by 0
     if (gpio_read_duration_secs == 0 || analyze_duration_secs == 0) {

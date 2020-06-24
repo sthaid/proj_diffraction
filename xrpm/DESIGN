@@ -3,25 +3,30 @@
 TITLE: TODO    
 ===============================================
 
-checkin and test what I have so far
-
-move main_unit_test to subdir
-
-main_ctlr.c   XXX x axis start values
-
-TESTING
-- run the xrail test
-- run this at night, might use downstairs laptop to view output in real time
-
 add gnu plot support
 
-check the -Wno in Makefile
+---- NEED TO TEST THESE ----
 
-audio.c:// xxx may need a thread to read from the sd and discard
-gpio.h:// XXX not working
+--- TESTED ---
 main_ctlr.c:// XXX TODO
-main_ctlr.c:        INFO("xxx start_us = %ld\n", start_us);
-sipm.c:    INFO("xxx gpio_read_duration_secs = %0.1f  analyze_duration_secs = %0.1f\n", 
+x-axis 
+return to 0 after go
+aduio during go
+on fedora unit test
+  +//#define UNITTEST_USE_XRAIL_STUBS
+print values during go
+take out extra prints 'xxx start'   'xxx gpio'
+gpio.h:// XXX not working
+check the -Wno in Makefile
+audio.c:// xxx may need a thread to read from the sd and discard
+
+
+
+TESTING
+- run this at night, might use downstairs laptop to view output in real time
+
+
+
 
 ===============================================
 TITLE: TEXT TO SPEECH

@@ -3,8 +3,6 @@
 #include "audio.h"
 #include "utils.h"
 
-// xxx may need a thread to read from the sd and discard
-
 //
 // notes
 //
@@ -25,10 +23,10 @@
 // defines
 //
 
-#define FESTIVAL_PORT  1314
-
 // define this when testing on Fedora
 //#define UNITTEST_FEDORA_AUDIO
+
+#define FESTIVAL_PORT  1314
 
 //
 // variables
@@ -38,12 +36,19 @@ static bool mute;
 static int  volume;
 static int  sd = -1;
 
+//
+// prototypes
+//
+
+static void *read_festival_stdout_thread(void *cx);
+
 // -----------------  INIT / EXIT  ----------------------------------------
 
 void audio_init(void)
 {
     int rc, optval;
     struct sockaddr_in sin;
+    pthread_t tid;
 
     // connect to festival text-to-speech service
     sin.sin_family      = AF_INET;
@@ -65,6 +70,9 @@ void audio_init(void)
         FATAL("setsockopt TCP_NODELAY, %s", strerror(errno));
     }
 
+    // create thread to read from festival stdout, and discard
+    pthread_create(&tid, NULL, read_festival_stdout_thread, NULL);
+
     // set initial volume
     audio_set_volume(90, false);
 }
@@ -72,6 +80,24 @@ void audio_init(void)
 void audio_exit(void)
 {
     close(sd);
+}
+
+static void *read_festival_stdout_thread(void *cx)
+{
+    int rc;
+    char buff[1000];
+
+    while (true) {
+        rc = read(sd, buff, sizeof(buff)-1);
+        if (rc < 0) {
+            ERROR("festival stdout read failed, rc=%d, %s\n", rc, strerror(errno));
+            continue;
+        }
+        //buff[rc] = 0;
+        //INFO("rc=%d buff='%s'\n", rc, buff);
+    }
+
+    return NULL;
 }
 
 // -----------------  API - SAY_TEXT  -------------------------------------

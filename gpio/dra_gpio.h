@@ -83,7 +83,7 @@ static inline void set_gpio_pin_mode(int pin, int mode)
     }
 }
 
-// XXX not working
+// this routine doesn't work yet
 static inline void set_gpio_pull_mode(int pin, int pull_mode)
 {
     #define GPIO_PULL      gpio_regs[37]

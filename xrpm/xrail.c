@@ -4,8 +4,7 @@
 #include "utils.h"
 
 // define this for testing without the xrail
-#define UNITTEST_USE_XRAIL_STUBS
-
+//#define UNITTEST_USE_XRAIL_STUBS
 // use this to debug initialization settings and variables
 //#define UNITTEST_XRAIL_VERBOSE
 

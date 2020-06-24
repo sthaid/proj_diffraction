@@ -61,6 +61,7 @@ typedef struct {
     bool  track_end;
     int   y_offset_orig;
     int   y_span_orig;
+    int   x_axis_label_offset;
 } graph_t;
  
 //
@@ -89,7 +90,7 @@ static void update_display(int maxy, int maxx);
 static int input_handler(int input_char);
 static void display_alert(char *msg, ...) __attribute__ ((format (printf, 1, 2)));
 
-static void graph_create(char *name, char *x_units, int *values, int *max_values, int start_idx, int y_offset, int y_span);
+static void graph_create(char *name, char *x_units, int *values, int *max_values, int start_idx, int y_offset, int y_span, int x_axis_label_offset);
 static void display_current_graph(int maxy, int maxx);
 
 static void curses_init(void);
@@ -104,9 +105,6 @@ static void xrail_local_init(void);
 static void xrail_local_exit(void);
 static void xrail_local_issue_ctrl_cmd(int cmd);
 static void xrail_local_cancel_ctrl_cmd(void);
-
-// XXX TODO
-// - x axis start and end values
 
 // -----------------  MAIN  --------------------------------------------------
 
@@ -140,14 +138,16 @@ int main(int argc, char **argv)
                  &max_sipm_pulse_rate_history,
                  0,         // start_idx
                  20000,     // y_offset
-                 10000);    // y_span
+                 10000,     // y_span
+                 0);        // x_axis_label_offset
     graph_create("PULSE_RATE VS SENSOR_LOC",
                  ".1MM", 
                  sipm_go_cmd_pulse_rate,
                  &max_sipm_go_cmd_pulse_rate,
                  0,         // start_idx
                  20000,     // y_offset
-                 10000);    // y_span
+                 10000,     // y_span
+                 -250);     // x_axis_label_offset
 
     // init is now complete
     INFO("INITIALIZATION COMPLETE\n");
@@ -335,7 +335,7 @@ static void display_alert(char *fmt, ...)
     alert_msg_time_us = microsec_timer();
 }
 
-static void graph_create(char *name, char *x_units, int *values, int *max_values, int start_idx, int y_offset, int y_span)
+static void graph_create(char *name, char *x_units, int *values, int *max_values, int start_idx, int y_offset, int y_span, int x_axis_label_offset)
 {
     graph_t *g = NULL;
     int i;
@@ -353,17 +353,18 @@ static void graph_create(char *name, char *x_units, int *values, int *max_values
         return;
     }
 
-    g->exists        = true;
-    g->name          = name;
-    g->x_units       = x_units;
-    g->values        = values;
-    g->max_values    = max_values;
-    g->start_idx     = start_idx;
-    g->y_offset      = y_offset;
-    g->y_span        = y_span;
-    g->track_end     = false;
-    g->y_offset_orig = y_offset;
-    g->y_span_orig   = y_span;
+    g->exists              = true;
+    g->name                = name;
+    g->x_units             = x_units;
+    g->values              = values;
+    g->max_values          = max_values;
+    g->start_idx           = start_idx;
+    g->y_offset            = y_offset;
+    g->y_span              = y_span;
+    g->track_end           = false;
+    g->y_offset_orig       = y_offset;
+    g->y_span_orig         = y_span;
+    g->x_axis_label_offset = x_axis_label_offset;
 
     if (curr_graph == NULL) {
         curr_graph = g;
@@ -458,10 +459,12 @@ static void display_current_graph(int maxy, int maxx)
     mvprintw(maxy-NUM_Y_GRAPH_NEGATIVE-1, 0, "%d", g->y_offset);
     mvprintw(maxy-NUM_Y_GRAPH_TOTAL, 0, "%d", g->y_offset+g->y_span);
 
-    // label the x axis
-    mvprintw(maxy-3, 0, "%d", g->start_idx);
-    sprintf(str, "%d", g->start_idx + maxx);
+    // label the x axis at both ends
+    mvprintw(maxy-3, 0, "%d", g->start_idx + g->x_axis_label_offset);
+    sprintf(str, "%d", g->start_idx + g->x_axis_label_offset + maxx);
     mvprintw(maxy-3, maxx-strlen(str), "%s", str);
+
+    // label the x axis span
     sprintf(str, "<--- %d %s%s --->", 
             maxx, g->x_units, (g->track_end ? " : TRACK_END" : ""));
     mvprintw(maxy-3, (maxx-strlen(str))/2, "%s", str);
@@ -585,7 +588,7 @@ static void sipm_local_exit(void)
 static void *sipm_data_collection_thread(void *cx)
 {
     uint64_t           delay_us, start_us, duration_us;
-    int                rc, sec;
+    int                rc, sec, last_sec=-1;
     struct get_rate_s  get_rate;
 
     // Every 1 sec request sipm data from sipm_server.
@@ -618,7 +621,6 @@ static void *sipm_data_collection_thread(void *cx)
 
         // request data from sipm_server
         start_us = microsec_timer();
-        INFO("xxx start_us = %"PRId64"\n", start_us);
         rc = sipm_server_get_rate(&get_rate);
         if (rc != 0) {
             memset(&sipm_status, 0, sizeof(sipm_status));
@@ -633,6 +635,10 @@ static void *sipm_data_collection_thread(void *cx)
 
         // store the pulse_rate in sipm_pulse_rate
         sec = start_us / 1000000;
+        if ((last_sec != -1) && (sec != last_sec + 1)) {
+            INFO("skipped sec=%d last_sec=%d\n", sec, last_sec);
+        }
+        last_sec = sec;
         sipm_pulse_rate_history[sec] = get_rate.pulse_rate;
         __sync_synchronize();
         max_sipm_pulse_rate_history = sec+1;
@@ -836,6 +842,7 @@ static void * xrail_local_ctrl_thread(void *cx)
                 // get pulse rate
                 rc = sipm_server_get_rate(&get_rate);
                 if (rc != 0) {
+                    ERROR("sipm_server_get_rate failed\n");
                     break;
                 }
                     
@@ -843,7 +850,16 @@ static void * xrail_local_ctrl_thread(void *cx)
                 sipm_go_cmd_pulse_rate[idx] = get_rate.pulse_rate;
                 __sync_synchronize();
                 max_sipm_go_cmd_pulse_rate = idx + 1;
+
+                // print and audio 
+                INFO("#%0.2f %.2f\n", mm, get_rate.pulse_rate/1000.);
+                if ((idx % 3) == 0) {
+                    audio_say_text("%.0f", get_rate.pulse_rate/1000.);
+                }
             }
+
+            audio_say_text("done");
+            xrail_goto_location(0, true);
             break; }
         default:
             FATAL("invalid xrail_ctrl_cmd %d\n", xrail_ctrl_cmd);
@@ -854,6 +870,7 @@ cancel:
         // if cancelled then issue message
         if (xrail_ctrl_cmd_cancel) {
             display_alert("%s is cancelled", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
+            audio_say_text("%s is cancelled", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
         }
 
         // clearing the cmd indicates it has completed
