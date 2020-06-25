@@ -14,4 +14,7 @@ if [ "$file" = "" ]; then
   exit 1
 fi
 
-gnuplot -p -e "plot '$file' with linespoints"
+gnuplot -p \
+ -e "set term qt size 1600, 800" \
+ -e "set size ratio 0.5" \
+ -e "plot '$file' with linespoints"
