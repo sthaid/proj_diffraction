@@ -1,3 +1,38 @@
+wavelength          = 520 nanometers
+laser_power         = 0.0050 watts (joules/sec)
+double_slit_pass    = 20 percent
+pattern_area        = 76.0 mm^2
+detector_area       = 1.0 mm^2
+detector_effeciency = 22.0 percent
+
+      Rate                  Rate       Rate   Detector Seperation
+   Leaving     Filter      After      After      Count      After
+     Laser         OD     Filter    DblSlit     Rate K    DblSlit
+---------- ---------- ---------- ---------- ---------- ----------
+   1.3e+16        6.0    1.3e+10    2.6e+09      7578K     0.38ft
+   1.3e+16        6.1    1.0e+10    2.1e+09      6019K     0.47ft
+   1.3e+16        6.2    8.3e+09    1.7e+09      4781K     0.60ft
+   1.3e+16        6.3    6.6e+09    1.3e+09      3798K     0.75ft
+   1.3e+16        6.4    5.2e+09    1.0e+09      3017K     0.94ft
+   1.3e+16        6.5    4.1e+09    8.3e+08      2396K     1.19ft
+   1.3e+16        6.6    3.3e+09    6.6e+08      1903K     1.50ft
+   1.3e+16        6.7    2.6e+09    5.2e+08      1512K     1.88ft
+   1.3e+16        6.8    2.1e+09    4.1e+08      1201K     2.37ft
+   1.3e+16        6.9    1.6e+09    3.3e+08       954K     2.98ft
+   1.3e+16        7.0    1.3e+09    2.6e+08       758K     3.76ft
+   1.3e+16        7.1    1.0e+09    2.1e+08       602K     4.73ft
+   1.3e+16        7.2    8.3e+08    1.7e+08       478K     5.96ft
+   1.3e+16        7.3    6.6e+08    1.3e+08       380K     7.50ft
+   1.3e+16        7.4    5.2e+08    1.0e+08       302K     9.44ft
+   1.3e+16        7.5    4.1e+08    8.3e+07       240K    11.88ft
+   1.3e+16        7.6    3.3e+08    6.6e+07       190K    14.96ft     <====  4.0 + 3.6 OD
+   1.3e+16        7.7    2.6e+08    5.2e+07       151K    18.83ft
+   1.3e+16        7.8    2.1e+08    4.1e+07       120K    23.71ft
+   1.3e+16        7.9    1.6e+08    3.3e+07        95K    29.85ft
+   1.3e+16        8.0    1.3e+08    2.6e+07        76K    37.57ft
+
+
+
 ===============================================
 TITLE: TODO
 ===============================================
@@ -54,10 +89,20 @@ Opto Mechanics      https://www.edmundoptics.com/c/optomechanics/604/
 
 Neutral Density Filters
   https://www.edmundoptics.com/c/neutral-density-filters/619/#28105=28105_s%3ANTAuMCB4IDUwLjA1&27966=27966_s%3ANA2&27966=27966_s%3ANC4w0&27966=27966_s%3ANC4wMA2
+
   https://www.edmundoptics.com/p/schott-ng9-40-od-50mm-sq-absorptive-nd-filter/42610/
       SCHOTT NG9, 4.0 OD, 50mm Sq., Absorptive ND Filter
+      Stock #14-066
       $80
       50x50x2.8
+      can be stacked
+      uncoated
+
+  https://www.edmundoptics.com/p/schott-ng9-36-od-50mm-sq-absorptive-nd-filter/42609/
+      SCHOTT NG9, 3.6 OD, 50mm Sq., Absorptive ND Filter
+      Stock #14-064
+      $80
+      50x50x2.5
       can be stacked
       uncoated
 
@@ -777,6 +822,10 @@ double slit slide
 
 raspberry pi t-type gpio expander
   https://www.amazon.com/gp/product/B01LYN4J3B/ref=ox_sc_act_title_1?smid=A3IRH1M32QHQ71&psc=1
+
+Absorbtive ND Filter   OD=4.0 and OD=3.6
+  https://www.edmundoptics.com/p/schott-ng9-40-od-50mm-sq-absorptive-nd-filter/42610/
+  https://www.edmundoptics.com/p/schott-ng9-36-od-50mm-sq-absorptive-nd-filter/42609/
 
 ===============================================
 TITLE: MISC
