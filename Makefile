@@ -1,4 +1,4 @@
-SUBDIRS = ds ifsim photons poisson
+SUBDIRS = ds ifsim photons poisson pololu xrpm
 
 .PHONY: build clean
 
