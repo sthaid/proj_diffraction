@@ -463,8 +463,11 @@ static void display_current_graph(int maxy, int maxx)
 
     // label the x axis at both ends
     mvprintw(maxy-3, 0, "%d", g->start_idx + g->x_axis_label_offset);
-    sprintf(str, "%d", g->start_idx + g->x_axis_label_offset + maxx);
+    mvprintw(maxy-4, 0, "^");
+
+    sprintf(str, "%d", g->start_idx + g->x_axis_label_offset + maxx - 1);
     mvprintw(maxy-3, maxx-strlen(str), "%s", str);
+    mvprintw(maxy-4, maxx-1, "^");
 
     // label the x axis span
     sprintf(str, "<--- %d %s%s --->", 
@@ -865,7 +868,7 @@ static void * xrail_local_ctrl_thread(void *cx)
             
             // loop, positioning the xrail from -25mm to +25mm in .1mm increments,
             // and reading the pulse_rate at each position
-            for (idx = 0; idx < 501; idx++) {
+            for (idx = 0; idx <= 500; idx++) {
                 // goto mm
                 double mm = -25 + idx * .1;
                 xrail_goto_location(mm, true);
