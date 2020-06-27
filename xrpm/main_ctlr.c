@@ -161,6 +161,7 @@ int main(int argc, char **argv)
     // - exit local functions
     // - exit other files
     INFO("TERMINATING\n");
+    audio_say_text("terminating");
     xrail_local_exit();
     sipm_local_exit();
     xrail_exit();
@@ -331,6 +332,7 @@ static void display_alert(char *fmt, ...)
     va_end(ap);
 
     ERROR("ALERT: %s\n", alert_msg);
+    audio_say_text(alert_msg);
 
     alert_msg_time_us = microsec_timer();
 }
@@ -510,7 +512,7 @@ static void curses_runtime(void (*update_display)(int maxy, int maxx), int (*inp
         // get window size, and print whenever it changes
         getmaxyx(window, maxy, maxx);
         if (maxy != maxy_last || maxx != maxx_last) {
-            INFO("maxy=%d maxx=%d\n", maxy, maxx);
+            //INFO("maxy=%d maxx=%d\n", maxy, maxx);
             maxy_last = maxy;
             maxx_last = maxx;
         }
@@ -629,8 +631,8 @@ static void *sipm_data_collection_thread(void *cx)
         duration_us = microsec_timer() - start_us;
 
         // warn if the sipm_server_get_rate took a long time
-        if (duration_us > 200000) {
-            display_alert("sipm_server_get_rate long duration %0.3f secs\n", duration_us / 1000000.);
+        if (last_sec != -1 && duration_us > 300000) {
+            display_alert("long get rate duration %0.1f secs\n", duration_us / 1000000.);
         }
 
         // store the pulse_rate in sipm_pulse_rate
@@ -650,6 +652,11 @@ static void *sipm_data_collection_thread(void *cx)
         sipm_status.pulse_rate                 = get_rate.pulse_rate;
         sipm_status.gpio_read_rate             = get_rate.gpio_read_rate;
         sipm_status.gpio_read_and_analyze_rate = get_rate.gpio_read_and_analyze_rate;
+
+        // say text pulse_rate every 4 seconds
+        if ((sec % 4) == 0) {
+            audio_say_text("%.0f", get_rate.pulse_rate/1000.);
+        }
     }
 
     return NULL;
@@ -762,7 +769,7 @@ static void xrail_local_issue_ctrl_cmd(int cmd)
                     cmd == XRAIL_CTRL_CMD_GO);
     }
     if (!cmd_okay) {
-        display_alert("xrail cmd %s invalid when %s\n",
+        display_alert("trans rail command %s invalid when %s\n",
                       XRAIL_CTRL_CMD_STR(cmd),
                       !xrail_calibrated ? "not calibrated" : "calibrated");
         return;
@@ -781,6 +788,8 @@ static void xrail_local_cancel_ctrl_cmd(void)
 
 static void * xrail_local_ctrl_thread(void *cx)
 {
+    bool audio_say_start_done;
+
     #define CHECK_FOR_CANCEL_REQ(cancel_code) \
         do { \
             if (xrail_ctrl_cmd_cancel || xrail_local_terminate) { \
@@ -799,6 +808,13 @@ static void * xrail_local_ctrl_thread(void *cx)
         if (xrail_ctrl_cmd == XRAIL_CTRL_CMD_NONE) {
             usleep(1000);
             continue;
+        }
+
+        // for some commands say audio 'start'
+        audio_say_start_done = (xrail_ctrl_cmd == XRAIL_CTRL_CMD_TEST ||
+                                xrail_ctrl_cmd == XRAIL_CTRL_CMD_GO);
+        if (audio_say_start_done) {
+            audio_say_text("start %s command", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
         }
 
         // switch on the cmd
@@ -871,18 +887,13 @@ static void * xrail_local_ctrl_thread(void *cx)
                 __sync_synchronize();
                 max_sipm_go_cmd_pulse_rate = idx + 1;
 
-                // print and audio 
+                // print data to gnuplot file
                 fprintf(fp, "%0.2f %.2f\n", mm, get_rate.pulse_rate/1000.);
-                //INFO("#%0.2f %.2f\n", mm, get_rate.pulse_rate/1000.);
-                if ((idx % 3) == 0) {
-                    audio_say_text("%.0f", get_rate.pulse_rate/1000.);
-                }
             }
 
             // cleanup
             fclose(fp);
             fp = NULL;
-            audio_say_text("done");
             xrail_goto_location(0, true);
             break; }
         default:
@@ -890,11 +901,15 @@ static void * xrail_local_ctrl_thread(void *cx)
             break;
         }
 
+        // for some commands say audio 'done'
+        if (audio_say_start_done) {
+            audio_say_text("done %s command", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
+        }
+
 cancel:
         // if cancelled then issue message
         if (xrail_ctrl_cmd_cancel) {
             display_alert("%s is cancelled", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
-            audio_say_text("%s is cancelled", XRAIL_CTRL_CMD_STR(xrail_ctrl_cmd));
         }
 
         // clearing the cmd indicates it has completed
