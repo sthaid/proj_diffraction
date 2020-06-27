@@ -2,24 +2,19 @@
 TITLE: TODO
 ===============================================
 
-xrpm ...
-- continuos audio
-- maybe longer avering time
-- x axis end may be 1 too high
-- photons pgm update, and
-  - Place Edmund Orders for optical filters
+photons pgm update, and
+- Place Edmund Orders for optical filters
 
-updates to toplevel README.md
-
-subdirs
-- review and cleanup
-- add README
-
-top level Makefile
-- should top level makefile make pololu too
+documentation cleanup
+- updates to toplevel README.md
+- subdirs
+  - review and cleanup
+  - add README
 
 clean up my ifsim and ds pgms config files
 
+xrpm - maybe later ...
+- longer avering time
 
 ===============================================
 TITLE: GENERAL INFO
