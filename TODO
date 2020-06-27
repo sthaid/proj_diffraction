@@ -2,33 +2,24 @@
 TITLE: TODO
 ===============================================
 
-new software
-- integrate gpio dra_pulse and pololu positioning
-  - ensure rail is calibrated when pgm starts, and always return to home 
-    when pgm exits; save a HOME file to use as a hint that it is calibrated
-- xlate rail
-  - calibrate the position
-  - when exitting, restore position to center and write flag to file saying it is centered
-  - when startup, if ctred flag is false then require a calibration
-  - all this done through socket or maybe it can be done using ssh to run the pgm
-  - runtime cmds to set the position and get the position, and to exit the pgm
-- design the pgm to gather the pulse data and position the xlate rail,
-  on the same raspberry pi
-- rpi / gpio - update dra_gpio.h to allow for setting pull up/down
+xrpm ...
+- continuos audio
+- maybe longer avering time
+- x axis end may be 1 too high
+- photons pgm update, and
+  - Place Edmund Orders for optical filters
 
-calculate the expected count from the led
+updates to toplevel README.md
 
-Place Edmund Orders
-- optical filters
+subdirs
+- review and cleanup
+- add README
+
+top level Makefile
+- should top level makefile make pololu too
 
 clean up my ifsim and ds pgms config files
 
-pololu
-- learn how this works again
-- investigate the settings
-- should top level makefile make pololu too
-
-add README for all subdirs
 
 ===============================================
 TITLE: GENERAL INFO
@@ -49,7 +40,7 @@ trans rail
 using Double Slit  b=.15  g=.50
 - where g is spacing between slit centers
 
-ND filter OD=8,  so get 2x OD=4;  50x50x2.8
+ND filter OD=8 ?,  so get 2x OD=4;  50x50x2.8
 
 optical axis is 1"
 
@@ -812,23 +803,40 @@ Wifi setup,
 - /etc/wpa_supplicant/wpa_supplicant.conf
 
 Audio & Text-To-Speech
+----------------------
+
+- I've run festival on Fedora and Raspberry Pi
 - web sites
   . http://raspberrypi-aa.github.io/session3/audio.html#:~:text=To%20change%20the%20volume%2C%20run,Route%20or%20Playback%20Switch%20controls.
   . https://elinux.org/RPi_Text_to_Speech_(Speech_Synthesis)
   . http://www.cstr.ed.ac.uk/projects/festival/manual/festival_7.html#SEC20
-- packeages needed to use festival text-to-speech
+- packeages needed to use festival text-to-speech on Raspberry Pi
   . sudo apt-get install mplayer
   . sudo apt-get install festival
+- examples:
+  . echo hello | festival --tts
+  . festival
+     (SayText "hello")
 - running festival as a startup service
   . festival --server  # Run in server mode waiting for clients of server_port (1314)
   . /etc/rc.local
       # start festival
       /usr/bin/festival --server >/var/log/festival.log 2>&1 &
-- notes
-  . use "amixer controls" to get list of control names
-  . example of 'amixer'
-      sudo amixer set PCM Playback Volume 90%
-      sudo amixer get PCM Playback Volume
+- misc audio related cmds
+  - aplay -l                                   # lists playback devices
+  - amixer controls                            # list controls
+  - amixer cset numid=1 90%                    # sets volume
+  - amixer set PCM Playback Volume 90%         # sets volume on rpi 4
+  - amixer set Headphone Playback Volume 90%   # sets volume on rpi 3
+  - amixer set Master Playback Volume 90%      # sets volume on my desktop PC
+- notes on using nc
+  - It is quite simple to build a very basic client/server model using nc.  On one console,
+    start nc listening on a specific port for a connection.  For example:
+          $ nc -l 1234
+  - nc is now listening on port 1234 for a connection.  On a second console (or a second
+    machine), connect to the machine and port being listened on:
+          $ nc 127.0.0.1 1234
+  - nc 1314  # connects to festival server
 
 PVC Pipe Sizes
 --------------
