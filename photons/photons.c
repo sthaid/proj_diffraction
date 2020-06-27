@@ -47,7 +47,7 @@ int main(int argc, char **argv)
     double photon_rate_after_double_slit;
     double detector_count_rate; 
     double filter_od;
-    double photon_seperation_after_filter;
+    double photon_seperation_after_double_slit;
 
     printf("wavelength          = %.0f nanometers\n",           wavelength * 1e9);
     printf("laser_power         = %.4f watts (joules/sec)\n",   laser_power);
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 
     printf("      Rate                  Rate       Rate   Detector Seperation\n");
     printf("   Leaving     Filter      After      After      Count      After\n");
-    printf("     Laser         OD     Filter    DblSlit     Rate K     Filter\n");
+    printf("     Laser         OD     Filter    DblSlit     Rate K    DblSlit\n");
     printf("---------- ---------- ---------- ---------- ---------- ----------\n");
 
     for (filter_od = 6; filter_od <= 8; filter_od += .1) {
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
                                         (detector_area / pattern_area) * 
                                         detector_effeciency;
 
-        photon_seperation_after_filter = (1e9 / photon_rate_after_filter) * c_ft_per_ns;
+        photon_seperation_after_double_slit = (1e9 / photon_rate_after_double_slit) * c_ft_per_ns;
 
         printf("%10.1e %10.1f %10.1e %10.1e %9.0fK %8.2fft\n",
                photon_rate_at_laser,
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
                photon_rate_after_filter,
                photon_rate_after_double_slit,
                detector_count_rate/1000,
-               photon_seperation_after_filter);
+               photon_seperation_after_double_slit);
     }
 
     return 0;
