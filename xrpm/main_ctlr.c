@@ -38,6 +38,10 @@
 
 #define MAX_GRAPH (4+1)
 
+#define GO_CMD_START_LOC_MM    (-10)
+#define GO_CMD_END_LOC_MM      (10)
+#define GO_CMD_TENTH_MM_STEPS  ((GO_CMD_END_LOC_MM - GO_CMD_START_LOC_MM) * 10)
+
 //
 // typedefs
 //
@@ -137,17 +141,17 @@ int main(int argc, char **argv)
                  sipm_pulse_rate_history,
                  &max_sipm_pulse_rate_history,
                  0,         // start_idx
-                 20000,     // y_offset
-                 10000,     // y_span
+                 50000,     // y_offset
+                 100000,    // y_span
                  0);        // x_axis_label_offset
     graph_create("PULSE_RATE VS SENSOR_LOC",
                  ".1MM", 
                  sipm_go_cmd_pulse_rate,
                  &max_sipm_go_cmd_pulse_rate,
                  0,         // start_idx
-                 20000,     // y_offset
-                 10000,     // y_span
-                 -250);     // x_axis_label_offset
+                 50000,     // y_offset
+                 100000,    // y_span
+                 GO_CMD_START_LOC_MM * 10); // x_axis_label_offset
 
     // init is now complete
     INFO("INITIALIZATION COMPLETE\n");
@@ -281,10 +285,10 @@ static int input_handler(int input_char)
         curr_graph->track_end = true;
         break;
     case KEY_UP: case KEY_DOWN:
-        curr_graph->y_offset += (input_char == KEY_UP ? 100 : -100);
+        curr_graph->y_offset += (input_char == KEY_DOWN ? 1000 : -1000);
         break;
     case '+': case '-':
-        curr_graph->y_span += (input_char == '+' ? 100 : -100);
+        curr_graph->y_span += (input_char == '+' ? 1000 : -1000);
         if (curr_graph->y_span < 100) {
             curr_graph->y_span = 100;
         }
@@ -868,9 +872,9 @@ static void * xrail_local_ctrl_thread(void *cx)
             
             // loop, positioning the xrail from -25mm to +25mm in .1mm increments,
             // and reading the pulse_rate at each position
-            for (idx = 0; idx <= 500; idx++) {
+            for (idx = 0; idx <= GO_CMD_TENTH_MM_STEPS ; idx++) {
                 // goto mm
-                double mm = -25 + idx * .1;
+                double mm = GO_CMD_START_LOC_MM + idx * .1;
                 xrail_goto_location(mm, true);
                 CHECK_FOR_CANCEL_REQ(fclose(fp); fp=NULL;);
 

@@ -462,14 +462,12 @@ static void get_status(bool *arg_okay, bool *arg_calibrated,
     int var_energized          = tic_variables_get_energized(variables);
     int var_error_status       = tic_variables_get_error_status(variables);
     int var_vin_voltage        = tic_variables_get_vin_voltage(variables);
-    int var_target_position    = tic_variables_get_target_position(variables);
     int var_current_position   = tic_variables_get_current_position(variables);
 
     tic_variables_free(variables);
     variables = NULL;
 
-    okay = (var_target_position == tgt_pos &&
-            var_operation_state == 10 &&
+    okay = (var_operation_state == 10 &&
             var_energized == 1 &&
             var_error_status == 0 &&
             var_vin_voltage >= MIN_VIN_VOLTAGE && var_vin_voltage <= MAX_VIN_VOLTAGE);
