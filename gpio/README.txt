@@ -1,5 +1,5 @@
 ===========================
-What's in this directory ?
+TITLE: What's in this directory ?
 ===========================
 
 Python Scripts from the Canakit Install Guide
@@ -21,15 +21,15 @@ These programs are based on info from:
     https://elinux.org/RPi_GPIO_Code_Samples#Direct_register_access
     https://www.raspberrypi.org/forums/viewtopic.php?t=243846   
     (for the RPI4 Peripherals Base)
-The dra_blink.h does not include all of the features from the sample
-code at elinux.org. Not inlcuded is the ability to set pull up/down.
+- dra_gpio.h   - gpio via direct register access implementation
 - dra_blink.c
 - dra_switch.c
 - dra_timing.c
-- dra_pulse.c - counts pulses (rising edges), and prints the pulse rate
+- dra_pulse.c  - using Signal Generator for input - counts pulses (rising edges)
+- dra_sipm.c   - using SiPM - refer to extensive comments in this file
 
 ===========================
-Results from the gpio input timing programs
+TITLE: Results from the gpio input timing programs
 ===========================
 
 [DS haid@ds gpio]$ sudo ./wpi_timing 
@@ -44,8 +44,10 @@ cnt=10000000  cnt_v_set=10000000
 million_cnt/sec = 64.45
 cnt=10000000  cnt_v_set=10000000
 
+The Direct Register Access (dra) is the winner for gpio read performance.
+
 ===========================
-Results from dra_pulse
+TITLE: Results from dra_pulse
 ===========================
 
   ------------- Signal Generator ----------          ------ DRA_PULSE ------
@@ -64,7 +66,7 @@ Summary:
   be 1.50 million/sec.
 
 ===========================
-RPi GPIO Code Samples - from the web
+TITLE: RPi GPIO Code Samples - from the web
 ===========================
 
 https://elinux.org/RPi_GPIO_Code_Samples#bcm2835_library
@@ -78,7 +80,7 @@ For C, the GPIO access options are:
 - pigpio
 
 ===========================
-Wiring Pi
+TITLE: Wiring Pi
 ===========================
 
 http://wiringpi.com/reference/
@@ -100,7 +102,7 @@ sudo dpkg -i wiringpi-latest.deb
 http://www.cpmspectrepi.uk/raspberry_pi/MoinMoinExport/WiringPiGpioReadall.html#Pi_4_B
 
 ===========================
-bcm2835 library
+TITLE: bcm2835 library
 ===========================
 
 http://www.airspayce.com/mikem/bcm2835/

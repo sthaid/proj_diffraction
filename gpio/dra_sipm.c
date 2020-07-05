@@ -97,10 +97,6 @@
 // well sealed, and this could by the cause of some of what I've been calling noise. I have
 // since sealed the box better. Using multiple layers of black electrical tape on the edges.
 
-// XXX possible future work
-// - better pwoer for amplifiers, use a 5V rechargeable battey
-// - if isolcpus is available on Raspbian, try it
-
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
