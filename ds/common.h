@@ -59,6 +59,7 @@ typedef struct {
 
 param_t param[MAX_PARAM];
 int     max_param;
+int     param_select_idx;
 
 //
 // prototypes
