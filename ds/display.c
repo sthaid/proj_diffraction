@@ -16,8 +16,8 @@
 
 #define GRAPH_SIZE_MIN      .010
 #define GRAPH_SIZE_MAX      SCREEN_SIZE
-#define GRAPH_SIZE_DEFAULT  .050
-#define GRAPH_SIZE_STEP     .010
+#define GRAPH_SIZE_DEFAULT  .025
+#define GRAPH_SIZE_STEP     .005
 
 //
 // typedefs
@@ -26,8 +26,6 @@
 //
 // variables
 //
-
-static int param_select_idx;
 
 static double graph_size = GRAPH_SIZE_DEFAULT;
 
@@ -56,6 +54,9 @@ void display_handler(void)
 {
     int win_width, win_height;
     int screen_image_pane_width;
+
+    //  calculate the scrren image for the default param_select_idx
+    calculate_screen_image(&param[param_select_idx]);
 
     // init sdl, and get actual window width and height
     win_width  = DEFAULT_WIN_WIDTH;

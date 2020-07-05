@@ -94,7 +94,7 @@ static void * calculate_screen_image_thread(void *cx)
 
     // create screen_inten by summing the squared screen1/2_amp and then taking sqrt
     for (screen_idx = 0; screen_idx < MAX_SCREEN; screen_idx++) {
-        screen_inten[screen_idx] = sqrt( square(screen1_amp[screen_idx]) + square(screen2_amp[screen_idx]) );
+        screen_inten[screen_idx] = ( square(screen1_amp[screen_idx]) + square(screen2_amp[screen_idx]) );
     }
 
     // set status_str to indicate the calculations are complete

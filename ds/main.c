@@ -57,9 +57,6 @@ int main(int argc, char **argv)
     INFO("SCREEN_ELEMENT_SIZE               = %0.9f\n", SCREEN_ELEMENT_SIZE);
     BLANK_LINE;
 
-    // start the calculation of the screen image for the first param
-    calculate_screen_image(&param[0]);
-
     // run time loop 
     display_handler();
 
@@ -77,7 +74,7 @@ void help(void)
 int read_param(char *filename)
 {
     FILE *fp=NULL;
-    char s[500];
+    char s[10000];
     param_t *p;
     int cnt, i, j, line=0, ret=0;
     char *sptr;
@@ -101,6 +98,11 @@ int read_param(char *filename)
         }
         if (strspn(s, " \r\n\t") == strlen(s)) {
             continue;  // s is all whitespace
+        }
+
+        // check for line specifying the default param_select_idx
+        if (sscanf(s, "DEFAULT %d", &param_select_idx) == 1) {
+            continue;
         }
 
         // if too many params then return error
@@ -158,6 +160,13 @@ int read_param(char *filename)
     // if no params then return error
     if (max_param == 0) {
         ERROR("param file '%s' contains no param lines\n", filename);
+        ret = -EINVAL;
+        goto error_return;
+    }
+
+    // if default param_select_idx is out of range then return error
+    if (param_select_idx < 0 || param_select_idx >= max_param) {
+        ERROR("invalid default param_select_idx %d\n", param_select_idx);
         ret = -EINVAL;
         goto error_return;
     }
