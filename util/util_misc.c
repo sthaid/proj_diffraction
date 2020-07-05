@@ -335,6 +335,7 @@ float random_triangular(float min, float max)
     }
 }
 
+// XXX use double instead of float everywhere
 // returns a vector whose length equals 'magnitude' and with a random direction
 void random_vector(float magnitude, float * x, float * y, float * z)
 {

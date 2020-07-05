@@ -30,7 +30,7 @@ const double c                   = 2.998e8;        // speed of light  m/sec
 const double c_ft_per_ns         = 0.983571;       // speed of light ft/ns
 
 const double wavelength          = 520e-9;         // 520 nm, Green
-const double laser_power         = 5e-3;           // 5 milliwatt output beam power  XXX output power <5mW
+const double laser_power         = 5e-3;           // 5 milliwatt output beam power
 const double double_slit_pass    = 0.20;           // fraction of laser photons which pass through double slit
                                                    // - based on 1.6mm dia beam and using the slide b=.15 g=.50
 const double pattern_area        = (38e-3 * 2e-3); // 38mm x 2mm  

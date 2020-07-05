@@ -1,7 +1,18 @@
+========================================
+TITLE: HOW TO USE THE POLOLU TIC STEPPER MOTOR CONTROLLER
+========================================
+
+This directory contains:
+- this README file, containing notes from https://www.pololu.com/docs/0J71
+- a test program
+- settings directory containing the settings used for my translation rail stepper motor
+
+- - - - - - - - - - - - - - - - - - 
+
 The following notes are taken from https://www.pololu.com/docs/0J71
 
 ========================================
-Tic Stepper Motor Controller User’s Guide
+TITLE: Tic Stepper Motor Controller User’s Guide
 ========================================
 
 The Tic T825, is based on the DRV8825 IC from Texas Instruments. 
@@ -27,7 +38,7 @@ Features
 - needs usb MicroB cable
 
 ========================================
-Installing Linux Software - https://www.pololu.com/docs/0J71/3.2
+TITLE: Installing Linux Software - https://www.pololu.com/docs/0J71/3.2
 ========================================
 
 Download the version for your system from this list:
@@ -64,7 +75,7 @@ compiled; it does not depend on any shared libraries.
 The source code for the software is available.
 
 ========================================
-LEDs                         
+TITLE: LEDs                         
 ========================================
 
 green - should be on when okay, flickers with usb activity
@@ -76,7 +87,7 @@ yellow - motor status and error codes
    https://www.pololu.com/docs/0J71/3.4
 
 ========================================
-Power Supply, TIC, and Stepper Motor
+TITLE: Power Supply, TIC, and Stepper Motor
 ========================================
 
 Use Bipolar motor.
@@ -109,16 +120,16 @@ Conclusions:
 - Probably should use about 12V
 
 ========================================
-Connecting Stepper Motor
+TITLE: Connecting Stepper Motor
 ========================================
 
-1477 Stepper Motor
+1477 Stepper Motor (from proj_telescope)
 - use wires   BLACK-GREEN   RED-BLUE
 
 Swapping wires reverses direction of motor.
 
 ========================================
-Configuring and Testing Stepper Motor
+TITLE: Configuring and Testing Stepper Motor
 ========================================
 
 Ticgui ...
@@ -203,7 +214,7 @@ Exampe Velocities:
                                 = .440 pules per second  OR  1 pulse every 2.25 secs
 
 ========================================
-Ticcmd
+TITLE: Ticcmd
 ========================================
 
 Examples:
@@ -258,7 +269,7 @@ Permanent settings:
   --fix-settings IN OUT        Read settings from a file and fix them.
 
 ========================================
-Motion Parameters
+TITLE: Motion Parameters
 ========================================
 
 Current position and current velocity
@@ -296,7 +307,7 @@ Target position and target velocity
   (either target position or target velocity), and the target is set automatically based on an input to the Tic.
 
 ========================================
-Reference Sections 6,7,8
+TITLE: Reference Sections 6,7,8
 ========================================
 
 https://www.pololu.com/docs/0J71/6   Settings Reference
@@ -304,7 +315,7 @@ https://www.pololu.com/docs/0J71/7   Variables Reference
 https://www.pololu.com/docs/0J71/8   Command Reference
 
 ========================================
-Using C API
+TITLE: Using C API
 ========================================
 
 ---- EXAMPLE CODE USING THE C API ----
