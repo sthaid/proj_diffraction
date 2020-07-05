@@ -1,5 +1,5 @@
 =====================
-OVERVIEW
+TITLE: OVERVIEW
 =====================
 
 This program calculates the diffraction pattern that results from
@@ -8,12 +8,12 @@ a screen.
 
 The distance-to-screen, wavelength, and slit geometry are defined in 
 the 'dsparam' file which provides the input parameters to this program.
-A sample 'dsparam' file is included in this repository.
+A 'dsparam' file is included in this repository.
 
 Refer to sample output in screenshot.jpg.
 
 =====================
-BUILDING THE SOFTWARE
+TITLE: BUILDING THE SOFTWARE
 =====================
 
 To build: install the required packages and run 'make'.
@@ -26,7 +26,7 @@ The following packages are required:
 * libjpeg-turbo-devel
 
 =====================
-DESIGN
+TITLE: DESIGN
 =====================
 
 The program calculates the diffraction pattern on the screen by assuming that every point 
@@ -40,16 +40,23 @@ The above is repeated using circular waves that are 90 degrees out of phase
 compared to the above. This yields a different amplitude profile, stored in
 array 'screen2_amp'
 
-Finally the screen intensity is determined as 
-
-    screen_inten[idx] = sqrt( screen1_amp[idx]^2 + screen2_amp[idx}^2 )
+Finally the screen intensity is determined by 
+    screen_inten[idx] = screen1_amp[idx]^2 + screen2_amp[idx}^2
 
 The above approach was inspired by 
 https://en.wikipedia.org/wiki/Huygens%E2%80%93Fresnel_principle.
 However, simplifying assumptions are used in this software.
 
 =====================
-TESTING     
+TITLE: USER INTERFACE
+=====================
+
+In SELECT pane, left click on the desired configuration.
+
+In the GRAPH pane, zoom in/out using the mouse wheel.
+
+=====================
+TITLE: TESTING     
 =====================
 
 Tested by confirming that the Distance Between Adjacent Fringes predicted
@@ -61,7 +68,7 @@ by this software agrees with this equation:
 
 
 =====================
-REFERENCES
+TITLE: REFERENCES
 =====================
 
 * https://en.wikipedia.org/wiki/Huygens%E2%80%93Fresnel_principle
