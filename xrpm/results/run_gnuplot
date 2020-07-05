@@ -7,14 +7,29 @@
 # - http://www.gnuplot.info/
 # - http://www.gnuplot.info/docs_5.4/Gnuplot_5.4.pdf
 # - https://alvinalexander.com/technology/gnuplot-charts-graphs-examples/
+#
+# some examples:
+# - gnuplot  -e "set term"      # list supported term types
 
 file=$1
-if [ "$file" = "" ]; then
-  echo "ERROR filename arg expected"
+offset=$2
+if [ "$file" = "" -o "$offset" = "" ]; then
+  echo "USAGE: run_gnuplot <filename> <offset>"
   exit 1
 fi
 
+#vertical graph with offset to position the central peak
 gnuplot -p \
- -e "set term qt size 1600, 800" \
+ -e "set term x11 size 1920,1080" \
+ -e "set size ratio 1.0" \
+ -e "set xrange [*:*] reverse" \
+ -e "set yrange [-12.5:12.5]" \
+ -e "plot '$file' using 2:(\$1-($offset)) '%lf %lf' with linespoints"
+
+exit
+
+# horizontal graph
+gnuplot -p \
+ -e "set term qt size 1200, 600" \
  -e "set size ratio 0.5" \
  -e "plot '$file' with linespoints"
