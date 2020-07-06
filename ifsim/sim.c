@@ -486,7 +486,7 @@ void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN])
                     sum += square(screen_amp1[ii][jj]) + square(screen_amp2[ii][jj]);
                 }
             }
-            screen[i][j] = sqrt(sum);
+            screen[i][j] = sum;
         }
     }
 
