@@ -12,8 +12,6 @@
 # ----                             --------  -----------  -------------------------
 
 DEFAULT 1
-# slide U14101 - the spacing being used in my experiment
-#slide_ds_0.15mm_ctr_spacing_0.50mm     1.8     532        -.325 -.175     +.175 +.325
 
 # slide U14101
 slide_ds_0.15mm_ctr_spacing_0.25mm     1.8     532        -.2 -.05        +.05 +.2
