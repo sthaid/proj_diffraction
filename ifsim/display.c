@@ -482,9 +482,12 @@ static void draw_scale(rect_t *pane)
 
 // -----------------  INTERFEROMETER PATTERN PANE HANDLER  ----------------------
 
+#define MAX_INTENSITY_ALGORITHM  2
+
 static void render_interference_screen(
                 int y_top, int y_span, double screen[MAX_SCREEN][MAX_SCREEN], 
-                texture_t texture, unsigned int pixels[MAX_SCREEN][MAX_SCREEN], rect_t *pane);
+                texture_t texture, unsigned int pixels[MAX_SCREEN][MAX_SCREEN], 
+                int intensity_algorithm, rect_t *pane);
 static void render_intensity_graph(
                 int y_top, int y_span, double screen[MAX_SCREEN][MAX_SCREEN], rect_t *pane);
 static void render_scale(
@@ -495,11 +498,13 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
     struct {
         texture_t texture;
         unsigned int pixels[MAX_SCREEN][MAX_SCREEN];
+        int intensity_algorithm;
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
-   #define SDL_EVENT_SENSOR_WIDTH    (SDL_EVENT_USER_DEFINED + 0)
-   #define SDL_EVENT_SENSOR_HEIGHT   (SDL_EVENT_USER_DEFINED + 1)
+   #define SDL_EVENT_SENSOR_WIDTH         (SDL_EVENT_USER_DEFINED + 0)
+   #define SDL_EVENT_SENSOR_HEIGHT        (SDL_EVENT_USER_DEFINED + 1)
+   #define SDL_EVENT_INTENSITY_ALGORITHM  (SDL_EVENT_USER_DEFINED + 2)
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -508,6 +513,7 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
     if (request == PANE_HANDLER_REQ_INITIALIZE) {
         vars = pane_cx->vars = calloc(1,sizeof(*vars));
         vars->texture = sdl_create_texture(MAX_SCREEN, MAX_SCREEN);
+        vars->intensity_algorithm = 0;
         INFO("PANE x,y,w,h  %d %d %d %d\n",
             pane->x, pane->y, pane->w, pane->h);
         return PANE_HANDLER_RET_NO_ACTION;
@@ -520,6 +526,7 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
     if (request == PANE_HANDLER_REQ_RENDER) {
         double screen[MAX_SCREEN][MAX_SCREEN];
         char   sensor_width_str[20], sensor_height_str[20];
+        char   intensity_algorithm_str[20];
 
         // this pane is vertically arranged as follows
         // y-range  y-span  description 
@@ -534,7 +541,8 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
         sim_get_screen(screen);
 
         // render the sections that make up this pane, as described above
-        render_interference_screen(0, MAX_SCREEN, screen, vars->texture, vars->pixels, pane);
+        render_interference_screen(0, MAX_SCREEN, screen, vars->texture, vars->pixels, 
+                                   vars->intensity_algorithm, pane);
         sdl_render_line(pane, 0,MAX_SCREEN, MAX_SCREEN-1,MAX_SCREEN, WHITE);
         render_intensity_graph(MAX_SCREEN+1, 100, screen, pane);
         render_scale(MAX_SCREEN+101, 20, pane);
@@ -551,6 +559,12 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
                 pane, COL2X(6,LARGE_FONT), MAX_SCREEN+1, LARGE_FONT,
                 sensor_height_str, LIGHT_BLUE, BLACK,
                 SDL_EVENT_SENSOR_HEIGHT, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
+
+        sprintf(intensity_algorithm_str, "ALG=%d", vars->intensity_algorithm);
+        sdl_render_text_and_register_event(
+                pane, pane->w-COL2X(5,LARGE_FONT), 0, LARGE_FONT,
+                intensity_algorithm_str, LIGHT_BLUE, BLACK,
+                SDL_EVENT_INTENSITY_ALGORITHM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -573,6 +587,9 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
             if (sensor_height < 0.1) sensor_height = 0.1;
             if (sensor_height > 5.0) sensor_height = 5.0;
             break;
+        case SDL_EVENT_INTENSITY_ALGORITHM:
+            vars->intensity_algorithm = (vars->intensity_algorithm + 1) % MAX_INTENSITY_ALGORITHM;
+            break;
         }
         return PANE_HANDLER_RET_DISPLAY_REDRAW;
     }
@@ -593,7 +610,8 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
 
 static void render_interference_screen(
                 int y_top, int y_span, double screen[MAX_SCREEN][MAX_SCREEN], 
-                texture_t texture, unsigned int pixels[MAX_SCREEN][MAX_SCREEN], rect_t *pane)
+                texture_t texture, unsigned int pixels[MAX_SCREEN][MAX_SCREEN], 
+                int intensity_algorithm, rect_t *pane)
 {
     int i,j;
     int texture_width, texture_height;
@@ -602,14 +620,33 @@ static void render_interference_screen(
     // and update the texture with the new pixel values
     for (i = 0; i < MAX_SCREEN; i++) {
         for (j = 0; j < MAX_SCREEN; j++) {
-            int green = 255.99 * sqrt(screen[i][j]);  // XXX or log
-            if (green < 0 || green > 255) {
-                ERROR("green %d\n", green);
-                green = (green < 0 ? 0 : 255);
+            int green = 0;
+
+            if (intensity_algorithm == 0) {
+                green = 255.99 * sqrt(screen[i][j]);
+                if (green < 0 || green > 255) {
+                    ERROR("green %d\n", green);
+                    green = (green < 0 ? 0 : 255);
+                }
+            } else if (intensity_algorithm == 1) {
+                if (screen[i][j] == 0) {
+                    green = 0;
+                } else {
+                    green = 255.99 * (1 + 0.2 * log(screen[i][j]));
+                }
+                if (green < 0 || green > 255) {
+                    green = (green < 0 ? 0 : 255);
+                }
+            } else {
+                FATAL("invalid intensity_algorithm %d\n", intensity_algorithm);
             }
+
+#if 0
             if (green == 0) {
                 pixels[i][j] = (0xff << 24) | (swap_white_black ? 0xffffff : 0);
-            } else {
+            } else 
+#endif
+            {
                 pixels[i][j] = (0xff << 24) | (green << 8);
             }
         }
