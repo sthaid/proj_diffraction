@@ -62,7 +62,7 @@ Interferometer_diagram_pane general controls:
 - Mouse Wheel:         Zoom
 - Mouse Click & Drag:  Pan
 - RESET_PAN_ZOOM:      Resets Pan/Zoom
-- STOP / START:        Stops and starts the simulation
+- STOP / RUN:          Stops and runs the simulation
 - Mouse Right CLick:   Puts this pane in background, so that the 
                        Interference_pattern_graph_pane will become visible
 

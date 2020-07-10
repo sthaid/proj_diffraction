@@ -128,7 +128,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     #define SDL_EVENT_PAN            (SDL_EVENT_USER_DEFINED + 1)
     #define SDL_EVENT_SIM_RUN        (SDL_EVENT_USER_DEFINED + 2)
     #define SDL_EVENT_SIM_STOP       (SDL_EVENT_USER_DEFINED + 3)
-    #define SDL_EVENT_RESET          (SDL_EVENT_USER_DEFINED + 4)
+    #define SDL_EVENT_RESET_RANDOM   (SDL_EVENT_USER_DEFINED + 4)
     #define SDL_EVENT_RANDOMIZE      (SDL_EVENT_USER_DEFINED + 5)
     #define SDL_EVENT_RESET_PAN_ZOOM (SDL_EVENT_USER_DEFINED + 6)
     #define SDL_EVENT_SELECT_ELEM    (SDL_EVENT_USER_DEFINED + 10)
@@ -250,21 +250,21 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
                     "RUN", LIGHT_BLUE, BLACK,
                     SDL_EVENT_SIM_RUN, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
         }
-        // - reset event: resets element offsets and diagram pan/zoom
+        // - reset_pan_zoom event: reset pan/zoom
         sdl_render_text_and_register_event(
                 pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(2,LARGE_FONT), LARGE_FONT,
-                "RESET", LIGHT_BLUE, BLACK,
-                SDL_EVENT_RESET, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+                "RESET_PAN_ZOOM", LIGHT_BLUE, BLACK,
+                SDL_EVENT_RESET_PAN_ZOOM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
         // - randomize event: randomize element position and angle offsets
         sdl_render_text_and_register_event(
                 pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(3,LARGE_FONT), LARGE_FONT,
                 "RANDOMIZE", LIGHT_BLUE, BLACK,
                 SDL_EVENT_RANDOMIZE, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
-        // - reset_pan_zoom event: reset pan/zoom
+        // - reset event: resets element offsets and diagram pan/zoom
         sdl_render_text_and_register_event(
                 pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(4,LARGE_FONT), LARGE_FONT,
-                "RESET_PAN_ZOOM", LIGHT_BLUE, BLACK,
-                SDL_EVENT_RESET_PAN_ZOOM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+                "RESET_RANDOM", LIGHT_BLUE, BLACK,
+                SDL_EVENT_RESET_RANDOM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
         // - element select events; both click on the element or click on the offset display line
         for (i = 0; i < current_config->max_element; i++) {
             struct element_s *elem = &current_config->element[i];
@@ -311,8 +311,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         case SDL_EVENT_SIM_STOP:
             sim_stop();
             break;
-        case SDL_EVENT_RESET:
-            reset_pan_and_zoom(pane);
+        case SDL_EVENT_RESET_RANDOM:
             sim_reset_all_elements(current_config);
             break;
         case SDL_EVENT_RESET_PAN_ZOOM:
@@ -616,41 +615,45 @@ static void render_interference_screen(
     int i,j;
     int texture_width, texture_height;
 
-    // initialize pixels from screen data,
-    // and update the texture with the new pixel values
+    // initialize pixels from screen data
     for (i = 0; i < MAX_SCREEN; i++) {
         for (j = 0; j < MAX_SCREEN; j++) {
-            int green = 0;
+            int green;
 
+            // this translates the calculated screen intensity (which has
+            // been normalized to range 0 .. 1 by the sim_get_scren routine)
+            // to a pixel intensity; two algorithm choices are provided:
+            // - 0: logarithmic  (default)
+            // - 1: linear
             if (intensity_algorithm == 0) {
-                green = 255.99 * sqrt(screen[i][j]);
-                if (green < 0 || green > 255) {
-                    ERROR("green %d\n", green);
-                    green = (green < 0 ? 0 : 255);
-                }
+                green = ( screen[i][j] == 0 
+                          ? 0 
+                          : 255.99 * (1 + 0.2 * log(screen[i][j])) );
+                if (green < 0) green = 0;
             } else if (intensity_algorithm == 1) {
-                if (screen[i][j] == 0) {
-                    green = 0;
-                } else {
-                    green = 255.99 * (1 + 0.2 * log(screen[i][j]));
-                }
-                if (green < 0 || green > 255) {
-                    green = (green < 0 ? 0 : 255);
-                }
+                green = 255.99 * screen[i][j];
             } else {
                 FATAL("invalid intensity_algorithm %d\n", intensity_algorithm);
             }
+            if (green < 0 || green > 255) {
+                ERROR("green %d\n", green);
+                green = (green < 0 ? 0 : 255);
+            }
+
+            // set the display pixel values 
+            pixels[i][j] = (0xff << 24) | (green << 8);
 
 #if 0
-            if (green == 0) {
-                pixels[i][j] = (0xff << 24) | (swap_white_black ? 0xffffff : 0);
-            } else 
-#endif
-            {
-                pixels[i][j] = (0xff << 24) | (green << 8);
+            // if swap_white_black is enabled then 
+            // set pixel values that are black to white
+            if (swap_white_black && green == 0) {
+                pixels[i][j] = 0xffffffff;
             }
+#endif
         }
     }
+
+    // update the texture with the new pixel values
     sdl_update_texture(texture, (unsigned char*)pixels, MAX_SCREEN*sizeof(int));
 
     // render

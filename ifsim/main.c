@@ -34,7 +34,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // XXX should be in display
+    // should be in display
     sim_select_config(0);
     sim_run();
 
