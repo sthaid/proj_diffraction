@@ -1,10 +1,2 @@
 *.o
 *.d
-ds
-my_tic_test
-rate
-ifsim
-sipm_server
-sipm_server.log
-ctlr
-ctlr.log
