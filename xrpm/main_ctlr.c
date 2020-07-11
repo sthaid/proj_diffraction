@@ -868,6 +868,7 @@ static void * xrail_local_ctrl_thread(void *cx)
                 ERROR("failed to create '%s', %s\n", filename, strerror(errno));
                 break;
             }
+            setlinebuf(fp);
             INFO("creating %s\n", filename);
             
             // loop, positioning the xrail from -25mm to +25mm in .1mm increments,
