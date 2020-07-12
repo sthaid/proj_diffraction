@@ -870,14 +870,29 @@ static int interference_pattern_graph_pane_hndlr(pane_cx_t * pane_cx, int reques
         double  screen[MAX_SCREEN][MAX_SCREEN];
         int     screen_idx;
         point_t graph[MAX_SCREEN];
-        int     max_graph = 0;
+        int     max_graph;
 
         // get the screen data
         sim_get_screen(screen);
 
         // draw graph of sensor_value
+        max_graph = 0;
         for (screen_idx = 0; screen_idx < MAX_SCREEN; screen_idx++) {
             graph[max_graph].y = (pane->h / GRAPH_SIZE_SCREEN_ELEMENTS) * (screen_idx - MAX_SCREEN/2) + pane->h/2;
+            if (graph[max_graph].y < 0 || graph[max_graph].y >= pane->h) {
+                continue;
+            }
+            graph[max_graph].x = pane->w - 1 - get_sensor_value(screen_idx,screen) * (pane->w);
+            max_graph++;
+        }
+        sdl_render_lines(pane, graph, max_graph, WHITE);
+
+        // and repeat draw graph of sensor_value, offset by 1 to
+        // approximate a double width line
+        max_graph = 0;
+        for (screen_idx = 0; screen_idx < MAX_SCREEN; screen_idx++) {
+            graph[max_graph].y = (pane->h / GRAPH_SIZE_SCREEN_ELEMENTS) * (screen_idx - MAX_SCREEN/2) + pane->h/2;
+            graph[max_graph].y++;
             if (graph[max_graph].y < 0 || graph[max_graph].y >= pane->h) {
                 continue;
             }
