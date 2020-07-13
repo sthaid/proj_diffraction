@@ -1,0 +1,942 @@
+===============================================
+TITLE: SOME GENERAL INFO
+===============================================
+
+trans rail  
+- platform width=60  depth=70  height=52.2
+- M4 on bottom
+   . 20mm x 180mm  qty 4
+   . max depth = 5mm
+   . board is 23mm
+   . washer is 1 mm
+   ** conclusion max length = 23 + 1 + 5 = 29mm (with 1 washer)
+- M6 on top 
+   . max depth = 9mm
+   . spacing 30mm
+
+using Double Slit  b=.15  g=.50
+- where g is spacing between slit centers
+
+ND filter OD=8 ?,  so get 2x OD=4;  50x50x2.8
+
+optical axis is 1"
+
+metric breadboard  M6 ,  25mm hole spacing,  clearance hole for M6 = 6.6mm
+
+===============================================
+TITLE: EDMUND OPTICS
+===============================================
+
+Home                https://www.edmundoptics.com/c/products/0/
+Optical Components  https://www.edmundoptics.com/c/optics/602/
+Opto Mechanics      https://www.edmundoptics.com/c/optomechanics/604/
+  Tables and Breadboards:  https://www.edmundoptics.com/c/optical-tables-breadboards/1180/
+  Optical mounts           https://www.edmundoptics.com/c/benchtop-optical-mounts/645/
+  Kinematic Optical Mounts https://www.edmundoptics.com/f/kinematic-circular-optical-mounts/13402/
+
+Neutral Density Filters
+  https://www.edmundoptics.com/c/neutral-density-filters/619/#28105=28105_s%3ANTAuMCB4IDUwLjA1&27966=27966_s%3ANA2&27966=27966_s%3ANC4w0&27966=27966_s%3ANC4wMA2
+
+  https://www.edmundoptics.com/p/schott-ng9-40-od-50mm-sq-absorptive-nd-filter/42610/
+      SCHOTT NG9, 4.0 OD, 50mm Sq., Absorptive ND Filter
+      Stock #14-066
+      $80
+      50x50x2.8
+      can be stacked
+      uncoated
+
+  https://www.edmundoptics.com/p/schott-ng9-36-od-50mm-sq-absorptive-nd-filter/42609/
+      SCHOTT NG9, 3.6 OD, 50mm Sq., Absorptive ND Filter
+      Stock #14-064
+      $80
+      50x50x2.5
+      can be stacked
+      uncoated
+
+===============================================
+TITLE: TINKERCAD
+===============================================
+
+Notes on using tinkercad:
+- login https://accounts.autodesk.com/User/SignUp    
+    username = my email addr
+- ctl up / down for z axis positioning
+
+sipm mount to trans rail
+- base 96 54 8
+  holes 6.5D  ctrs are: 10mm from back, 33 from ends, 30mm seperation
+  strain relief at fron left   20mm len, 8mm high,  5mm depth
+   and need holes in the strain relief
+     3mm x 2mm rectangle  top is 3 mm down, left is at 2, 8, 14
+- vertical 80 45  8
+   side boundaries  30  7.5  26
+   top boundaries   10  7.5  26
+   support columns   13.5 24 20
+      6.5mm hole diameter
+       centered 12 from the top     edge is 12 - 3.25    =     8.75
+                7.75 from left      edge is 7.75 - 3.25  =     4.5
+
+mount for ND filtess
+           W    L    H
+- piece   68   18   58
+- cutout  52   10   50    centered at top of piece
+- circle  D=30  centered on cutout
+- handles D=8 L=10
+
+mmount for single slit razor blades
+- starting with the double slit piece: which is 46x46 x 8
+- need to rotate 90 and raise by 2.4 to center on 1"
+- add base   46x30x8   with hole track  6.5 x 26
+
+mount for double slit slide
+- slide actual is 50x50x3.1
+- vertical
+  - w=68  h=42  d=10.3
+  - slide cutout  w=52 d=3.3  h=42
+  - square view hole  w=30  h=23  hole bottom is 13 from bottom of vertical piece
+- base
+  - w=68   l=22   h=8
+  - hole trk 6.6 x 38
+
+Laser Mount
+- laser end dimensions
+  - fron end  13.60 mm
+  - back end  13.40 mm
+- sphere
+  - laser end diameter      = 13.60
+  - sphre diameter          = 24
+  - small cylnder diameter  = 8 mm
+  - large cylinder diameter = 13.6   height 16
+  - laser cylinder end below spere center by 4 mm
+- screws to be used 
+  - https://www.boltdepot.com/Product-Details.aspx?product=2301
+  - Sheet metal screws, Self tapping, Phillips pan head, Stainless steel 18-8, #6 x 5/8"
+  - head dia max .270"      = 6.858 mm      USE 7.0 mm
+  - head height max  .097"  = 2.46 mm       USE 2.6 mm
+  - diameter .138"          = 3.505 mm      USE 3.6 mm
+- cone and nd filter mount
+  - nd filter mount dimensions  50 x 50 x 7 mm
+  - cone hole diameter          8 mm
+  - cone max od                 25 mm
+  - cone angle                  30 degrees 
+  - cone dims 
+    - top radius    = 4 mm
+    - base radius   = 12.5
+    - height        = 14.72
+    - then rotate   = 180 degrees
+  - cylinder dims 
+    - 25.4 x 25.4 x 14.72
+  - box to be placed below cylinder/cone combo
+    - dims  50 x 50 x 7
+    - 8 mm hole in middle
+  - screw dims 
+              DIA         HEIGHT
+     thread  3.6mm      through-hole
+     head    7.0mm      2.6
+- back end attachment to laser
+  - 13.40 diameter hollow cylinder
+  - 25 x 25 x 10 box
+- back end support
+  - bottom   41 x 30 x 8
+  - side      8 x 30 x 41  OR copy and rotate bottom
+  - holes for adjusting screws 
+    - centered 12.5 mm from ends
+    - dia = 5.6 mm
+
+my attempt at a double slit using razor blades and wire
+- printed SLA
+- razor info: dimensions are 22 x 43
+- piece  46 x 46 x 8
+- center box is 10 x 10
+- m3 screw holes 11 mm off center line, and diameter 3.5 mm
+- slits are on center line, and are     1  10.5 8
+    3 mm from edge of box
+    10.5 mm long
+    1 mm wide
+- cylinder 5 x 5 x 8
+
+===============================================
+TITLE: LASERS
+===============================================
+
+My purchased greeen laser pointer with on/off switch
+   https://www.apinex.com/ret2/JLPS-20B.html
+
+   Specifications :
+        Laser Class   : 3R ( IIIa )
+        Output Power  : <5mW
+        Wavelength    : 532nm
+        Batteries     : 2 x AAA, (2 x 1.5V)
+        Body material : Brass
+        Range         : 2000 meters
+
+   My Measurements of this laser ...
+       beam width 
+       - 1.6mm close to laser
+       - 2 mm at about 7 feet
+
+General Info: light wavelength
+  400    to 700     nanometers
+  400e-9 to 700e-9  meters
+  .4e-6  to .7e-6   meters
+  approx  0.5    micrometers
+  approx  0.0005 millimeter
+
+  Infrared 750 nm to 1000000 nm
+  Red      610-750 nm
+  Green    500-570
+  Blue     450-500    (this will work best with my SiPM)
+  Violet   400-425 nm
+
+General Info: how many photons are emitted from a laser pointer
+- http://umdberg.pbworks.com/w/page/50455623/Momentum%20of%20a%20laser%20beam
+- A laser pointer typically has a power rating of 1 mW, or 0.001 Joules per second. 
+  This means that every second a laser pointer emits a number of photons equal to 
+  (3.2x1018photons/J)(0.001J/s) = 3.2x1015 photons/s.
+
+===============================================
+TITLE: PULSE STRETCHER   
+===============================================
+
+LTC6752 Pulse Stretcher Circuit/Monostable Multivibrator
+  input 15mv-3.3v pules,  5ns
+  output  3.3v pulse  100ns
+
+I think the GPIO max voltage is 3.3v
+
+http://www.proto-advantage.com/store/
+  Ordered 2x of 
+     SC70-6  LTC6752ISC6-4#TRMPBFCT-ND   Assembled with 0.65 pins
+
+This is the -4 version that I purchased:
+     TOP VIEW PINS
+
+        3       2       1
+       +IN    VEE       Q
+        -----------------
+        |               |
+        |               |
+        -----------------
+        4       5       6
+       -IN     VDD     VCC
+
+Datasheet
+  https://www.digikey.com/en/datasheets/linear-technologyanalog-devices/linear-technologyanalog-devices-45780
+  Pulse Stretcher circuit on page 23
+
+Components Specified vs Used
+  Specified      Used
+  ---------      ----
+    49.9 ohm    47 ohm
+    15k         10k      this reduces input sensitivity
+    22k         20k
+    6.65k       6.8k
+    100 pf      220 pf   this increases the output pulse duration to ~200 ns
+
+Comparison of Feedback vs Bias voltage on U1
+  Feedback Voltage = (3.3 - .7) / (1000 / 47) = 0.122 V = 122 mv
+  Bias Voltage     = 3.3 / (10000 / 47)       = 0.015 V =  15 mv
+
+Connection to GPIO
+
+Performance Measurements
+  The values in the table below were determined by reducing the SigGen
+  amplitude to the point that the dra_pulse program (on the Raspberry Pi)
+  stopped detecting the pulses at the expected frequency.
+
+  Other SigGen Parameters
+    Duty = 2 %
+    Off  = 100 %
+
+               ----- 4.7K Bias R ------         ----- 10K Bias R ------
+               SigGen         Scope             SigGen         Scope
+  Frequency     Amp         Amp / Width          Amp         Amp / Width
+  ---------    ------       -----------         ------       -----------
+    50 Khz     .076         33mv  300ns          .039        18mv  350ns
+   100         .08          35    200            .039        17    180
+   500         .09          28     50            .048        15     50
+  1000         .18          35     50            .10         20     50
+
+   Based on the above results, am using the 10K Bias R as of 2/12/2020
+
+Some Problems Encountered
+  I had difficulty getting rid of noise until I switched from a BNC cable
+   to an oscilloscope probe measurement. 
+  Connecting to GPIO, and also using the oscilloscope probe, needed a 
+   resistor to stabilize the signal at the GPIO pin.
+  When using the Raspberry Pi power supply, there were pulse counts 
+   detected by the dra_pulse program when the SigGen was disabled. Fixed
+   this by using the 9V battery connected to the Breadboard power supply.
+
+Future Investigations TODO    
+  1) Try voltage divider instead of single 1k resistor to GPIO pin.
+  2) What voltage causes gpio to read '1'.
+  3) what is the input resistance for the gpio.
+  4) how does oscilloscipe probe work
+
+===============================================
+TITLE: LINEAR RAIL ACTUATOR
+===============================================
+
+Purchased this Linear Rail Actuator
+- https://www.amazon.com/gp/product/B07DC42DLW/ref=ppx_yo_dt_b_asin_title_o01_s01?ie=UTF8&psc=1
+- 100mm Travel Length Linear Rail Guide Ballscrew Sfu1605 DIY 
+  CNC Router Parts X Y Z Linear Stage Actuator with NEMA17 Stepper Motor
+- some specs        
+   50mm/sec max
+   1.8 degrees per full step    200 steps per rev
+   1.7 amps
+   Effective Travel Len  100 mm
+   Total Len  258 mm
+   Red,Blue  A+  A-
+   Black  Green   B+ B-
+- I'm running this using 20 Volt and the TIC T825 Controller Module from Pololu
+
+another rail actuator: 
+   https://www.amazon.com/Travel-Ballscrew-Sfu1605-Actuator-Stepper/dp/B07DC42DLW/ref=pd_sbs_469_2/136-6149952-4441408?_encoding=UTF8&pd_rd_i=B07DC42DLW&pd_rd_r=0128aa24-e330-4914-8e07-b61e6c2aacf4&pd_rd_w=0LFoJ&pd_rd_wg=ryczL&pf_rd_p=bdd201df-734f-454e-883c-73b0d8ccd4c3&pf_rd_r=ZKSXZSMVNEMQGWPW2196&refRID=ZKSXZSMVNEMQGWPW2196&th=1
+   FOUND THIS ON THE STEPPER MOTOR 
+      https://www.machineryoffers.com/offer/7812-ChiHai-Motor-CH4240-1704A-2-phase-4-wire-Stepper-Motor-42mm-1-7A-2-2Ohm-3D-printer-motor-and-CNC-XYZ.html
+       42HS48-1704A-001  1.7A 5.2V
+
+stepper motor voltage ...
+  http://blog.inventables.com/p/stepper-motors.html
+  Stepper motors have a rated voltage and current.  
+  A typical stepper motor like our NEMA 17 might have a rated voltage of 2.8 
+  Volts and a maximum current of 1.68 Amps.  This basically means if you hook 
+  it up to 2.8 Volts it will draw 1.68 Amps.  If you try to run it at a 
+  higher voltage it will draw more current and get excessively hot.  
+  Most people don’t hook motors straight to a voltage source.  They use a 
+  stepper motor driver.  Stepper motor drivers regulate the current.  
+  If you hook it up to to 12V, for example, the motor while attempt to 
+  draw more current, but the stepper motor driver will not allow that 
+  to happen and use high frequency pulses to limit the average current 
+  to the desired maximum value.
+
+My controller
+  https://www.pololu.com/product/3130     TIC T825
+  It can operate from 8.5 V to 45 V and can deliver up to approximately 
+  1.5 A per phase without a heat sink or forced air flow (or 2.5 A max 
+  with sufficient additional cooling).
+
+===============================================
+TITLE: DOUBLE SLIT 
+===============================================
+
+Ordered from Amazon:
+  4 Double Slits of Different Spacings    U14101  <=== ORDERED THIS ONE
+  Slit Width (b)  =   .15 mm
+  Spacings (g)    =   .25  .5  .75  1.0
+  https://www.amazon.com/gp/product/B00KWZ5WQ0/ref=ox_sc_act_title_1?smid=ATVPDKIKX0DER&psc=1
+
+  NOTE - The "Spacing (g)" is disatance between centers of the 2 slits
+
+Also Available - but did not order this one
+  3 Double Slits with different widths    U14100
+  Slit Width (b)  =   .1  .15  .2
+  Spacings (g)    =     .3
+  https://www.amazon.com/gp/product/B00KWZ6DOU/ref=ox_sc_act_title_2?smid=ATVPDKIKX0DER&psc=1
+
+Making my own Double Slit using razor blades and wire:
+- info wire gauge vs diameter
+    28  .321 mm 
+    29  .286 mm
+    30  .255 mm
+    31  .227 mm
+    32  .202 mm
+    38  .101 mm
+- info: various thickness measurements
+  - thickness of razor blade  .089 mm
+  - thickness of paper        .095 mm
+  - diameter of wire ordered  .099 mm
+- also see tinkercad section
+- shims  .1mm stainless steel shims
+  - https://www.accu.co.uk/704-shim-washers#elasticsearch_id_feature_894828=894828_125&id_elasticsearch_category=704&orderby=ranking&orderway=asc
+
+Simulation of my double slit proto (using razor blades and wire):
+- using the 'ds' program
+  - .1mm slit width
+  - 532 nm
+  - distance = 2.0 m
+  - seperation refers to the distance between the edges of the 2 slits (not the centers)
+                       fringes  
+     seperation    num minimum   seperation
+        .10mm             2         4.85 mm       38 awg
+        .20mm             4         3.41 mm       32 awg
+        .25mm           4 or 6      2.95 mm       30 awg
+        .31mm             6         2.54 mm       28 awg
+
+===============================================
+TITLE: SINGLE SLIT 
+===============================================
+
+Single slit slide from Amazon - U14107
+  https://www.amazon.com/3B-Scientific-1000602-Diffraction-Objects/dp/B07CTP9GZ1/ref=sr_1_1?dchild=1&keywords=single+slit+diffraction&qid=1590927193&s=industrial&sr=1-1
+
+Experiments with single slits I made using utility knife blades:
+- The Seperation in the below refers to the 
+   first 2 nulls on opposite sides of the middle.
+- The Predicted Seperation is from the 'ds' program.
+    APPROXIMATE      PREDICTED         MEASURED 
+    SLIT WIDTH       SEPERATION        SEPERATION
+      .10 mm           26 mm            40 mm
+      .15 mm           18 mm            14 mm
+      .25 mm           11 mm            10 mm
+
+===============================================
+TITLE: SILICON PHOTMULTIPLIER  (SiPM)
+===============================================
+
+Digikey.com
+-----------
+
+  login   <== this is important
+  Product Index > Development Boards, Kits, Programmers > Evaluation Boards - Sensors
+     ON SEMI
+     Light Silicon Photomultiplier
+     C
+     Sort by Price
+  search result for SMA
+  want the 1MM with highest U
+  https://www.digikey.com/product-detail/en/on-semiconductor/MICROFC-SMA-10035-GEVB/MICROFC-SMA-10035-GEVBOS-ND/9744734
+    MICROFC-SMA-10035-GEVB
+    Digi-Key Part Number    MICROFC-SMA-10035-GEVBOS-ND	
+    Manufacturer	    ON Semiconductor	
+    Manufacturer            Part Number	MICROFC-SMA-10035-GEVB	
+    Description	            C-SERIES 1MM 35U SMA	
+    Manufacturer            Standard Lead Time	3 Weeks	
+    Detailed Description    MicroFC-10035 C Light, Silicon Photomultiplier (SiPM) Sensor Evaluation Board
+
+  The search page from above: https://www.digikey.com/products/en/development-boards-kits-programmers/evaluation-boards-sensors/795?FV=-1%7C488%2C345%7C364931%2C-8%7C795%2C-5%7C1054&quantity=0&ColumnSort=1000011&page=1&pageSize=25
+
+C-Series SiPM Sensorss    ON Semiconductor
+------------------------------------------
+
+Overview
+- low dark count rate
+- high PDE
+- ultrafast timing applications
+- fast output rsie time 300ps pulse width 600 ps
+- sizes 1mm, 3mm, 6mm
+- surface mount package
+- performance similar to conventinal PMT
+
+Performance Parameters  (for 1mm 35u)
+- Breakdown Voltabe Vbr             24.2 - 24.7 V
+- recommended overvoltage range      1.0 - 5.0  V
+  (voltage above Vbr
+- spectral range                    300 - 950 nm
+- peak wavelength                   420 nm
+- PDE at peak wavelenght, Vbr+2.5   31%
+- PDE at peak wavelenght, Vbr+2.5   31%
+- Gain Vbr+2.5                      3x10^6
+- Dark Current Vbr+2.5              15 nA
+- Dark Count Rate Vbr+2.5           30 KHZ  - max 96 khz
+- Fast Output                       0.3ns rise,  0.6ns width
+- Number of Microcells              504
+- Maximum current level             6 mA
+
+PDE Graph for 30035   at Vbr+2.5
+- Red      610-750 nm       680     7%
+- Green    500-570 nm       530    17%
+- Blue     450-500 nm       480    23%
+
+Dark Count Rate 30035 (Example)
+- 10 - 50 khz/mm^2   for Overvoltage 1 - 5
+
+Evaluation Boards - SMA Biasing Borard MicroFc-SMA-xxxxx
+- the ouput can be connected directly to a 50 ohm terminated oscilloscope
+- connectors:
+     Vbias  :  Positive bias input  (cathode)
+     Fout   :  Fast Output
+     Sout   :  Standard Output  (ande)
+
+Reference Designs for the SMA and SMTPA MLP-Packaged SiPM Evaluation Boards
+---------------------------------------------------------------------------
+
+J1 Bias
+J2 Fout
+J3 Sout
+
+Sout is attached to 49R9-0402 Resisotor
+  This appears to be 49.9 ohms
+
+Introduction to the Silicon Photomultiplier (SiPM)
+-------------------------------------------------
+
+Standard Output Pulse Shape  (not for my part though)
+- 20mv  - 130 ns
+- 20mv  - 75 ms
+- 80mv  - 50 ms
+- 100mv - max
+  
+Biasing and Readout of ON Semiconductor SiPM Sensors
+----------------------------------------------------
+
+P-on-N structure used for blue-sensitive SiPMs - C-Series, J-series
+
+N-on-P structure creaes a more red sensitive SiPM - RB Series
+
+For P-on-N (C Series) the ouptu polarity should be positive
+
+Amplifier examples are provided in this document
+
+Amplification Needed
+--------------------
+
+Dark Count Pulse that I measured
+- Amplitude = 2 mv
+- Needed for Pulse Stretcher:
+  - 15 mv  to 3..3v
+  - 5 ns
+- the 5 ns should not be a problem
+
+What DB gain is needed to get from 2 mv to:
+- http://www.sengpielaudio.com/calculatorVoltagePower.htm
+- http://www.sengpielaudio.com/calculator-amplification.htm
+- Decibals:
+  - doubling voltage is about 6db gain
+  - doubling power is about 3db gain
+- 15 mv  = 17 db gain
+- 30     = 23 db gain
+- 50     = 28 db gain
+- 100    = 34 db gain
+- 200    = 40 db gain
+
+"More than one amplifier stage may be required to provide
+ sufficient gain. A low noise 50 ohm voltage amplifier with
+ a bandwidth of 1 GHz with a gain of 20 dB is suggested."
+- A 2 mv + 20 db => 20 mv
+
+"Figure 18. MicroFC−10020 Dark Pulse Shape. 
+ Readout on Standard Output with 50  Series Resistor
+ Connected to 2 x ZX60−43S+ Amplifiers in Series. Overvoltage = 5 V"
+- This figure shows pulse amplitude of 200 mv, and 
+  width at 50 mv of 25 ns
+
+Looking for a Voltage Amplifier:
+- 50 ohm
+- bandwidth  1 Ghz
+- gain      20 db
+
+Coax connector acronyms
+- SMA     -  50 ohm
+- F Type  - 75 ohm, commonly used with RG59U cable
+- SMP     - sub miniature push on
+
+ZX60−43-S+
+- https://www.minicircuits.com/WebStore/dashboard.html?model=ZX60-43-S%2B
+- price is $70
+- needs 5 vdc power
+- connector is SMA
+- 0.5 to 4000 MHZ   50ohm   SMA
+
+HiLetgo 0.1-2000MHz RF WideBand Amplifier 30dB High Gain Low Noise LNA Amplifier
+- need to confirm supply voltage, it is either
+  - 6-12 or
+  - 5 typical, 7 max
+  - comment:  ended up looking the amp up and found that the board uses a 
+              INA-02186 Monolithic Microwave Integrated Circuit for the amp 
+              and that specific chip has a typical voltage of 5.5v and a max 
+              voltage of 7v. I am not sure if past versions used a different 
+              chip but the one on mine clearly is not rated for the 
+              advertised voltages.
+- gain is 30 db
+- .1 - 2000 MHZ
+- someone suggested this is the component: https://www.qsl.net/n9zia/metricom/ina02184.pdf
+  but I should confirm that
+- I measured the voltage at the amplifier component pin and found it to be about
+  5 V when the input is 12 Volts. This is because of the voltage drop across the
+  bias resistor
+
+Integration SiPM + Amplifier + PulseStretcher + RaspberryPi
+-----------------------------------------------------------
+
+See comments in gpio/dra_sipm.c
+
+===============================================
+TITLE: CHOOSING FILTER OPTICAL DENSITY (OD)
+===============================================
+
+System Diagram:
+
+                                                            Pattern
+                                                              |
+                                                       /      |
+                            -----------    ---------  /       |
+      -----------------     | Neutral |    | Double |/        | ------------
+      | Laser Pointer |---->| Density |--->| Slit   |- ... -> | | Detector |
+      -----------------     | Filter  |    ----------\        | ------------
+                            -----------               \       |
+                                                       \      |
+                                                              |
+
+The photons/photons.c program generated the attached below.
+
+Description of columns:
+- RateLeavingLaser: The rate of the photons leaving the laser. This is
+  based on 5 milliwatt laser output (laser pointers have output < 5 mW).
+- FilterOD: The Filter OD is varied from 6.0 to 8.0.
+- RateAfterFilter: This equals (RateLeavingLaster * 10 ^ -FilterOD)
+- RateAfterDblSlit: For the double slit I plan to use, I've estimated that
+  20 percent of the photons pass through the double slit. The other 80% are
+  absorbed or reflected by the opaque material surrounding the slits.
+- DetectorCountRate: This is the RateAfterDblSlit adjusted by 2 factors:
+  (1) the area of the detector divided by the area that the diffraction 
+      pattern encompasses; this is rough estimate, and does not take into
+      account that the intensity of the diffraction pattern varies;
+      value used = (1 * 1) / (38 * 2) = .013
+  (2) the detector effeciency, this is estimated from information contained
+      in the SiPM datasheet;
+      value used = .22
+- SeperationAfterDblSlit: This is the average distance between photons, 
+  assuming a large apparatus size.
+
+The major uncertainties are:
+- Laser power: is required to be less than 5 mV. My green laser appears
+  very bright, so I guess that it's output is near 5 mW.
+- Area of Diffraction Pattern: 
+- Detector Effeciency: This is based on the manufacturer's datasheet. But
+  is influenced by how well the pulse stretcher circuit works, as well as
+  how well the Raspberry Pi software that reads the GPIO works.
+
+Based on the program output shown below, I chose OD 7.6;  and purchased 
+2 neutral densisty filters with OD=4 and OD=3.6.
+
+--- Photons Program Output Follows ---
+
+wavelength          = 520 nanometers
+laser_power         = 0.0050 watts (joules/sec)
+double_slit_pass    = 20 percent
+pattern_area        = 76.0 mm^2
+detector_area       = 1.0 mm^2
+detector_effeciency = 22.0 percent
+
+      Rate                  Rate       Rate   Detector Seperation
+   Leaving     Filter      After      After      Count      After
+     Laser         OD     Filter    DblSlit     Rate K    DblSlit
+---------- ---------- ---------- ---------- ---------- ----------
+   1.3e+16        6.0    1.3e+10    2.6e+09      7578K     0.38ft
+   1.3e+16        6.1    1.0e+10    2.1e+09      6019K     0.47ft
+   1.3e+16        6.2    8.3e+09    1.7e+09      4781K     0.60ft
+   1.3e+16        6.3    6.6e+09    1.3e+09      3798K     0.75ft
+   1.3e+16        6.4    5.2e+09    1.0e+09      3017K     0.94ft
+   1.3e+16        6.5    4.1e+09    8.3e+08      2396K     1.19ft
+   1.3e+16        6.6    3.3e+09    6.6e+08      1903K     1.50ft
+   1.3e+16        6.7    2.6e+09    5.2e+08      1512K     1.88ft
+   1.3e+16        6.8    2.1e+09    4.1e+08      1201K     2.37ft
+   1.3e+16        6.9    1.6e+09    3.3e+08       954K     2.98ft
+   1.3e+16        7.0    1.3e+09    2.6e+08       758K     3.76ft
+   1.3e+16        7.1    1.0e+09    2.1e+08       602K     4.73ft
+   1.3e+16        7.2    8.3e+08    1.7e+08       478K     5.96ft
+   1.3e+16        7.3    6.6e+08    1.3e+08       380K     7.50ft
+   1.3e+16        7.4    5.2e+08    1.0e+08       302K     9.44ft
+   1.3e+16        7.5    4.1e+08    8.3e+07       240K    11.88ft
+   1.3e+16        7.6    3.3e+08    6.6e+07       190K    14.96ft     <====  4.0 + 3.6 OD
+   1.3e+16        7.7    2.6e+08    5.2e+07       151K    18.83ft
+   1.3e+16        7.8    2.1e+08    4.1e+07       120K    23.71ft
+   1.3e+16        7.9    1.6e+08    3.3e+07        95K    29.85ft
+   1.3e+16        8.0    1.3e+08    2.6e+07        76K    37.57ft
+
+===============================================
+TITLE: 3D PRINTING - ABS vs PLA materials
+===============================================
+
+https://www.3dhubs.com/knowledge-base/pla-vs-abs-whats-difference/
+https://www.3dhubs.com/knowledge-base/post-processing-fdm-printed-parts/
+
+FDM = Fused Deposition Modeling
+
+PLA and ABS are the 2 most common FDM desktop printing materials. 
+Both are thermoplastics, meaning they enter a soft and moldable 
+state when heated and then return to a solid when cooled. 
+Via the FDM process, both are melted and then extruded through a 
+nozzle to build up the layers that create a final part.
+
+ABS (Acrylonitrile Butadiene Styrene) is a common thermoplastic 
+well known in the injection molding industry. It is used for applications 
+such as LEGO, electronic housings and automotive bumper parts.
+
+PLA (Polylactic Acid) is a biodegradable (under the correct conditions) 
+thermoplastic derived from renewable resources such as corn starch or 
+sugarcane. It is one of the most popular bioplastics, used for many 
+applications ranging from plastic cups to medical implants.
+
+Generally the tolerances and accuracy of FDM printed components are 
+largely dependent upon printer calibration and model complexity. 
+However, ABS and PLA can be used to create dimensionally accurate parts, 
+printing details down to 0.8 mm and minimum features down to 1.2 mm. 
+For connecting or interlocking parts, a tolerance of 0.5 mm is 
+recommended and using a minimum wall thickness of 1-2 mm will ensure 
+adequate strength in wall elements.
+- details                      0.8 mm
+- minimum features             1.2 mm
+- connecting parts tolerance   0.5 mm
+- min wall thickness           1 - 2 mm
+
+PROPERTY                ABS                             PLA
+--------            ----------------------      ---------------------------
+Part Accuracy                                   Less Likely to Warp
+
+Strength            better ductility            rapid prototyping when form is
+                    higher flexural strength      more critical than function
+                    better elongation
+                      before breaking
+
+Surface Finish &    print layers visible        print layers visible
+Post Processing     matte finish                semi transparent, glossier
+                    easily sanded               more difficult to sand and 
+                    often machined                machine than ABS
+                      such as drilled
+
+heat resistance     up to 105 C                 up to 60 C
+
+biodegradeability   no, but can be recycled     yes
+
+rules-of-thumb ...
+- printing          harder                      easier
+- cost              similar                     similar
+- mechanical        better for                  less prone to warping
+                    - strength
+                    - ductility
+                    - machinability
+                    - thermal stability
+- aesthetics                                    better suited for parts
+                                                with fine detail beacuse
+                                                it is easier to print with
+                                                at lower temperatures
+
+===============================================
+TITLE: 3D PRINTING - SLA
+===============================================
+
+https://www.3dhubs.com/knowledge-base/introduction-sla-3d-printing/
+
+SLA = Stereolithography 
+
+In SLA, an object is created by selectively curing a polymer 
+resin layer-by-layer using an ultraviolet (UV) laser beam. 
+The materials used in SLA are photosensitive thermoset polymers 
+that come in a liquid form.
+
+If parts of very high accuracy or smooth surface finish are needed, 
+SLA is the most cost-effective 3D printing technology available
+
+SLA has many common characteristics with Direct Light Processing (DLP), 
+another Vat Photopolymerization 3D printing technology. For simplicity, 
+the two technologies can be treated as equals.
+
+The liquid resin is solidified through a process called photopolymerization: 
+during solidification, the monomer carbon chains that compose the liquid 
+resin are activated by the light of the UV laser and become solid, creating 
+strong unbreakable bonds between each other. The photopolymerization process 
+is irreversible and there is no way to convert the SLA parts back to their 
+liquid form: when heated, they will burn instead of melting. This is because 
+the materials that are produced with SLA are made of thermoset polymers, 
+as opposed to the thermoplastics that FDM uses.
+
+Printer Parameters
+- most print parameters are fixed by the manufacturer and cannot be changed
+- input: layer height
+- input: part orientation
+
+The typical layer height in SLA ranges between 25 and 100 microns. 
+Lower layer heights capture curved geometries more accurately but increase 
+the build time (and cost) and the probability of a failed print. 
+A layer height of 100 microns is suitable for most common applications.
+
+Bottom Up / Desktop SLA
+- dimensional accuracy:  +/- 0.010 to 0.250 mm
+- support: 
+  - Overhangs and bridges still need to be supported, 
+  - minimizing the cross-sectional area of each layer 
+    is the most crucial criterion: the forces applied 
+    to the part during the peeling step may cause it to 
+    detach from the build platform. 
+    These forces are proportional to the cross-sectional 
+    area of each layer. For this reason, parts are oriented 
+    in an angle and the reduction of support is not a 
+    primary concern.
+
+Curling
+- One of the biggest problems relating to the accuracy of parts 
+  produced via SLA is curling. Curling is similar to warping in FDM.
+- During solidification/curing, the resin shrinks slightly upon 
+  exposure to the printer's light source. When the shrinkage is 
+  considerable, large internal stresses develop between the new layer and 
+  the previously solidified material, which results to curling of the part.
+
+Curing:
+- SLA parts must be post-cured, by placing them in a cure box under 
+  intense UV light (and sometimes at elevated temperatures). This improves 
+  greatly the hardness and temperature resistance of the SLA part but makes 
+  it more brittle.
+- Leaving the part in the sun will also induce curing. Extended exposure 
+  to UV light has a detrimental effect in the physical properties and appearance 
+  of an SLA part: they may curl, become very brittle and change color. 
+  For this reason, spray coating with a clear UV acrylic paint before 
+  use is highly recommended.
+
+Materials                       PROS                     CONS
+- Standard Resin            Smooth finish           Relatively Brittle
+- Clear Resin               Transparent             Requires post processing
+                                                      for a very clear finish
+- Castable Resin            For creating mold
+                              patterns
+                            Low ash after burnout
+- Touch or Durable Resin    ABS like mechanical     low thermal resistance
+                            properties
+
+Post Processing
+- https://www.3dhubs.com/knowledge-base/post-processing-fdm-printed-parts/
+- sanding
+- polishing
+- spray coating
+- finishing with a mineraloil
+
+Benefits & Limitations of SLA
+- Advantages:
+  - very high dimensional accuracy and with intricate details
+  - very smooth surface finish, making them ideal for visual prototypes.
+  - speciality SLA materials are available, such as clear, flexible and castable resins.
+- Disadvateges
+  - generally brittle and not suitable for functional prototypes.
+  - mechanical properties and visual appearance of SLA parts will degrade 
+    overtime when the parts are exposed to sunlight.
+  - support structures are always required and post-processing is necessary 
+    to remove the visual marks left on the SLA part.
+
+Specs for Desktop
+- Dimensional Accuracy      .10 mm
+- Build Size                145 x 14 x 175  mm
+- Common Layer Thickness    25 - 100 microns    (.025 - .100 mm)
+- Support                   essential to producing an accurate part
+
+Rules of Thumb
+- best suited for producing visual prototypes with:
+  . very smooth surface and 
+  . very fine details 
+  from a range of thermoset materials.
+- Desktop SLA is ideal for manufacturing small ("smaller-than-a-fist") 
+  injection molded-like parts at an affordable price.
+- Industrial SLA machines can produce very large parts (as big as 
+  1500 x 750 x 500 mm).
+
+===============================================
+TITLE: SOME OF THE PARTS ORDERS
+===============================================
+
+laser pointer
+  https://www.apinex.com/ret2/JLPS-20B.html
+
+pulse stretcher
+  http://www.proto-advantage.com/store/
+  https://www.digikey.com/en/datasheets/linear-technologyanalog-devices/linear-technologyanalog-devices-45780
+
+silicon photomultiplier
+  https://www.digikey.com/product-detail/en/on-semiconductor/MICROFC-SMA-10035-GEVB/MICROFC-SMA-10035-GEVBOS-ND/9744734
+
+amplifiers for SiPM
+  https://www.minicircuits.com/WebStore/dashboard.html?model=ZX60-43-S%2B
+
+bolt depot
+  https://www.boltdepot.com/Product-Details.aspx?product=2301
+
+linear rail
+  https://www.pololu.com/product/3130      # TIC T825
+  https://www.amazon.com/gp/product/B07DC42DLW/ref=ppx_yo_dt_b_asin_title_o01_s01?ie=UTF8&psc=1
+
+shims
+  https://www.accu.co.uk/704-shim-washers#elasticsearch_id_feature_894828=894828_125&id_elasticsearch_category=704&orderby=ranking&orderway=asc
+
+double slit slide
+  https://www.amazon.com/gp/product/B00KWZ5WQ0/ref=ox_sc_act_title_1?smid=ATVPDKIKX0DER&psc=1
+
+raspberry pi t-type gpio expander
+  https://www.amazon.com/gp/product/B01LYN4J3B/ref=ox_sc_act_title_1?smid=A3IRH1M32QHQ71&psc=1
+
+Absorbtive ND Filter   OD=4.0 and OD=3.6
+  https://www.edmundoptics.com/p/schott-ng9-40-od-50mm-sq-absorptive-nd-filter/42610/
+  https://www.edmundoptics.com/p/schott-ng9-36-od-50mm-sq-absorptive-nd-filter/42609/
+
+===============================================
+TITLE: MISC
+===============================================
+
+Raspberry Pi
+------------
+
+Recent Model
+  Raspberry Pi-4 B  1,2,4GB
+
+GPIO Access - T Type Expansion Board
+  https://www.amazon.com/gp/product/B01LYN4J3B/ref=ox_sc_act_title_1?smid=A3IRH1M32QHQ71&psc=1
+
+Wifi setup, 
+- use raspi-config   password 'e s'
+- confirm SSID using iwgetid
+- https://www.raspberrypi.org/documentation/configuration/wireless/wireless-cli.md
+- /etc/wpa_supplicant/wpa_supplicant.conf
+
+Audio & Text-To-Speech
+----------------------
+
+- I've run festival on Fedora and Raspberry Pi
+- web sites
+  . http://raspberrypi-aa.github.io/session3/audio.html#:~:text=To%20change%20the%20volume%2C%20run,Route%20or%20Playback%20Switch%20controls.
+  . https://elinux.org/RPi_Text_to_Speech_(Speech_Synthesis)
+  . http://www.cstr.ed.ac.uk/projects/festival/manual/festival_7.html#SEC20
+- packeages needed to use festival text-to-speech on Raspberry Pi
+  . sudo apt-get install mplayer
+  . sudo apt-get install festival
+- examples:
+  . echo hello | festival --tts
+  . festival
+     (SayText "hello")
+- running festival as a startup service
+  . festival --server  # Run in server mode waiting for clients of server_port (1314)
+  . /etc/rc.local
+      # start festival
+      /usr/bin/festival --server >/var/log/festival.log 2>&1 &
+- misc audio related cmds
+  - aplay -l                                   # lists playback devices
+  - amixer controls                            # list controls
+  - amixer cset numid=1 90%                    # sets volume
+  - amixer set PCM Playback Volume 90%         # sets volume on rpi 4
+  - amixer set Headphone Playback Volume 90%   # sets volume on rpi 3
+  - amixer set Master Playback Volume 90%      # sets volume on my desktop PC
+- notes on using nc
+  - It is quite simple to build a very basic client/server model using nc.  On one console,
+    start nc listening on a specific port for a connection.  For example:
+          $ nc -l 1234
+  - nc is now listening on port 1234 for a connection.  On a second console (or a second
+    machine), connect to the machine and port being listened on:
+          $ nc 127.0.0.1 1234
+  - nc 1314  # connects to festival server
+
+PVC Pipe Sizes
+--------------
+
+https://www.pvcfittingsonline.com/resource-center/pvc-pipe-od-size-chart/
+SEARCH:  Square Mounting Flange Spigot/Street
+
+Diodes / LEDs
+-------------
+
+LEDs:
+- Longer Pin is usually the anode
+- Voltage drop approx 1.8V
+
+Anode  
+LED Longer   ------------->|------------  Cathode
+Pin
+
+GPIO 3.3v -------->|--------220ohm-------- GND
+Anode, 
+Longer pin
+
+Git
+---
+
+git config --global core.editor vim
+git config --global -l
+
