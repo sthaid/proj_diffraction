@@ -29,7 +29,7 @@
 //
 
 //
-// XXX Possible Future Enhancements
+// Possible Future Enhancements
 // - add user_error_fn, and user_warning_fn
 // - determine what the following code does, and would it be helpful
 //      int32_t number_of_passes = png_set_interlace_handling(png_ptr);
