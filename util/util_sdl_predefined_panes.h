@@ -5,15 +5,15 @@ typedef struct {
     char title_str[32];
     char x_units_str[32];
     char y_units_str[32];
-    float x_min;
-    float x_max;
-    float y_min;
-    float y_max;
+    double x_min;
+    double x_max;
+    double y_min;
+    double y_max;
     int32_t max_points_alloced;
     int32_t max_points;
     struct pane_hndlr_display_graph_point_s {
-        float x;
-        float y;
+        double x;
+        double y;
     } points[0];
 } pane_hndlr_display_graph_params_t;
 

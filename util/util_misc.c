@@ -291,20 +291,20 @@ int do_send(int sockfd, void * send_buff, size_t len)
 // -----------------  RANDOM NUMBERS  ------------------------------------
 
 // return uniformly distributed random numbers in range min to max inclusive
-float random_range(float min, float max)
+double random_range(double min, double max)
 {
-    return ((float)random() / RAND_MAX) * (max - min) + min;
+    return ((double)random() / RAND_MAX) * (max - min) + min;
 }
 
 // return triangular distributed random numbers in range min to max inclusive
 // Refer to:
 // - http://en.wikipedia.org/wiki/Triangular_distribution
 // - http://stackoverflow.com/questions/3510475/generate-random-numbers-according-to-distributions
-float random_triangular(float min, float max)
+double random_triangular(double min, double max)
 {
-    float range = max - min;
-    float range_squared_div_2 = range * range / 2;
-    float U = (float)random() / RAND_MAX;   // 0 - 1 uniform
+    double range = max - min;
+    double range_squared_div_2 = range * range / 2;
+    double U = (double)random() / RAND_MAX;   // 0 - 1 uniform
 
     if (U <= 0.5) {
         return min + sqrtf(U * range_squared_div_2);
@@ -313,11 +313,10 @@ float random_triangular(float min, float max)
     }
 }
 
-// XXX use double instead of float everywhere
 // returns a vector whose length equals 'magnitude' and with a random direction
-void random_vector(float magnitude, float * x, float * y, float * z)
+void random_vector(double magnitude, double * x, double * y, double * z)
 {
-    float x_try, y_try, z_try, hypot, f;
+    double x_try, y_try, z_try, hypot, f;
 
     // compute x/y/z_try within a spherical shell 
     while (true) {
@@ -338,7 +337,7 @@ void random_vector(float magnitude, float * x, float * y, float * z)
 
 #if 0
     // verification
-    float magnitude_check = hypotenuse(*x, *y, *z);
+    double magnitude_check = hypotenuse(*x, *y, *z);
     if (fabsf(magnitude_check-magnitude) > 2) {
         FATAL("magnitude=%f magnitude_check=%f, xyz=%f %f %f\n",
               magnitude, magnitude_check, *x, *y, *z);
@@ -348,9 +347,9 @@ void random_vector(float magnitude, float * x, float * y, float * z)
 
 // -----------------  MISC MATH  -----------------------------------------
 
-bool solve_quadratic_equation(float a, float b, float c, float *x1, float *x2)
+bool solve_quadratic_equation(double a, double b, double c, double *x1, double *x2)
 {
-    float discriminant, temp;
+    double discriminant, temp;
 
     discriminant = b*b - 4*a*c;
     if (discriminant < 0) {
@@ -362,7 +361,7 @@ bool solve_quadratic_equation(float a, float b, float c, float *x1, float *x2)
     return true;
 }
 
-float hypotenuse(float x, float y, float z)
+double hypotenuse(double x, double y, double z)
 {
     return sqrtf(x*x + y*y + z*z);
 }

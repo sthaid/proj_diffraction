@@ -9,9 +9,6 @@
 #include <dra_gpio.h>
 #include <util_misc.h>
 
-// XXX TODO
-// - real time ?
-
 // defines
 #define GPIO_INPUT_PIN       20
 #define GPIO_OUTPUT_LED_PIN  21

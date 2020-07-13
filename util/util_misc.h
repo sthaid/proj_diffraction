@@ -114,14 +114,14 @@ int do_send(int sockfd, void * send_buff, size_t len);
 
 // -----------------  RANDOM NUMBERS  ------------------------------------
 
-float random_range(float min, float max);
-float random_triangular(float min, float max);
-void random_vector(float magnitude, float * x, float * y, float * z);
+double random_range(double min, double max);
+double random_triangular(double min, double max);
+void random_vector(double magnitude, double * x, double * y, double * z);
 
 // -----------------  MISC MATH ------------------------------------------
 
-bool solve_quadratic_equation(float a, float b, float c, float *x1, float *x2);
-float hypotenuse(float x, float y, float z);
+bool solve_quadratic_equation(double a, double b, double c, double *x1, double *x2);
+double hypotenuse(double x, double y, double z);
 
 // -----------------  SMOOTHING  -----------------------------------------
 
