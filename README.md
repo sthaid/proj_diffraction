@@ -1,29 +1,33 @@
 ### Overview
 
-UNDER CONSTRUCTION
+This project demonstrates single photon quantum interference, using a double slit.
 
-In this project I hope to demonstrate single photon quantum interference, 
-and quantum eraser.
+The sub-directories are described below. The most important are xrpm and ifsim.
+Each sub-directory contains a README.
 
 ### Directories
 
-* ds: Simulation of photons passing through one or two slits, showing the 
+* ds: Simulation of photons passing through one or two slits, simulating the 
 diffraction pattern on a screen. This is a 2D simulation. The ifsim directory
-contains a better program for this
+contains a better program for this.
 * gpio: Evaluation of different techniques of reading Raspberry PI GPIO registers. A simple
 direct register access API provided the best result of 64 million reads per second.
-* ifsim: 3D Simulation of photons travelling from a source, through beam-splitters and
-mirrors and showing the intensity on the screen. The position and orientation of the
+* ifsim: 3D simulation of photons traveling from a source, through beam-splitters and
+mirrors and displaying simulated intensity on a screen. The position and orientation of the
 mirrors and beam-splitters can be adjusted to learn what is involved in setting up
-an interferometer.
+an interferometer. This program can also be configured to simulate a double-slit source
+and a screen.
 * photons: This program calculates the detector count rate and interval between photons 
-based on various factors; including laser power, filter optical density, the percentage
+based on factors; which include laser power, filter optical density, the percentage
 of photons that pass through a double slit, pattern area, and detector area.
-* poisson: The Silicon Photo Multiplier sensor I plan to use has a dark count rate. The
-intent of this program is to determine how long the sensor will have to remain in one
-position for the dark count rate to stabilize enough to detect a smaller photon count rate.
-* pololu: I will be using the Pololu TIC T825 stepper motor controller to position the
-SiPM using a Linear Rail Actuator. The software in this directory is a test of the
+* poisson: The Silicon Photomultiplier sensor had a dark count rate. The
+intent of this program is to determine how long the sensor will need to be sampled
+for the dark count rate to stabilize enough so that a small photon count rate can be detected.
+* pololu: A Linear Rail Actuator, controlled by the Pololu TIC T825 stepper motor controller,
+is used to position the SiPM. The software in this directory is used to test the
 stepper motor and linear rail actuator.
-* util: utilities used by programs in the other directories
-
+* util: general support routines
+* xrpm: This directory contains the main software for this project. This software is used
+to position the SiPM, using the Translation Rail, and collect photon count rates at each
+position. The data obtained is later plotted, and shows the double slit diffraction pattern
+even though there is usually just one photon in the system at a time.
