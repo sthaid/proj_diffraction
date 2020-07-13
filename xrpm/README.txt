@@ -4,7 +4,8 @@ OVERVIEW
 
 The purpose of the software in this directory is to position the
 SiPM sensor using the Translation Rail, in 0.1 mm increments; and
-to capture the SiPM count rate at each position.
+to capture the SiPM count rate at each position. Thus obtaining data 
+that can later be plotted to make a graph of the diffraction pattern.
 
 The sensor position & count rate data is stored in a file so that a 
 graphing program, such as gnuplot, can later be used to plot the graph 
@@ -82,8 +83,8 @@ very dark environment. I had originally planned to put the apparatus in a light 
 box; however making even a small box that keeps out daylight proved to be quite difficult.
 
 Instead I opted to run the experiment at night, with the curtains taped closed, and
-with electrical tape covering LED light sources. Fortunately I live in a rural area
-and there is not much traffic or other outside light sources. The main problem with
+with electrical tape covering all LED light sources. Fortunately I live in a rural area
+and there is not much traffic or other exterior sources of light. The main problem with
 this approach (for me) is finding the motivation to stay up late, especially in the 
 Summer months.
 
@@ -95,6 +96,10 @@ very closely to the diffraction pattern computed by the ifsim program. I had not
 such a close match between the measured and predicted diffraction patterns.
 
 The detailed results are included in the xrpm/results directories.
+
+The results/compare_data_with_ifsim.jpg file shows the measured diffraction pattern
+(graph on the left) with the diffraction pattern computed by the ifsim program (the graph
+on the right), so that these two graphs can easily be compared.
 
 Misc General Info
 -----------------
@@ -208,9 +213,9 @@ Debugging:
 PARTS LIST
 ==================================
 
-Summary of major parts used in this project , and their prices.
+Summary of major parts used in this project, and their prices.
 
-SiPM
+SiPM - Silicon Photomultiplier
 - https://www.digikey.com/product-detail/en/on-semiconductor/MICROFC-SMA-10035-GEVB/MICROFC-SMA-10035-GEVBOS-ND/9744734
     MICROFC-SMA-10035-GEVB
     Digi-Key Part Number    MICROFC-SMA-10035-GEVBOS-ND
@@ -292,8 +297,8 @@ Double Slit
     Price:  $50     3D Printed Parts
 
 
-Summary of Prices
------------------
+Prices
+------
 
     Price: $181     SiPM
     Price:  $20     SiPM - Power Supply
