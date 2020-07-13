@@ -42,7 +42,6 @@ if [ "$orientation" = v ]; then
     -e "set xrange [*:*] reverse" \
     -e "set yrange [$range]" \
     -e "plot '$file' using 2:(\$1-($offset)) '%lf %lf' with lines linewidth $line_width"
-
 elif [ "$orientation" = h ]; then
   # position axis is horizontal
   gnuplot -p \
@@ -51,5 +50,7 @@ elif [ "$orientation" = h ]; then
     -e "set xrange [$range]" \
     -e "set yrange [*:*]" \
     -e "plot '$file' using (\$1-($offset)):2 '%lf %lf' with lines linewidth $line_width"
+else
+  echo "ERROR: invalid orientation '$orientation'"
 fi
 
