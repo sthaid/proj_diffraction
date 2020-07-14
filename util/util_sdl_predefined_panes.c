@@ -18,7 +18,7 @@
 #include "util_sdl_predefined_panes.h"
 #include "util_misc.h"
 
-static char * float2str(float x, int32_t *len);
+static char * double2str(double x, int32_t *len);
 
 // -----------------  PREDEFINED PANE HANDLER - DISPLAY TEXT  ---------------
 
@@ -156,10 +156,10 @@ int32_t pane_hndlr_display_graph(pane_cx_t * pane_cx, int32_t request, void * in
 
     struct {
         pane_hndlr_display_graph_params_t ** params;
-        float y_min_orig;
-        float y_max_orig;
-        float y_min;
-        float y_max;
+        double y_min_orig;
+        double y_max_orig;
+        double y_min;
+        double y_max;
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
@@ -218,14 +218,14 @@ int32_t pane_hndlr_display_graph(pane_cx_t * pane_cx, int32_t request, void * in
         sdl_render_printf(pane, xtmp, 0,        1, WHITE, BLACK, "%s", params->title_str);
 
         // render x-axis min, max, and units
-        sdl_render_printf(pane, xo, yo+1,       0, WHITE, BLACK, "%s", float2str(params->x_min, NULL));
-        sdl_render_printf(pane, xm-7*fw0, yo+1, 0, WHITE, BLACK, "%7s", float2str(params->x_max, NULL));
+        sdl_render_printf(pane, xo, yo+1,       0, WHITE, BLACK, "%s", double2str(params->x_min, NULL));
+        sdl_render_printf(pane, xm-7*fw0, yo+1, 0, WHITE, BLACK, "%7s", double2str(params->x_max, NULL));
         xtmp = xo + ((xm-xo) - strlen(params->x_units_str)*fw0) / 2;
         sdl_render_printf(pane, xtmp, yo+1,     0, WHITE, BLACK, "%s", params->x_units_str);
 
         // render y-axis min, max, and units
-        sdl_render_printf(pane, 0, yo-fh0,      0, WHITE, BLACK, "%7s", float2str(vars->y_min, NULL));
-        sdl_render_printf(pane, 0, ym,          0, WHITE, BLACK, "%7s", float2str(vars->y_max, NULL));
+        sdl_render_printf(pane, 0, yo-fh0,      0, WHITE, BLACK, "%7s", double2str(vars->y_min, NULL));
+        sdl_render_printf(pane, 0, ym,          0, WHITE, BLACK, "%7s", double2str(vars->y_max, NULL));
         if (strlen(params->y_units_str) <= 7) {
             xtmp = 0 + (7*fw0 - strlen(params->y_units_str)*fw0) / 2;
         } else {
@@ -237,11 +237,11 @@ int32_t pane_hndlr_display_graph(pane_cx_t * pane_cx, int32_t request, void * in
         // render the graph
         point_t points[params->max_points];
         int32_t max_points = 0;
-        float x_scale_factor = (xm - xo) / (params->x_max - params->x_min);
-        float y_scale_factor = (ym - yo) / (vars->y_max - vars->y_min);
+        double x_scale_factor = (xm - xo) / (params->x_max - params->x_min);
+        double y_scale_factor = (ym - yo) / (vars->y_max - vars->y_min);
         for (i = 0; i < params->max_points; i++) {
-            float x = params->points[i].x;
-            float y = params->points[i].y;
+            double x = params->points[i].x;
+            double y = params->points[i].y;
             if (x < params->x_min || x > params->x_max || y < vars->y_min || y > vars->y_max) {
                 sdl_render_lines(pane, points, max_points, GREEN);
                 max_points = 0;
@@ -273,12 +273,12 @@ int32_t pane_hndlr_display_graph(pane_cx_t * pane_cx, int32_t request, void * in
         case SDL_EVENT_MOUSE_MOTION: {
             int32_t yo = pane->h - sdl_font_char_height(0) - 2;
             int32_t ym = sdl_font_char_height(0);
-            float delta = -(vars->y_max - vars->y_min) / (ym - yo); 
+            double delta = -(vars->y_max - vars->y_min) / (ym - yo); 
             vars->y_min += (event->mouse_motion.delta_y * delta);
             vars->y_max += (event->mouse_motion.delta_y * delta);
             return PANE_HANDLER_RET_DISPLAY_REDRAW; }
         case SDL_EVENT_MOUSE_WHEEL: {
-            float factor = (event->mouse_motion.delta_y > 0 ? 1.1 : (1. / 1.1));
+            double factor = (event->mouse_motion.delta_y > 0 ? 1.1 : (1. / 1.1));
             vars->y_min *= factor;
             vars->y_max *= factor;
             return PANE_HANDLER_RET_DISPLAY_REDRAW; }
@@ -312,10 +312,10 @@ int32_t pane_hndlr_display_graph(pane_cx_t * pane_cx, int32_t request, void * in
 //
 // len arg is optional, is supplied then the strlen is returned
 
-static char * float2str(float x, int32_t *len)
+static char * double2str(double x, int32_t *len)
 {
     static char s[100];
-    float absx = fabsf(x);
+    double absx = fabs(x);
     char * p;
 
     if ((absx != 0 && absx < .001) || absx >= 1000000) {

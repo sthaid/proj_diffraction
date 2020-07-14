@@ -1,0 +1,9 @@
+#!/bin/bash
+
+convert gnuplot_2020_07_13_22_20_18.jpg -rotate 90   gnuplot_2020_07_13_22_20_18_rotated.jpg
+convert ../results/ifsim_screenshot.jpg -rotate 90   ifsim_screenshot_rotated.jpg
+
+image_merge -o 1020x398 -c 2 -f compare_data_with_ifsim.jpg -l 1 -b GREEN -z -k 0,2.5,17.5188,92.9999,57.5025 -k 1,0,15,100,59 gnuplot_2020_07_13_22_20_18_rotated.jpg ifsim_screenshot_rotated.jpg 
+
+rm gnuplot_2020_07_13_22_20_18_rotated.jpg
+rm ifsim_screenshot_rotated.jpg

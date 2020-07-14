@@ -1,8 +1,3 @@
-// XXX review
-// XXX mouse flicker problem
-// XXX comments on all APIs
-// XXX document examples on how to use this
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -1380,46 +1375,6 @@ void sdl_render_lines(rect_t * pane, point_t * points, int32_t count, int32_t co
     if (max) {
         SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
     }
-
-#if 0
-    // XXX old implementation, 
-    //     delete this later after the above code is validated
-    #define MAX_SDL_POINTS 1000
-
-    SDL_Point sdl_points[MAX_SDL_POINTS];
-    int32_t i, max=0;
-
-    if (count <= 1) {
-        return;
-    }
-
-    set_color(color);
-
-    for (i = 0; i < count; i++) {
-        if (points[i].x < 0 || points[i].x >= pane->w || points[i].y < 0 || points[i].y >= pane->h) {
-            if (max) {
-                SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
-                max = 0;
-            }
-            continue;
-        }
-
-        sdl_points[max].x = points[i].x + pane->x;
-        sdl_points[max].y = points[i].y + pane->y;
-        max++;
-
-        if (max == MAX_SDL_POINTS) {
-            SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
-            sdl_points[0].x = sdl_points[MAX_SDL_POINTS-1].x;
-            sdl_points[0].y = sdl_points[MAX_SDL_POINTS-1].y;
-            max = 1;
-        }
-    }
-
-    if (max) {
-        SDL_RenderDrawLines(sdl_renderer, sdl_points, max);
-    }
-#endif
 }
 
 // The following routines are used by sdl_render_lines to locate the intersection
