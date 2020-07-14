@@ -38,8 +38,8 @@
 
 #define MAX_GRAPH (4+1)
 
-#define GO_CMD_START_LOC_MM    (-10)
-#define GO_CMD_END_LOC_MM      (10)
+#define GO_CMD_START_LOC_MM    (-15)
+#define GO_CMD_END_LOC_MM      (15)
 #define GO_CMD_TENTH_MM_STEPS  ((GO_CMD_END_LOC_MM - GO_CMD_START_LOC_MM) * 10)
 
 //
@@ -842,9 +842,9 @@ static void * xrail_local_ctrl_thread(void *cx)
         case XRAIL_CTRL_CMD_TEST:
             xrail_goto_location(0, true);
             CHECK_FOR_CANCEL_REQ();
-            xrail_goto_location(-25, true);
+            xrail_goto_location(GO_CMD_START_LOC_MM, true);
             CHECK_FOR_CANCEL_REQ();
-            xrail_goto_location(25, true);
+            xrail_goto_location(GO_CMD_END_LOC_MM, true);
             CHECK_FOR_CANCEL_REQ();
             xrail_goto_location(0, true);
             CHECK_FOR_CANCEL_REQ();
