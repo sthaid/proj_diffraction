@@ -7,6 +7,7 @@ Each sub-directory contains a README.
 
 ### Directories
 
+* apparatus: Pictures of the system, and a list of the major components.
 * ds: Simulation of photons passing through one or two slits, simulating the 
 diffraction pattern on a screen. This is a 2D simulation. The ifsim directory
 contains a better program for this.
