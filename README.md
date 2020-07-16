@@ -2,8 +2,8 @@
 
 This project demonstrates single photon quantum interference, using a double slit.
 
-The sub-directories are described below. The most important are xrpm and ifsim.
-Each sub-directory contains a README.
+The sub-directories are described below. The most important are xrpm, xrpm/results,
+ifsim, and apparatus. Each sub-directory contains a README.
 
 ### Directories
 
