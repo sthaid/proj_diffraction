@@ -26,7 +26,7 @@ DEP=$(SRC_IFSIM:.c=.d)
 all: $(TARGETS)
 
 ifsim: $(OBJ_IFSIM) 
-	$(CC) -pthread -lrt -lm -lpng -ljpeg -lSDL2 -lSDL2_ttf -lSDL2_mixer -o $@ $(OBJ_IFSIM)
+	$(CC) -o $@ $(OBJ_IFSIM) -pthread -lrt -lm -lpng -ljpeg -lSDL2 -lSDL2_ttf -lSDL2_mixer
 
 -include $(DEP)
 
