@@ -470,7 +470,7 @@ static void draw_scale(rect_t *pane)
 
     sprintf(str, "%.3f mm", 200/scale_pixel_per_mm);
     str_pixel_len = COL2X(strlen(str),LARGE_FONT);
-    sdl_render_printf(pane, ctr-str_pixel_len/2, y+10, LARGE_FONT, WHITE, BLACK, str);
+    sdl_render_printf(pane, ctr-str_pixel_len/2, y+10, LARGE_FONT, WHITE, BLACK, "%s", str);
 
     // draw vertical scale on centered on left
     ctr = pane->h * 3 / 4;
