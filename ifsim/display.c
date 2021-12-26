@@ -137,6 +137,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         ((et) == ELEM_TYPE_SRC_SS   ? YELLOW     : \
          (et) == ELEM_TYPE_SRC_DS   ? YELLOW     : \
          (et) == ELEM_TYPE_SRC_RH   ? YELLOW     : \
+         (et) == ELEM_TYPE_SRC_RING ? YELLOW     : \
          (et) == ELEM_TYPE_MIRROR   ? BLUE       : \
          (et) == ELEM_TYPE_BEAM_SPL ? LIGHT_BLUE : \
          (et) == ELEM_TYPE_SCREEN   ? PINK       : \

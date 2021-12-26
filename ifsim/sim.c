@@ -13,6 +13,7 @@
 #define SOURCE_ROUND_HOLE  1
 #define SOURCE_SINGLE_SLIT 2
 #define SOURCE_DOUBLE_SLIT 3
+#define SOURCE_RING        4
 
 #define BEAM_FINDER_DIAM   1.0
 #define BEAM_FINDER_SPREAD 0.0
@@ -56,6 +57,7 @@ static void simulate_a_photon(photon_t *photon);
 static int source_single_slit_hndlr(struct element_s *elem, photon_t *photon);
 static int source_double_slit_hndlr(struct element_s *elem, photon_t *photon);
 static int source_round_hole_hndlr(struct element_s *elem, photon_t *photon);
+static int source_ring_hndlr(struct element_s *elem, photon_t *photon);
 static void determine_photon_line(
                 int source_type, 
                 geo_plane_t *plane,
@@ -244,6 +246,25 @@ static int read_config_file(char *filename)
             }
             cfg->max_element++;
 
+        } else if (strcmp(elem_type_str, "src_ring") == 0) {
+            elem->type      = ELEM_TYPE_SRC_RING;
+            elem->type_str  = "src_ring";
+            elem->hndlr     = source_ring_hndlr;
+            elem->max_flags = 1;  // ELEM_SOURCE_FLAG_MASK_BEAMFINDER
+            cnt = sscanf(line+char_count,
+                   "ctr=%lf,%lf,%lf nrml=%lf,%lf,%lf id=%lf od=%lf spread=%lf next=%d",
+                   &elem->plane.p.x, &elem->plane.p.y, &elem->plane.p.z,
+                   &elem->plane.n.a, &elem->plane.n.b, &elem->plane.n.c,
+                   &elem->u.source_ring.id, 
+                   &elem->u.source_ring.od, 
+                   &elem->u.source_ring.spread, 
+                   &elem->u.source_ring.next);
+            if (cnt != 10) {
+                ERROR("scanning element source_ring, line %d\n", line_num);
+                goto error;
+            }
+            cfg->max_element++;
+
         } else if (strcmp(elem_type_str, "mirror") == 0) {
             elem->type      = ELEM_TYPE_MIRROR;
             elem->type_str  = "mirror";
@@ -384,7 +405,8 @@ static int config_sanity_check(sim_config_t *cfg)
     #define IS_SRC_ELEMENT(_elem) \
        ((_elem)->type == ELEM_TYPE_SRC_SS || \
         (_elem)->type == ELEM_TYPE_SRC_DS || \
-        (_elem)->type == ELEM_TYPE_SRC_RH) 
+        (_elem)->type == ELEM_TYPE_SRC_RH || \
+        (_elem)->type == ELEM_TYPE_SRC_RING) 
 
     int src_element_cnt=0, screen_element_cnt=0, i;
 
@@ -856,6 +878,33 @@ static int source_round_hole_hndlr(struct element_s *elem, photon_t *photon)
     return rh->next;
 }
 
+static int source_ring_hndlr(struct element_s *elem, photon_t *photon)
+{
+    struct source_ring_s *ring = &elem->u.source_ring;
+    geo_line_t photon_line;
+
+    // determine the path of the photon leaving this source
+    if (elem->flags & ELEM_SOURCE_FLAG_MASK_BEAMFINDER) {
+        determine_photon_line(SOURCE_RING,
+                            &elem->plane,
+                            ring->id, ring->od, 0, 0, 0,  // same id/od, but spread=0
+                            &photon_line);
+    } else {
+        determine_photon_line(SOURCE_RING,
+                            &elem->plane,
+                            ring->id, ring->od, ring->spread, 0, 0,
+                            &photon_line);
+    }
+      
+    // init the photon fields
+    memset(photon, 0, sizeof(photon_t));
+    photon->current = photon_line;
+    photon->points[photon->max_points++] = photon->current.p;
+    
+    // return next element
+    return ring->next;
+}
+
 // note: argN values depend on source_type, see code for detailes
 static void determine_photon_line(
                 int source_type, 
@@ -867,16 +916,42 @@ static void determine_photon_line(
     double pos_horizontal, pos_vertical, spread_horizontal, spread_vertical;
 
     // based on source_type determine the position and direction offsets
-    if (source_type == SOURCE_ROUND_HOLE) {
-        double diameter = arg1;
-        double spread   = arg2;
-        double radius = diameter / 2;
+    if (source_type == SOURCE_RING) {
+        double inner_diameter = arg1;  // arg1
+        double outer_diameter = arg2;  // arg2
+        double spread = arg3;          // arg3
+        double inner_radius = inner_diameter/2;
+        double outer_radius = outer_diameter/2;
+        double inner_radius_squared = square(inner_radius);
+        double outer_radius_squared = square(outer_radius);
+        double half_spread_radians = DEG2RAD(spread/2);
+        double tmp;
+        do {
+            pos_horizontal = random_range(-outer_radius, +outer_radius);
+            pos_vertical = random_range(-outer_radius, +outer_radius);
+            tmp = square(pos_horizontal) + square(pos_vertical);
+        } while (tmp < inner_radius_squared || tmp > outer_radius_squared);
+        do {
+            spread_horizontal = random_range(-half_spread_radians,half_spread_radians);
+            spread_vertical = random_range(-half_spread_radians,half_spread_radians);
+            tmp = square(spread_horizontal) + square(spread_vertical);
+        } while (tmp > square(half_spread_radians));
+    } else if (source_type == SOURCE_ROUND_HOLE) {
+        double diameter = arg1;  // arg1
+        double spread   = arg2;  // arg2
+        double radius   = diameter / 2;
+        double half_spread_radians = DEG2RAD(spread/2);
+        double tmp;
         do {
             pos_horizontal = random_range(-radius, +radius);
             pos_vertical = random_range(-radius, +radius);
-        } while (square(pos_horizontal) + square(pos_vertical) > square(radius));
-        spread_horizontal = random_range(-DEG2RAD(spread/2),DEG2RAD(spread/2));
-        spread_vertical = random_range(-DEG2RAD(spread/2),DEG2RAD(spread/2));
+            tmp = square(pos_horizontal) + square(pos_vertical);
+        } while (tmp > square(radius));
+        do {
+            spread_horizontal = random_range(-half_spread_radians,half_spread_radians);
+            spread_vertical = random_range(-half_spread_radians,half_spread_radians);
+            tmp = square(spread_horizontal) + square(spread_vertical);
+        } while (tmp > square(half_spread_radians));
     } else if (source_type == SOURCE_SINGLE_SLIT) {
         double slit_horizontal         = arg1;
         double slit_vertical           = arg2;

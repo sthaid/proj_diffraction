@@ -29,10 +29,11 @@
 #define ELEM_TYPE_SRC_SS    1
 #define ELEM_TYPE_SRC_DS    2
 #define ELEM_TYPE_SRC_RH    3
-#define ELEM_TYPE_MIRROR    4
-#define ELEM_TYPE_BEAM_SPL  5
-#define ELEM_TYPE_SCREEN    6
-#define ELEM_TYPE_DISCARD   7
+#define ELEM_TYPE_SRC_RING  4
+#define ELEM_TYPE_MIRROR    5
+#define ELEM_TYPE_BEAM_SPL  6
+#define ELEM_TYPE_SCREEN    7
+#define ELEM_TYPE_DISCARD   8
 
 #define ELEM_SOURCE_FLAG_MASK_BEAMFINDER       (1 << 0)
 #define ELEM_MIRROR_FLAG_MASK_DISCARD          (1 << 0)
@@ -85,6 +86,12 @@ typedef struct {
                 double spread;
                 int next;
             } source_round_hole;
+            struct source_ring_s {
+                double id;
+                double od;
+                double spread;
+                int next;
+            } source_ring;
             struct mirror_s {
                 int next;
             } mirror;
