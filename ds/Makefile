@@ -26,7 +26,7 @@ DEP=$(SRC_DS:.c=.d)
 all: $(TARGETS)
 
 ds: $(OBJ_DS) 
-	$(CC) -pthread -lrt -lm -lpng -ljpeg -lSDL2 -lSDL2_ttf -lSDL2_mixer -o $@ $(OBJ_DS)
+	$(CC) -o $@ $(OBJ_DS) -pthread -lrt -lm -lpng -ljpeg -lSDL2 -lSDL2_ttf -lSDL2_mixer
 
 -include $(DEP)
 
