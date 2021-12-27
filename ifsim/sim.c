@@ -33,6 +33,7 @@ static double          screen_amp1[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
 static double          screen_amp2[MAX_SCREEN_AMP][MAX_SCREEN_AMP];
 
 static unsigned long   total_photon_count;
+static unsigned long   total_runtime_usec;
 static double          photons_per_sec;
 
 static photon_t        recent_sample_photons[MAX_RECENT_SAMPLE_PHOTONS];
@@ -149,9 +150,17 @@ static int read_config_file(char *filename)
         // if expecting config definition line, then
         // scanf for the config name and wavelength, and continue
         if (expecting_config_definition_line) {
-            if (sscanf(line, "%s %lf", cfg->name, &cfg->wavelength) != 2) {
-                ERROR("scan for config name and wavelength failed, line %d\n", line_num);
+            if (sscanf(line, "%s wavelength=%lf intensity=%d display=%d", 
+                      cfg->name, &cfg->wavelength, &cfg->intensity_algorithm, &cfg->display_algorithm) != 4) 
+            {
+                ERROR("scan for config definition, line %d\n", line_num);
                 goto error;
+            }
+            if (cfg->intensity_algorithm < 0 || cfg->intensity_algorithm >= 2) {
+                ERROR("invalid intensity_algorithm, line %d\n", line_num);
+            }
+            if (cfg->display_algorithm < 0 || cfg->display_algorithm >= 2) {
+                ERROR("invalid display_algorithm, line %d\n", line_num);
             }
             expecting_config_definition_line = false;
             continue;
@@ -459,6 +468,9 @@ void sim_reset(bool start_running)
     memset(screen_amp2,0,sizeof(screen_amp2));
     max_recent_sample_photons = 0;
 
+    total_photon_count = 0;
+    total_runtime_usec = 0;
+
     if (start_running) {
         sim_run();
     }
@@ -480,42 +492,99 @@ void sim_stop(void)
     }
 }
 
-void sim_get_state(bool *running, double *rate)
+void sim_get_state(bool *running, double *rate, unsigned long *photons, unsigned long *secs)
 {
-    if (running) {
-        *running = run_request;
-    }
-    if (rate) {
-        *rate = photons_per_sec;
-    }
+    if (running) *running = run_request;
+    if (rate) *rate = photons_per_sec;
+    if (photons) *photons = total_photon_count;
+    if (secs) *secs = total_runtime_usec / 1000000;
 }
 
 // -----------------  SIM GET RESULT APIS  ------------------------------------------
 
 void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN])
 {
-    int       i,j,ii,jj;
-    double    max_screen_value;
-    const int scale_factor = MAX_SCREEN_AMP / MAX_SCREEN;
 
-    // using the screen_amp1, screen_amp2, and scale_factor as input,
-    // compute the return screen buffer intensity values;
-    for (i = 0; i < MAX_SCREEN; i++) {
-        for (j = 0; j < MAX_SCREEN; j++) {
-            double sum = 0;
-            for (ii = i*scale_factor; ii < (i+1)*scale_factor; ii++) {
-                for (jj = j*scale_factor; jj < (j+1)*scale_factor; jj++) {
-                    sum += square(screen_amp1[ii][jj]) + square(screen_amp2[ii][jj]);
+    // display_algorithms 0: screen array elements obtained by averaging the associated
+    //   elements from screen_amp1/2
+    // display_algorithms 0: screen array elements obtained by averaging the elements 
+    //   of screen_amp1/2 assuming symetry around the center
+
+    if (current_config->display_algorithm == 0) {
+        const int scale_factor = MAX_SCREEN_AMP / MAX_SCREEN;
+
+        // display_algorithm 0 ...
+        // 
+        // using the screen_amp1, screen_amp2, and scale_factor as input,
+        // compute the return screen buffer intensity values;
+        for (int i = 0; i < MAX_SCREEN; i++) {
+            for (int j = 0; j < MAX_SCREEN; j++) {
+                double sum = 0;
+                for (int ii = i*scale_factor; ii < (i+1)*scale_factor; ii++) {
+                    for (int jj = j*scale_factor; jj < (j+1)*scale_factor; jj++) {
+                        sum += square(screen_amp1[ii][jj]) + square(screen_amp2[ii][jj]);
+                    }
                 }
+                screen[i][j] = sum;
             }
-            screen[i][j] = sum;
+        }
+    } else {
+        // display_algorithm 1 ...
+
+        const int scale_factor = MAX_SCREEN_AMP / MAX_SCREEN;
+        const double screen_amp_middle = (MAX_SCREEN_AMP-1)/2.;
+        const double screen_middle = (MAX_SCREEN-1)/2.;
+
+        #define MAX_RAD (MAX_SCREEN_AMP*2)
+        static struct {
+            double sum;
+            int    cnt;
+            double avg;        
+            double avg2;
+            bool   avg2_set;
+        } rad[MAX_RAD];
+
+        memset(rad, 0, sizeof(rad));
+
+        // determine average amplitude at each radius
+        for (int i = 0; i < MAX_SCREEN_AMP; i++) {
+            for (int j = 0; j < MAX_SCREEN_AMP; j++) {
+                int ridx = nearbyint( 
+                               sqrt(square(i-screen_amp_middle) + square(j-screen_amp_middle)) 
+                                        );
+                rad[ridx].sum += square(screen_amp1[i][j]) + square(screen_amp2[i][j]);
+                rad[ridx].cnt++;
+            }
+        }
+        for (int ridx = 0; ridx < MAX_RAD; ridx++) {
+            if (rad[ridx].cnt) {
+                rad[ridx].avg = rad[ridx].sum / rad[ridx].cnt;
+            }
+        }
+
+        // fill screen array
+        for (int i = 0; i < MAX_SCREEN; i++) {
+            for (int j = 0; j < MAX_SCREEN; j++) {
+                int ridx = nearbyint( 
+                               scale_factor * sqrt(square(i-screen_middle) + square(j-screen_middle)) 
+                                        );
+                if (rad[ridx].avg2_set == false) {
+                    double sum = 0;
+                    for (int k = ridx-(scale_factor/2); k < ridx+(scale_factor/2); k++) {
+                        sum += rad[k].avg;
+                    }
+                    rad[ridx].avg2     = sum / scale_factor;
+                    rad[ridx].avg2_set = true;
+                }
+                screen[i][j] = rad[ridx].avg2;
+            }
         }
     }
 
     // determine max_screen_value
-    max_screen_value = -1;
-    for (i = 0; i < MAX_SCREEN; i++) {
-        for (j = 0; j < MAX_SCREEN; j++) {
+    double max_screen_value = -1;
+    for (int i = 0; i < MAX_SCREEN; i++) {
+        for (int j = 0; j < MAX_SCREEN; j++) {
             if (screen[i][j] > max_screen_value) {
                 max_screen_value = screen[i][j];
             }
@@ -525,9 +594,10 @@ void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN])
 
     // normalize screen values to range 0..1
     if (max_screen_value) {
-        double max_screen_value_recipricol = 1 / max_screen_value;
-        for (i = 0; i < MAX_SCREEN; i++) {
-            for (j = 0; j < MAX_SCREEN; j++) {
+        double max_screen_value_recipricol = 
+                (current_config->display_algorithm == 0 ? 1 : 0.7) / max_screen_value;
+        for (int i = 0; i < MAX_SCREEN; i++) {
+            for (int j = 0; j < MAX_SCREEN; j++) {
                 screen[i][j] *= max_screen_value_recipricol;
             }
         }
@@ -751,16 +821,26 @@ static void *sim_monitor_thread(void *cx)
     unsigned long start_us, end_us;
     unsigned long start_photon_count, end_photon_count;
 
+    start_us = microsec_timer();
+    start_photon_count = total_photon_count;
     while (true) {
-        start_us = microsec_timer();
-        start_photon_count = total_photon_count;
-
         sleep(1);
 
         end_us = microsec_timer();
         end_photon_count = total_photon_count;
 
-        photons_per_sec = (end_photon_count - start_photon_count) / ((end_us - start_us) / 1000000.);
+        if (end_photon_count && start_photon_count && end_photon_count > start_photon_count) {
+            photons_per_sec = (double)(end_photon_count - start_photon_count) / ((end_us - start_us) / 1000000.);
+        } else {
+            photons_per_sec = 0;
+        }
+
+        if (run_request) {
+            total_runtime_usec += (end_us - start_us);
+        }
+
+        start_us = end_us;
+        start_photon_count = end_photon_count;
     }
 
     return NULL;

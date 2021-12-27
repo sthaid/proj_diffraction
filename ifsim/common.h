@@ -52,6 +52,8 @@ typedef struct {
 typedef struct {
     char name[100];
     double wavelength;   // mm
+    int intensity_algorithm;;
+    int display_algorithm;
     int max_element;
     struct element_s {
         int type;
@@ -129,7 +131,7 @@ void sim_reset(bool start_running);
 void sim_run(void);
 void sim_stop(void);
 
-void sim_get_state(bool *running, double *rate);
+void sim_get_state(bool *running, double *rate, unsigned long *photons, unsigned long *secs);
 void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN]);
 void sim_get_recent_sample_photons(photon_t **photons, int *max_photons);
 

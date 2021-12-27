@@ -95,9 +95,10 @@ Interference_pattern_pane_hndlr controls:
                        intensity to display pixel brightness:
                          0:  sqrt
                          1:  logarithmic
-                         2:  linear
+- DSP                  If screen image is circularly symetric, use 1; otherwise 0.
 - W=N.N  or  H=N.N:    Position mouse over these and then use the mouse wheel to 
                        adjust the sensor's width and height.
+- SENS                 Toggles displaying the sensor guide lines.
 
 Control_pane_hndlr controls:
 - Mouse Click:         Selects one of the opticial systems that is defined in the
@@ -120,7 +121,7 @@ General notes on the config file format:
   The Z axes is not depicted.
 
 Format of an Optical System definition:
-  <OpticalSystemName> <WavelenghInMillimeters>
+  <OpticalSystemName> <WavelenghInMillimeters> intensity=<0|1> display=<0|1>
   0 <element_type> <param1> <param2> ...
   1 <element_type> <param1> <param2> ...
      ...
@@ -131,6 +132,7 @@ The supported <element_type> are:
   src_ss:   single slit source
   src_ds:   double slit source
   src_rh:   round hole source
+  src_ring  ring source
   mirror:   mirror
   beam_spl: beam splitter
   screen:   detection screen
@@ -170,6 +172,12 @@ Examples of optical element definitions
   - ctrsep: distance between the centers of the two slits.
 
   src_rh: Round hole source, also similar to the single slit.
+
+  src_ring: Ring source.
+  - id       ring's inner diameter
+  - od:      outer diamgeter
+  - spread:  refer to wspread above
+  - next:    which optical element the beam will impact next
 
   mirror: The mirror element assumes the beam always proceeds to the same element
           after departing the mirror.

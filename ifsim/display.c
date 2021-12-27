@@ -13,6 +13,9 @@
 #define LARGE_FONT 24
 #define SMALL_FONT 16 
 
+#define MAX_INTENSITY_ALGORITHM  2
+#define MAX_DISPLAY_ALGORITHM  2
+
 //
 // typedefs
 //
@@ -28,6 +31,7 @@ static int               win_height;
 
 static double            sensor_width  = 1;   // 1 mm
 static double            sensor_height = 1;   // 1 mm
+static bool              sensor_lines_enabled = true;
 
 //
 // prototypes
@@ -38,6 +42,7 @@ static int interference_pattern_graph_pane_hndlr(pane_cx_t * pane_cx, int reques
 static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
 static int control_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event);
 static double get_sensor_value(int screen_idx, double screen[MAX_SCREEN][MAX_SCREEN]);
+static void get_title(char *title_str);
 
 // -----------------  DISPLAY_INIT  ---------------------------------------------
 
@@ -162,11 +167,10 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
 
     if (request == PANE_HANDLER_REQ_RENDER) {
         int i;
-        char title_str[500], state_str[100];
+        char title_str[500];
         photon_t *photons;
         int max_photons;
         bool running;
-        double rate;
 
         // get and display the ray trace for the recent sample photons
         sim_get_recent_sample_photons(&photons, &max_photons);
@@ -194,16 +198,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         }
 
         // display title
-        sim_get_state(&running, &rate);
-        if (running) {
-            sprintf(state_str, "RUNNING %0.1f M /s", rate/1e6);
-        } else {
-            sprintf(state_str, "STOPPED");
-        }
-        sprintf(title_str, "%s - %g nm - %s", 
-                current_config->name, 
-                MM2NM(current_config->wavelength),
-                state_str);
+        get_title(title_str);
         sdl_render_text(pane, 
                         pane->w/2 - COL2X(strlen(title_str),LARGE_FONT)/2, 0, 
                         LARGE_FONT, title_str, WHITE, BLACK);
@@ -240,6 +235,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         sdl_register_event(pane, pane, SDL_EVENT_ZOOM, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
         sdl_register_event(pane, pane, SDL_EVENT_PAN, SDL_EVENT_TYPE_MOUSE_MOTION, pane_cx);
         // - sim run/stop events
+        sim_get_state(&running, NULL, NULL, NULL);
         if (running) {
             sdl_render_text_and_register_event(
                     pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(1,LARGE_FONT), LARGE_FONT,
@@ -482,12 +478,10 @@ static void draw_scale(rect_t *pane)
 
 // -----------------  INTERFEROMETER PATTERN PANE HANDLER  ----------------------
 
-#define MAX_INTENSITY_ALGORITHM  2
-
 static void render_interference_screen(
                 int y_top, int y_span, double screen[MAX_SCREEN][MAX_SCREEN], 
                 texture_t texture, unsigned int pixels[MAX_SCREEN][MAX_SCREEN], 
-                int intensity_algorithm, rect_t *pane);
+                rect_t *pane);
 static void render_intensity_graph(
                 int y_top, int y_span, double screen[MAX_SCREEN][MAX_SCREEN], rect_t *pane);
 static void render_scale(
@@ -498,13 +492,14 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
     struct {
         texture_t texture;
         unsigned int pixels[MAX_SCREEN][MAX_SCREEN];
-        int intensity_algorithm;
     } * vars = pane_cx->vars;
     rect_t * pane = &pane_cx->pane;
 
    #define SDL_EVENT_SENSOR_WIDTH         (SDL_EVENT_USER_DEFINED + 0)
    #define SDL_EVENT_SENSOR_HEIGHT        (SDL_EVENT_USER_DEFINED + 1)
-   #define SDL_EVENT_INTENSITY_ALGORITHM  (SDL_EVENT_USER_DEFINED + 2)
+   #define SDL_EVENT_SENSOR_LINES         (SDL_EVENT_USER_DEFINED + 2)
+   #define SDL_EVENT_INTENSITY_ALGORITHM  (SDL_EVENT_USER_DEFINED + 3)
+   #define SDL_EVENT_DISPLAY_ALGORITHM    (SDL_EVENT_USER_DEFINED + 4)
 
     // ----------------------------
     // -------- INITIALIZE --------
@@ -513,7 +508,6 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
     if (request == PANE_HANDLER_REQ_INITIALIZE) {
         vars = pane_cx->vars = calloc(1,sizeof(*vars));
         vars->texture = sdl_create_texture(MAX_SCREEN, MAX_SCREEN);
-        vars->intensity_algorithm = 0;
         INFO("PANE x,y,w,h  %d %d %d %d\n",
             pane->x, pane->y, pane->w, pane->h);
         return PANE_HANDLER_RET_NO_ACTION;
@@ -527,9 +521,11 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
         double screen[MAX_SCREEN][MAX_SCREEN];
         char   sensor_width_str[20], sensor_height_str[20];
         char   intensity_algorithm_str[20];
+        char   display_algorithm_str[20];
 
         // this pane is vertically arranged as follows
         // y-range  y-span  description 
+        // -------  ------  -----------
         // 0-499    500     interference screen
         // 500-500  1       horizontal line
         // 501-600  100     intensity graph
@@ -541,8 +537,7 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
         sim_get_screen(screen);
 
         // render the sections that make up this pane, as described above
-        render_interference_screen(0, MAX_SCREEN, screen, vars->texture, vars->pixels, 
-                                   vars->intensity_algorithm, pane);
+        render_interference_screen(0, MAX_SCREEN, screen, vars->texture, vars->pixels, pane);
         sdl_render_line(pane, 0,MAX_SCREEN, MAX_SCREEN-1,MAX_SCREEN, WHITE);
         render_intensity_graph(MAX_SCREEN+1, 100, screen, pane);
         render_scale(MAX_SCREEN+101, 20, pane);
@@ -560,11 +555,22 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
                 sensor_height_str, LIGHT_BLUE, BLACK,
                 SDL_EVENT_SENSOR_HEIGHT, SDL_EVENT_TYPE_MOUSE_WHEEL, pane_cx);
 
-        sprintf(intensity_algorithm_str, "ALG=%d", vars->intensity_algorithm);
+        sdl_render_text_and_register_event(
+                pane, MAX_SCREEN-COL2X(4,LARGE_FONT), MAX_SCREEN+1, LARGE_FONT,
+                "SENS", LIGHT_BLUE, BLACK,
+                SDL_EVENT_SENSOR_LINES, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+        sprintf(intensity_algorithm_str, "ALG=%d", current_config->intensity_algorithm);
         sdl_render_text_and_register_event(
                 pane, pane->w-COL2X(5,LARGE_FONT), 0, LARGE_FONT,
                 intensity_algorithm_str, LIGHT_BLUE, BLACK,
                 SDL_EVENT_INTENSITY_ALGORITHM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+
+        sprintf(display_algorithm_str, "DSP=%d", current_config->display_algorithm);
+        sdl_render_text_and_register_event(
+                pane, pane->w-COL2X(5,LARGE_FONT), ROW2Y(1,LARGE_FONT), LARGE_FONT,
+                display_algorithm_str, LIGHT_BLUE, BLACK,
+                SDL_EVENT_DISPLAY_ALGORITHM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
 
         return PANE_HANDLER_RET_NO_ACTION;
     }
@@ -588,7 +594,15 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
             if (sensor_height > 5.0) sensor_height = 5.0;
             break;
         case SDL_EVENT_INTENSITY_ALGORITHM:
-            vars->intensity_algorithm = (vars->intensity_algorithm + 1) % MAX_INTENSITY_ALGORITHM;
+            current_config->intensity_algorithm = (current_config->intensity_algorithm + 1) % 
+                                                  MAX_INTENSITY_ALGORITHM;
+            break;
+        case SDL_EVENT_DISPLAY_ALGORITHM:
+            current_config->display_algorithm = (current_config->display_algorithm + 1) % 
+                                                MAX_DISPLAY_ALGORITHM;
+            break;
+        case SDL_EVENT_SENSOR_LINES:
+            sensor_lines_enabled = !sensor_lines_enabled;
             break;
         }
         return PANE_HANDLER_RET_DISPLAY_REDRAW;
@@ -611,7 +625,7 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
 static void render_interference_screen(
                 int y_top, int y_span, double screen[MAX_SCREEN][MAX_SCREEN], 
                 texture_t texture, unsigned int pixels[MAX_SCREEN][MAX_SCREEN], 
-                int intensity_algorithm, rect_t *pane)
+                rect_t *pane)
 {
     int i,j;
     int texture_width, texture_height;
@@ -626,15 +640,15 @@ static void render_interference_screen(
             // to a pixel intensity; two algorithm choices are provided:
             // - 0: logarithmic  (default)
             // - 1: linear
-            if (intensity_algorithm == 0) {
+            if (current_config->intensity_algorithm == 0) {
                 green = ( screen[i][j] == 0 
                           ? 0 
                           : 255.99 * (1 + 0.2 * log(screen[i][j])) );
                 if (green < 0) green = 0;
-            } else if (intensity_algorithm == 1) {
+            } else if (current_config->intensity_algorithm == 1) {
                 green = 255.99 * screen[i][j];
             } else {
-                FATAL("invalid intensity_algorithm %d\n", intensity_algorithm);
+                FATAL("invalid intensity_algorithm %d\n", current_config->intensity_algorithm);
             }
             if (green < 0 || green > 255) {
                 ERROR("green %d\n", green);
@@ -678,14 +692,16 @@ static void render_intensity_graph(
     sdl_render_lines(pane, graph, MAX_SCREEN, WHITE);
 
     // draw horizontal lines accross middle to represent the top and bottom of the sensor
-    int sensor_height_pixels = sensor_height / SCREEN_ELEMENT_SIZE;
-    int sensor_min_y = MAX_SCREEN/2 - sensor_height_pixels/2;
-    int sensor_max_y = sensor_min_y + sensor_height_pixels - 1;
+    if (sensor_lines_enabled) {
+        int sensor_height_pixels = sensor_height / SCREEN_ELEMENT_SIZE;
+        int sensor_min_y = MAX_SCREEN/2 - sensor_height_pixels/2;
+        int sensor_max_y = sensor_min_y + sensor_height_pixels - 1;
 
-    sensor_min_y = MAX_SCREEN/2 - sensor_height_pixels/2;
-    sensor_max_y = sensor_min_y + sensor_height_pixels - 1;
-    sdl_render_line(pane, 0, sensor_min_y, MAX_SCREEN-1, sensor_min_y, WHITE);
-    sdl_render_line(pane, 0, sensor_max_y, MAX_SCREEN-1, sensor_max_y, WHITE);
+        sensor_min_y = MAX_SCREEN/2 - sensor_height_pixels/2;
+        sensor_max_y = sensor_min_y + sensor_height_pixels - 1;
+        sdl_render_line(pane, 0, sensor_min_y, MAX_SCREEN-1, sensor_min_y, WHITE);
+        sdl_render_line(pane, 0, sensor_max_y, MAX_SCREEN-1, sensor_max_y, WHITE);
+    }
 }
 
 static void render_scale(int y_top, int y_span, rect_t *pane)
@@ -846,7 +862,7 @@ static int interference_pattern_graph_pane_hndlr(pane_cx_t * pane_cx, int reques
     #define GRAPH_SIZE_STEP     5
     #define GRAPH_SIZE_MIN      5
     #define GRAPH_SIZE_MAX      ((int)nearbyint(MAX_SCREEN * SCREEN_ELEMENT_SIZE))
-    #define GRAPH_SIZE_DEFAULT  25
+    #define GRAPH_SIZE_DEFAULT  GRAPH_SIZE_MAX
 
     // this is a double
     #define GRAPH_SIZE_SCREEN_ELEMENTS (vars->graph_size/SCREEN_ELEMENT_SIZE)
@@ -872,6 +888,7 @@ static int interference_pattern_graph_pane_hndlr(pane_cx_t * pane_cx, int reques
         int     screen_idx;
         point_t graph[MAX_SCREEN];
         int     max_graph;
+        char title_str[500];
 
         // get the screen data
         sim_get_screen(screen);
@@ -902,9 +919,15 @@ static int interference_pattern_graph_pane_hndlr(pane_cx_t * pane_cx, int reques
         }
         sdl_render_lines(pane, graph, max_graph, WHITE);
 
+        // display title
+        get_title(title_str);
+        sdl_render_text(pane,
+                        pane->w/2 - COL2X(strlen(title_str),LARGE_FONT)/2, 0,
+                        LARGE_FONT, title_str, WHITE, BLACK);
+
         // print the graph_size
         sdl_render_printf(
-                pane, pane->w/2-COL2X(18,LARGE_FONT)/2, ROW2Y(0,LARGE_FONT), LARGE_FONT,
+                pane, pane->w/2-COL2X(18,LARGE_FONT)/2, ROW2Y(1,LARGE_FONT), LARGE_FONT,
                 WHITE, BLACK,
                 "GRAPH_SIZE = %d mm", vars->graph_size);
 
@@ -987,4 +1010,24 @@ static double get_sensor_value(int screen_idx, double screen[MAX_SCREEN][MAX_SCR
 
     // return the average sensor_value
     return sensor_value;
+}
+
+static void get_title(char *title_str)
+{
+    bool running;
+    double rate;
+    unsigned long photons, secs;
+    int h, m, s;
+
+    sim_get_state(&running, &rate, &photons, &secs);
+    h = secs / 3600; secs -= h*3600;
+    m = secs / 60;   secs -= m*60;
+    s = secs;
+
+    sprintf(title_str, "%s %s - rate=%0.1f M/s  photons=%0.3f B  hms=%02d:%02d:%02d",
+            running ? "RUNNING" : "STOPPED",
+            current_config->name,
+            rate/1000000,
+            photons / 1e9,
+            h,m,s);
 }
