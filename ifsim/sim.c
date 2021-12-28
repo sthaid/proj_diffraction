@@ -556,7 +556,7 @@ int sim_restore_state(void)
 
     fd = open(filename, O_RDONLY);
     if (fd < 0) {
-        ERROR("failed to open %s, %s\n", filename, strerror(errno));
+        //ERROR("failed to open %s, %s\n", filename, strerror(errno));
         rc = -1;
         goto done;
     }
