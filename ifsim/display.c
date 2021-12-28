@@ -122,6 +122,19 @@ static double x_mm_ctr;
 static double y_mm_ctr;
 static double scale_pixel_per_mm;
 
+static struct {
+    char str[100];
+    int color;
+    unsigned long usec;
+} msg;
+
+static void display_msg(char *str, int color)
+{
+    strcpy(msg.str, str);
+    msg.color = color;
+    msg.usec = microsec_timer();
+}
+
 static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, void * init_params, sdl_event_t * event)
 {
     struct {
@@ -136,6 +149,7 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
     #define SDL_EVENT_RESET_RANDOM   (SDL_EVENT_USER_DEFINED + 4)
     #define SDL_EVENT_RANDOMIZE      (SDL_EVENT_USER_DEFINED + 5)
     #define SDL_EVENT_RESET_PAN_ZOOM (SDL_EVENT_USER_DEFINED + 6)
+    #define SDL_EVENT_SAVE_STATE     (SDL_EVENT_USER_DEFINED + 7)
     #define SDL_EVENT_SELECT_ELEM    (SDL_EVENT_USER_DEFINED + 10)
 
     #define ELEM_TYPE_TO_COLOR(et)  \
@@ -262,6 +276,11 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
                 pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(4,LARGE_FONT), LARGE_FONT,
                 "RESET_RANDOM", LIGHT_BLUE, BLACK,
                 SDL_EVENT_RESET_RANDOM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        // - save state event
+        sdl_render_text_and_register_event(
+                pane, pane->w-COL2X(14,LARGE_FONT), ROW2Y(5,LARGE_FONT), LARGE_FONT,
+                "SAVE_STATE", LIGHT_BLUE, BLACK,
+                SDL_EVENT_SAVE_STATE, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
         // - element select events; both click on the element or click on the offset display line
         for (i = 0; i < current_config->max_element; i++) {
             struct element_s *elem = &current_config->element[i];
@@ -280,6 +299,14 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
             loc.w = ROW2Y(46,LARGE_FONT);
             loc.h = COL2X(1,LARGE_FONT);
             sdl_register_event(pane, &loc, SDL_EVENT_SELECT_ELEM+i, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
+        }
+
+        // if a msg needs to be displayed then do so
+        if (microsec_timer() - msg.usec < 2000000) {
+            sdl_render_printf(pane, 
+                             pane->w-COL2X(14,LARGE_FONT), ROW2Y(7,LARGE_FONT), LARGE_FONT,
+                             msg.color, BLACK,
+                             "%s", msg.str);
         }
 
         return PANE_HANDLER_RET_NO_ACTION;
@@ -317,6 +344,14 @@ static int interferometer_diagram_pane_hndlr(pane_cx_t * pane_cx, int request, v
         case SDL_EVENT_RANDOMIZE:
             sim_randomize_all_elements(current_config, 2, DEG2RAD(.5729578));
             break;
+        case SDL_EVENT_SAVE_STATE: {
+            int rc = sim_save_state();
+            if (rc == 0) {
+                display_msg("OKAY", GREEN);
+            } else {
+                display_msg("FAILED", RED);
+            }
+            break; }
         case 'R':
             sim_randomize_element(selected_elem, 2, DEG2RAD(.5729578));
             break;
@@ -560,13 +595,13 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
                 "SENS", LIGHT_BLUE, BLACK,
                 SDL_EVENT_SENSOR_LINES, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
 
-        sprintf(intensity_algorithm_str, "ALG=%d", current_config->intensity_algorithm);
+        sprintf(intensity_algorithm_str, "ALG=%d", intensity_algorithm);
         sdl_render_text_and_register_event(
                 pane, pane->w-COL2X(5,LARGE_FONT), 0, LARGE_FONT,
                 intensity_algorithm_str, LIGHT_BLUE, BLACK,
                 SDL_EVENT_INTENSITY_ALGORITHM, SDL_EVENT_TYPE_MOUSE_CLICK, pane_cx);
 
-        sprintf(display_algorithm_str, "DSP=%d", current_config->display_algorithm);
+        sprintf(display_algorithm_str, "DSP=%d", display_algorithm);
         sdl_render_text_and_register_event(
                 pane, pane->w-COL2X(5,LARGE_FONT), ROW2Y(1,LARGE_FONT), LARGE_FONT,
                 display_algorithm_str, LIGHT_BLUE, BLACK,
@@ -594,12 +629,10 @@ static int interference_pattern_pane_hndlr(pane_cx_t * pane_cx, int request, voi
             if (sensor_height > 5.0) sensor_height = 5.0;
             break;
         case SDL_EVENT_INTENSITY_ALGORITHM:
-            current_config->intensity_algorithm = (current_config->intensity_algorithm + 1) % 
-                                                  MAX_INTENSITY_ALGORITHM;
+            intensity_algorithm = (intensity_algorithm + 1) % MAX_INTENSITY_ALGORITHM;
             break;
         case SDL_EVENT_DISPLAY_ALGORITHM:
-            current_config->display_algorithm = (current_config->display_algorithm + 1) % 
-                                                MAX_DISPLAY_ALGORITHM;
+            display_algorithm = (display_algorithm + 1) % MAX_DISPLAY_ALGORITHM;
             break;
         case SDL_EVENT_SENSOR_LINES:
             sensor_lines_enabled = !sensor_lines_enabled;
@@ -640,15 +673,15 @@ static void render_interference_screen(
             // to a pixel intensity; two algorithm choices are provided:
             // - 0: logarithmic  (default)
             // - 1: linear
-            if (current_config->intensity_algorithm == 0) {
+            if (intensity_algorithm == 0) {
                 green = ( screen[i][j] == 0 
                           ? 0 
                           : 255.99 * (1 + 0.2 * log(screen[i][j])) );
                 if (green < 0) green = 0;
-            } else if (current_config->intensity_algorithm == 1) {
+            } else if (intensity_algorithm == 1) {
                 green = 255.99 * screen[i][j];
             } else {
-                FATAL("invalid intensity_algorithm %d\n", current_config->intensity_algorithm);
+                FATAL("invalid intensity_algorithm %d\n", intensity_algorithm);
             }
             if (green < 0 || green > 255) {
                 ERROR("green %d\n", green);

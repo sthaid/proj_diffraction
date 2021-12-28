@@ -2,7 +2,7 @@ TARGETS = ifsim
 
 CC = gcc
 OUTPUT_OPTION=-MMD -MP -o $@
-CFLAGS = -g -O2 -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-clobbered -I../util 
+CFLAGS = -g -O2 -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -Wno-clobbered -Wno-unused-result -I../util 
 
 ../util/util_sdl.o: CFLAGS += $(shell sdl2-config --cflags)
 

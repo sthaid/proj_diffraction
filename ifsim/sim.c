@@ -49,6 +49,8 @@ static bool is_comment_or_blank_line(char *s);
 static void remove_trailing_newline_char(char *s);
 static int config_sanity_check(sim_config_t *cfg);
 
+static unsigned int signature_config(sim_config_t *config);
+
 static void recompute_element_plane(struct element_s *e);
 
 static void *sim_thread(void *cx);
@@ -151,16 +153,16 @@ static int read_config_file(char *filename)
         // scanf for the config name and wavelength, and continue
         if (expecting_config_definition_line) {
             if (sscanf(line, "%s wavelength=%lf intensity=%d display=%d", 
-                      cfg->name, &cfg->wavelength, &cfg->intensity_algorithm, &cfg->display_algorithm) != 4) 
+                      cfg->name, &cfg->wavelength, &cfg->default_intensity_algorithm, &cfg->default_display_algorithm) != 4) 
             {
                 ERROR("scan for config definition, line %d\n", line_num);
                 goto error;
             }
-            if (cfg->intensity_algorithm < 0 || cfg->intensity_algorithm >= 2) {
-                ERROR("invalid intensity_algorithm, line %d\n", line_num);
+            if (cfg->default_intensity_algorithm < 0 || cfg->default_intensity_algorithm >= 2) {
+                ERROR("invalid default_intensity_algorithm, line %d\n", line_num);
             }
-            if (cfg->display_algorithm < 0 || cfg->display_algorithm >= 2) {
-                ERROR("invalid display_algorithm, line %d\n", line_num);
+            if (cfg->default_display_algorithm < 0 || cfg->default_display_algorithm >= 2) {
+                ERROR("invalid default_display_algorithm, line %d\n", line_num);
             }
             expecting_config_definition_line = false;
             continue;
@@ -453,7 +455,12 @@ void sim_select_config(int idx)
     bool was_running = run_request;
 
     sim_reset(false);
+
     current_config = &config[idx];
+    intensity_algorithm = current_config->default_intensity_algorithm;
+    display_algorithm = current_config->default_display_algorithm;
+
+    sim_restore_state();
 
     if (was_running) {
         sim_run();
@@ -466,10 +473,10 @@ void sim_reset(bool start_running)
 
     memset(screen_amp1,0,sizeof(screen_amp1));
     memset(screen_amp2,0,sizeof(screen_amp2));
-    max_recent_sample_photons = 0;
-
     total_photon_count = 0;
     total_runtime_usec = 0;
+    photons_per_sec = 0;
+    max_recent_sample_photons = 0;
 
     if (start_running) {
         sim_run();
@@ -500,17 +507,109 @@ void sim_get_state(bool *running, double *rate, unsigned long *photons, unsigned
     if (secs) *secs = total_runtime_usec / 1000000;
 }
 
+int sim_save_state(void)
+{
+    int fd;
+    bool was_running = run_request;
+    char filename[200];
+    int rc=0;
+
+    sim_stop();
+
+    sprintf(filename, "ifsim_%s_%d.state", 
+            current_config->name, 
+            signature_config(current_config));
+
+    fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0666);
+    if (fd < 0) {
+        ERROR("failed to open %s, %s\n", filename, strerror(errno));
+        rc = -1;
+        goto done;
+    }
+
+    write(fd, screen_amp1, sizeof(screen_amp1));
+    write(fd, screen_amp2, sizeof(screen_amp2));
+    write(fd, &total_photon_count, sizeof(total_photon_count));
+    write(fd, &total_runtime_usec, sizeof(total_runtime_usec));
+
+    close(fd);
+
+done:
+    if (was_running) {
+        sim_run();
+    }
+    return rc;
+}
+
+int sim_restore_state(void)
+{
+    int fd;
+    char filename[200];
+    bool was_running = run_request;
+    int rc=0;
+
+    sim_stop();
+
+    sprintf(filename, "ifsim_%s_%d.state", 
+            current_config->name, 
+            signature_config(current_config));
+
+    fd = open(filename, O_RDONLY);
+    if (fd < 0) {
+        ERROR("failed to open %s, %s\n", filename, strerror(errno));
+        rc = -1;
+        goto done;
+    }
+
+    read(fd, screen_amp1, sizeof(screen_amp1));
+    read(fd, screen_amp2, sizeof(screen_amp2));
+    read(fd, &total_photon_count, sizeof(total_photon_count));
+    read(fd, &total_runtime_usec, sizeof(total_runtime_usec));
+
+    close(fd);
+
+done:
+    if (was_running) {
+        sim_run();
+    }
+    return rc;
+}
+
+static unsigned int signature_config(sim_config_t *config)
+{
+    unsigned int sum=0;
+    int i;
+    sim_config_t cfg;
+
+    // copy config
+    memset(&cfg, 0, sizeof(cfg));
+    cfg = *config;
+
+    // clear fields that can not be part of the signature
+    for (i = 0; i < MAX_CONFIG_ELEMENT; i++) {
+        cfg.element[i].type_str = NULL;
+        cfg.element[i].hndlr = NULL;
+    }
+
+    // compute checksum
+    for (i = 0; i < sizeof(sim_config_t); i++) {
+        sum += ((unsigned char *)&cfg)[i];
+    }
+
+    // return checksum
+    return sum;
+}
+
 // -----------------  SIM GET RESULT APIS  ------------------------------------------
 
 void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN])
 {
-
     // display_algorithms 0: screen array elements obtained by averaging the associated
     //   elements from screen_amp1/2
     // display_algorithms 0: screen array elements obtained by averaging the elements 
     //   of screen_amp1/2 assuming symetry around the center
 
-    if (current_config->display_algorithm == 0) {
+    if (display_algorithm == 0) {
         const int scale_factor = MAX_SCREEN_AMP / MAX_SCREEN;
 
         // display_algorithm 0 ...
@@ -595,7 +694,7 @@ void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN])
     // normalize screen values to range 0..1
     if (max_screen_value) {
         double max_screen_value_recipricol = 
-                (current_config->display_algorithm == 0 ? 1 : 0.7) / max_screen_value;
+                (display_algorithm == 0 ? 1 : 0.7) / max_screen_value;
         for (int i = 0; i < MAX_SCREEN; i++) {
             for (int j = 0; j < MAX_SCREEN; j++) {
                 screen[i][j] *= max_screen_value_recipricol;

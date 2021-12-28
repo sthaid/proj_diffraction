@@ -6,6 +6,10 @@
 #include <math.h>
 #include <pthread.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include <util_misc.h>
 #include <util_geometry.h>
@@ -52,8 +56,8 @@ typedef struct {
 typedef struct {
     char name[100];
     double wavelength;   // mm
-    int intensity_algorithm;;
-    int display_algorithm;
+    int default_intensity_algorithm;
+    int default_display_algorithm;
     int max_element;
     struct element_s {
         int type;
@@ -120,6 +124,8 @@ typedef struct {
 sim_config_t   config[MAX_CONFIG];
 int            max_config;
 sim_config_t * current_config;
+int            intensity_algorithm;
+int            display_algorithm;
 
 //
 // prototypes
@@ -130,6 +136,8 @@ void sim_select_config(int idx);
 void sim_reset(bool start_running);
 void sim_run(void);
 void sim_stop(void);
+int sim_save_state(void);
+int sim_restore_state(void);
 
 void sim_get_state(bool *running, double *rate, unsigned long *photons, unsigned long *secs);
 void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN]);
