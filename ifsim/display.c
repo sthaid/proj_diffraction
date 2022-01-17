@@ -29,9 +29,9 @@ static struct element_s *selected_elem;
 static int               win_width;
 static int               win_height;
 
-static double            sensor_width  = 1;   // 1 mm
-static double            sensor_height = 1;   // 1 mm
-static bool              sensor_lines_enabled = true;
+static double            sensor_width  = .1;   // mm
+static double            sensor_height = .1;   // mm
+static bool              sensor_lines_enabled = false;
 
 //
 // prototypes

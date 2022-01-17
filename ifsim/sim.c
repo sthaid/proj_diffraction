@@ -606,7 +606,7 @@ void sim_get_screen(double screen[MAX_SCREEN][MAX_SCREEN])
 {
     // display_algorithms 0: screen array elements obtained by averaging the associated
     //   elements from screen_amp1/2
-    // display_algorithms 0: screen array elements obtained by averaging the elements 
+    // display_algorithms 1: screen array elements obtained by averaging the elements 
     //   of screen_amp1/2 assuming symetry around the center
 
     if (display_algorithm == 0) {
